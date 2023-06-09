@@ -1,6 +1,8 @@
 const express = require('express');
 const { default: Surreal } = require('surrealdb.js');
 const cors = require('cors');
+require('dotenv').config();
+
 
 const app = express();
 app.use(cors());
@@ -11,8 +13,8 @@ const db = new Surreal('http://127.0.0.1:8000/rpc');
 (async () => {
     try {
       await db.signin({
-          user: 'root',
-          pass: 'root',
+        user: process.env.DB_USER,
+        pass: process.env.DB_PASS,
       });
       await db.use('test', 'test');
     } catch (error) {
