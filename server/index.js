@@ -8,18 +8,23 @@ app.use(express.json());
 
 const db = new Surreal('http://127.0.0.1:8000/rpc');
 
+(async () => {
+    try {
+      await db.signin({
+          user: 'root',
+          pass: 'root',
+      });
+      await db.use('test', 'test');
+    } catch (error) {
+      console.error('Failed to sign in and select database:', error);
+    }
+  })();
+
 //CURL: curl http://localhost:3001/notes
 // This is the output of curl command: [{"content":"test","id":"note:p6rht9dfrkrfi78n11k3","title":"test"}]
 app.get('/notes', async (req, res) => {
-    await db.signin({
-        user: 'root',
-        pass: 'root',
-    });
-    await db.use('test', 'test');
-
     let notes = await db.select("note");
     console.log(notes);
-
     res.json(notes);
 });
 
@@ -28,14 +33,8 @@ app.get('/notes', async (req, res) => {
 app.post('/notes', async (req, res) => {
     const note = req.body;
 
-    await db.signin({
-        user: 'root',
-        pass: 'root',
-    });
-    await db.use('test', 'test');
-
     let created = await db.create("note", note);
-    
+
     // Return only the new note object. Assume the newly created note is at the end of the 'created' array
     let newNote = created[created.length - 1];
     
@@ -51,14 +50,6 @@ app.delete('/api/notes/:id', async (req, res) => {
     try {
         const id = req.params.id;
         console.log(id);
-
-        // Authenticate as an admin user or the user who owns the note
-        await db.signin({
-            user: 'root', // Or the username of the user who owns the note
-            pass: 'root' // Or the password of the user who owns the note
-        });
-
-        await db.use('test', 'test'); 
 
         // No need to add 'note:' prefix as 'id' already contains it
         await db.delete(id);
@@ -88,13 +79,6 @@ app.put('/api/notes/:id', async (req, res) => {
     try {
       const id = req.params.id;
       const updatedNote = req.body;
-  
-      await db.signin({
-        user: 'root',
-        pass: 'root',
-      });
-  
-      await db.use('test', 'test');
   
       let note = await db.update(id, updatedNote);
   

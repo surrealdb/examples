@@ -14,7 +14,7 @@ Follow these steps to get the project up and running:
 ### 1. Clone the repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/timpratim/surrealstickies.git
 ```
 ### 2. Navigate into the cloned repository
 
