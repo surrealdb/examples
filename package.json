@@ -1,0 +1,9 @@
+{
+  "name": "monorepo",
+  "private": true,
+  "workspaces": ["server", "client"],
+  "scripts": {
+    "server": "cd server && node index.js",
+    "client": "cd client && npm start"
+  }
+}

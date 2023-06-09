@@ -1,0 +1,39 @@
+Arguments: 
+  /opt/homebrew/Cellar/node/19.7.0/bin/node /opt/homebrew/bin/yarn install
+
+PATH: 
+  /opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/go/bin:/usr/local/go/bin:/binexport
+
+Yarn version: 
+  1.22.19
+
+Node version: 
+  19.7.0
+
+Platform: 
+  darwin arm64
+
+Trace: 
+  SyntaxError: /Users/pratimbhosale/Desktop/monorepo/package.json: Expected ',' or '}' after property value in JSON at position 82
+      at JSON.parse (<anonymous>)
+      at /opt/homebrew/lib/node_modules/yarn/lib/cli.js:1629:59
+      at Generator.next (<anonymous>)
+      at step (/opt/homebrew/lib/node_modules/yarn/lib/cli.js:310:30)
+      at /opt/homebrew/lib/node_modules/yarn/lib/cli.js:321:13
+
+npm manifest: 
+  {
+    "name": "monorepo",
+    "private": true,
+    "workspaces": ["server", "client"]
+    "scripts": {
+      "server": "cd server && node index.js",
+      "client": "cd client && npm start"
+    }
+  }
+
+yarn manifest: 
+  No manifest
+
+Lockfile: 
+  No lockfile
