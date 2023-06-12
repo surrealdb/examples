@@ -4,6 +4,9 @@ import './App.css';  // Import the CSS file
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrash } from '@fortawesome/free-solid-svg-icons';
 import { faPen } from '@fortawesome/free-solid-svg-icons';
+import { ReactComponent as Title } from './assets/Stickies.svg';  // Import your SVG
+import { ReactComponent as FooterImage } from './assets/dark.svg';  // replace './assets/FooterImage.svg' with the path to your SVG file
+
 
 
 function App() {
@@ -57,8 +60,12 @@ const handleUpdate = async () => {
 
    return (
     <div className="container">
-        <h1>Notes</h1>
-        <button className="addButton" onClick={() => {setIsAddingNote(true); setEditingNote(null);}}>+</button>
+    <div>
+    <Title className="title-svg" /> {/* Use SVG as a component */}
+</div>
+<div>
+    <button className="addButton" onClick={() => {setIsAddingNote(true); setEditingNote(null);}}>+</button>
+</div>
         {isAddingNote && (
             <>
                 <input 
@@ -91,7 +98,9 @@ const handleUpdate = async () => {
                 </div>
             ))}
         </div>
+        <FooterImage className="dark-svg" />
     </div>
+
   );
 }
 export default App;

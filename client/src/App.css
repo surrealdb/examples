@@ -38,7 +38,18 @@ body {
   color: #ff00a0;
 }
 
+.title-svg {
+  width: 300px;  
+  height: auto;
+  margin-bottom: 20px;
 
+}
+
+.dark-svg {
+  width: 200px;  
+  height: auto;
+  margin-top: 20px;
+}
 
 /* rest of your CSS code */
 
@@ -70,4 +81,3 @@ button {
 button:hover {
   background-color: #379683;
 }
-
