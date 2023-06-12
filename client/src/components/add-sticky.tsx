@@ -3,6 +3,7 @@
 import { cva } from "class-variance-authority";
 import { Plus, X } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
+import { createRef, useCallback } from "react";
 
 const style = cva(
   "w-12 h-12 flex justify-center items-center rounded-xl outline-none border-none text-white",
@@ -22,6 +23,25 @@ export type StickyColor = Exclude<
 >;
 
 export function AddSticky({ color }: { color: StickyColor }) {
+  const ref = createRef<HTMLTextAreaElement>();
+  const add = useCallback(async () => {
+    if (!ref.current) return alert("Internal error (input not mounted)");
+    if (!ref.current.value.trim()) return alert("The sticky is empty!");
+    const raw = await fetch('http://127.0.0.1:3001/notes', {
+        method: 'post',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            color,
+            content: ref.current.value.trim()
+        })
+    });
+
+    const stored = await raw.json();
+    console.log(stored);
+  }, [ref, color]);
+
   return (
     <Dialog.Root>
       <Dialog.Trigger asChild>
@@ -42,12 +62,13 @@ export function AddSticky({ color }: { color: StickyColor }) {
           </div>
 
           <textarea 
+            ref={ref}
             placeholder="Enter the content for your sticky here" 
             className="text-2xl outline-none flex-grow"
             onKeyDown={(e) => {
             if(e.keyCode == 13 && e.shiftKey == false) {
                 e.preventDefault();
-                alert('submitted')
+                add();
             }
             }} />
         </Dialog.Content>
