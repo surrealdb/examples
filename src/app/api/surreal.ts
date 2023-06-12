@@ -1,4 +1,4 @@
-import { Surreal } from "surrealdb.js";
+import { Surreal } from 'surrealdb.js';
 
 export const endpoint = process.env.DB_ENDPOINT ?? 'ws://127.0.0.1:3001/rpc';
 export const user = process.env.DB_USER ?? 'root';
@@ -8,5 +8,5 @@ export const db = process.env.DB_DB ?? 'surrealdb-stickies';
 export const surreal = new Surreal(endpoint, {
     ns,
     db,
-    auth: { user, pass }
+    auth: { user, pass },
 });

@@ -7,6 +7,10 @@ The repository is organized into two main directories:
 - `server/`: This directory contains the backend server code, written in Node.js and Express.
 - `client/`: This directory contains the frontend client code, built using React.
 
+## Before commiting
+
+We enforce linting rules in this repository. Please make sure to run `pnpm lint --fix` before you commit and ensure that every issue is fixed.
+
 ## Getting Started
 
 Follow these steps to get the project up and running:
