@@ -26,23 +26,19 @@ cd surrealstickies
 You'll need to install dependencies for both the server and client directories:
 
 ```bash
-cd server && npm install
-cd ../client && npm install
-cd ..
+pnpm install
 ```
-### 4. Start the server
+
+### 4. Setup your environment
+Copy the `server/.env.example` into `server/.env`. The default options should be good for development but feel free to change where needed.
+
+### 5. Start the client, server and surreal instance!
 Use the following command to start the server:
 
 ```bash
-yarn run server
+pnpm dev
 ```
 
-### Start the client
-In a new terminal window, start the client:
-
-```bash
-yarn run client
-```
 You should now be able to access the Notes App in your web browser at http://localhost:3000.
 
 

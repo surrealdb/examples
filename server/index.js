@@ -8,7 +8,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const db = new Surreal('http://127.0.0.1:8000/rpc');
+const db = new Surreal(process.env.DB_HOST);
 
 (async () => {
     try {
