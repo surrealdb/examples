@@ -8,11 +8,17 @@ module.exports = {
   theme: {
     extend: {
       backgroundImage: {
-        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'gradient-conic':
-          'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+        'dots': "url('/background.svg')",
       },
-    },
+      colors: {
+        'purple-sticky': '#CA7FFF',
+        'pink-sticky': '#FF7FCF',
+        'dark': "#282C38",
+      },
+      borderRadius: {
+        '4xl': '25px',
+      },
+    }
   },
   plugins: [],
 }
