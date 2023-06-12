@@ -18,8 +18,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={cn(poppins.className, "h-screen flex flex-col")}>
-        <div className="mx-auto w-full max-w-screen-2xl px-8 sm:px-24 flex-grow flex flex-col">
+      <body className={cn(poppins.className, "h-screen flex flex-col bg-dots")}>
+        <div className="mx-auto w-full max-w-screen-xl px-8 sm:px-24 flex-grow flex flex-col">
           <Navbar />
           <div className="flex-grow">
             {children}

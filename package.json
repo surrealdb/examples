@@ -1,18 +1,36 @@
 {
-  "name": "monorepo",
+  "name": "client",
+  "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "server",
-    "client"
-  ],
   "scripts": {
-    "dev": "concurrently --names surreal,server,client \"pnpm run dev:surreal\" \"pnpm run dev:server\" \"pnpm run dev:client\"",
-    "dev:surreal": "surreal start --user root --pass root --bind 0.0.0.0:3002 file:dev.db",
-    "dev:server": "cd server && node index.js",
-    "dev:client": "cd client && pnpm dev"
+    "dev": "concurrently --names surreal,next \"pnpm run dev:surreal\" \"pnpm run dev:next\"",
+    "dev:surreal": "surreal start --user root --pass surrealdb --bind 0.0.0.0:3001 file:dev.db",
+    "dev:next": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
-    "dotenv": "^16.1.4"
+    "@radix-ui/react-dialog": "^1.0.4",
+    "@types/node": "20.3.0",
+    "@types/react": "18.2.11",
+    "@types/react-dom": "18.2.4",
+    "autoprefixer": "10.4.14",
+    "class-variance-authority": "^0.6.0",
+    "clsx": "^1.2.1",
+    "eslint": "8.42.0",
+    "eslint-config-next": "13.4.5",
+    "lucide-react": "^0.242.0",
+    "next": "13.4.5",
+    "postcss": "8.4.24",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-spring": "^9.7.1",
+    "surrealdb.js": "^0.8.0",
+    "swr": "^2.1.5",
+    "tailwind-merge": "^1.13.1",
+    "tailwindcss": "3.3.2",
+    "typescript": "5.1.3"
   },
   "devDependencies": {
     "concurrently": "^8.2.0"

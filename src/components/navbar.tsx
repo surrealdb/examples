@@ -7,7 +7,7 @@ import Image from "next/image";
 
 export function Navbar() {
     return (
-        <div className="flex justify-between gap-16 py-20">
+        <div className="flex flex-col md:flex-row justify-between gap-8 sm:gap-16 py-20">
             <Image className="max-h-16 w-min" src={Logo} alt="SurrealDB Stickies logo" />
 
             <div className="flex gap-4">
