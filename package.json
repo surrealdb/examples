@@ -1,7 +1,7 @@
 {
-  "name": "client",
+  "name": "surrealdb-stickies",
   "version": "0.1.0",
-  "private": true,
+  "type": "module",
   "scripts": {
     "dev": "concurrently --names surreal,next \"pnpm run dev:surreal\" \"pnpm run dev:next\"",
     "dev:surreal": "surreal start --user root --pass surrealdb --bind 0.0.0.0:3001 file:dev.db",
