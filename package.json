@@ -9,7 +9,7 @@
     "dev": "concurrently --names surreal,server,client \"pnpm run dev:surreal\" \"pnpm run dev:server\" \"pnpm run dev:client\"",
     "dev:surreal": "surreal start --user root --pass root --bind 0.0.0.0:3002 file:dev.db",
     "dev:server": "cd server && node index.js",
-    "dev:client": "cd client && npm start"
+    "dev:client": "cd client && pnpm dev"
   },
   "dependencies": {
     "dotenv": "^16.1.4"
