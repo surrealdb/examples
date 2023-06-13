@@ -45,7 +45,7 @@ export function StickyEditor({
 }) {
     const ref = createRef<HTMLTextAreaElement>();
     const [open, setOpen] = useState(false);
-    
+
     // The enter key is used to submit the sticky editor
     // So we need to listen for that, but only when the shift key is not pressed
     // When shift is pressed, we still want to go for a newline :)
@@ -60,7 +60,7 @@ export function StickyEditor({
                     return alert('Internal error (input not mounted)');
                 if (!ref.current.value.trim())
                     return alert('The sticky is empty!');
-                
+
                 onSubmit({ color, content: ref.current.value.trim() });
                 setOpen(false);
             }

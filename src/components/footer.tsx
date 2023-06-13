@@ -6,7 +6,7 @@ import PoweredBy from '../../public/powered-by-surrealdb.svg';
 
 export function Footer() {
     return (
-        <div className="flex max-md:justify-center gap-16 py-24">
+        <div className="flex gap-16 py-24 max-md:justify-center">
             <Image
                 className="max-h-16 w-min"
                 src={PoweredBy}
