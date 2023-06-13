@@ -22,7 +22,7 @@ export default function Home() {
     );
 
     const message =
-        data?.stickies.length == 0 ? (
+        data?.stickies.length == 0 && !createColor ? (
             'Create a sticky!'
         ) : error ? (
             <span className="text-red-500">
