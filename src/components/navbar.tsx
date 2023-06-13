@@ -7,7 +7,7 @@ import { AddSticky } from './add-sticky';
 
 export function Navbar() {
     return (
-        <div className="flex flex-col justify-between gap-8 py-20 sm:gap-16 md:flex-row">
+        <div className="flex justify-between gap-8 py-20 max-md:items-center sm:gap-16 max-md:flex-col">
             <Image
                 className="max-h-16 w-min"
                 src={Logo}

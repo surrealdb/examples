@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     const error = validateSticky(sticky);
     if (error) return error;
 
+    // We extract the properties so that we don't add additional content to the sticky
     const { content, color } = sticky;
     const created = new Date();
     const updated = created;

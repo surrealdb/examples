@@ -21,14 +21,13 @@ export async function PATCH(
     request: Request,
     { params }: { params: { id: string } }
 ) {
-    console.log('hello?', params.id);
     const { id, ...validation } = validateId(params.id);
-    console.log(params.id, id);
     if (validation.error) return validation.error;
 
     const sticky = (await request.json()) as Partial<
         Pick<Sticky, 'color' | 'content'>
     >;
+
     const error = validateSticky(sticky);
     if (error) return error;
 

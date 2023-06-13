@@ -2,6 +2,8 @@
 
 import { Sticky } from '@/app/api/sticky/lib';
 
+// GET /api/sticky
+// project://src/app/api/sticky/route.ts#7
 export async function fetchStickies(): Promise<{
     success: boolean;
     stickies: Sticky[];
@@ -9,6 +11,8 @@ export async function fetchStickies(): Promise<{
     return await (await fetch('/api/sticky')).json();
 }
 
+// GET /api/sticky/....
+// project://src/app/api/sticky/[id]/route.ts#7
 export async function fetchSticky(id: string): Promise<{
     success: boolean;
     sticky?: Sticky;
@@ -16,6 +20,8 @@ export async function fetchSticky(id: string): Promise<{
     return await (await fetch(`/api/sticky/${id}`)).json();
 }
 
+// POST /api/sticky
+// project://src/app/api/sticky/route.ts#20
 export async function createSticky(
     payload: Pick<Sticky, 'color' | 'content'>
 ): Promise<{
@@ -33,6 +39,8 @@ export async function createSticky(
     ).json();
 }
 
+// PATCH /api/sticky/....
+// project://src/app/api/sticky/[id]/route.ts#20
 export async function updateSticky(
     id: string,
     payload: Partial<Pick<Sticky, 'color' | 'content'>>
@@ -52,6 +60,8 @@ export async function updateSticky(
     ).json();
 }
 
+// DELETE /api/sticky/....
+// project://src/app/api/sticky/[id]/route.ts#48
 export async function deleteSticky(id: string): Promise<{
     success: boolean;
     sticky?: Sticky;

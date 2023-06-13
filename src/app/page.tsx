@@ -6,9 +6,15 @@ import { Loader2 } from 'lucide-react';
 import React from 'react';
 
 export default function Home() {
-    const { data, isLoading } = useStickies();
-
-    const message = data?.stickies.length == 0 ? 'Create a sticky!' : undefined;
+    const { data, error, isLoading } = useStickies();
+    const message =
+        data?.stickies.length == 0 ? (
+            'Create a sticky!'
+        ) : error ? (
+            <span className="text-red-500">
+                <b>An error occured:</b> {error}
+            </span>
+        ) : undefined;
 
     return isLoading ? (
         <div className="flex h-full w-full items-center justify-center">

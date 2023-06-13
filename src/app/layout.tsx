@@ -27,6 +27,7 @@ export default function RootLayout({
             >
                 <div className="mx-auto flex w-full max-w-screen-xl flex-grow flex-col px-8 sm:px-24">
                     <Navbar />
+                    {/* We use the content of the page to grow so that the footer is always down the bottom */}
                     <div className="flex-grow">{children}</div>
                     <Footer />
                 </div>

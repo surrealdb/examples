@@ -16,6 +16,8 @@ const style = cva('', {
     },
 });
 
+// Looks more complex than it actually is
+// This essentially extracts a type for the colors that we can pass
 export type StickyColor = Exclude<
     Exclude<Parameters<typeof style>[0], undefined>['color'],
     null | undefined

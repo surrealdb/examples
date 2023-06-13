@@ -11,6 +11,8 @@ export type Sticky = {
 };
 
 export function validateId(given: string) {
+    // Here we match just the ID part of a sticky record ID.
+    // This way it does not matter if a user adds the table name or not.
     const id = (given.match(/^(?:sticky:)?([a-z0-9]{20})$/) ?? [])[1];
     if (!id)
         return {
