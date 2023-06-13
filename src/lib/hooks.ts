@@ -8,7 +8,7 @@ import {
     fetchStickies,
     fetchSticky,
     updateSticky,
-} from './fetchers';
+} from './modifiers';
 
 export const useStickies = () => useSWR('/api/sticky', fetchStickies);
 export const useSticky = (id: string) =>
