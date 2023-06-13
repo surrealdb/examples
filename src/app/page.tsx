@@ -14,7 +14,7 @@ export default function Home() {
     const submit = useCallback(
         (content: string) => {
             if (createColor) {
-                createSticky({ color: createColor, content });
+                createSticky({ color: createColor, content: content.trim() });
                 setCreateColor(null);
             }
         },

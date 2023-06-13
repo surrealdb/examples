@@ -79,6 +79,10 @@ export function StickyFramework({
     const containerRef = createRef<HTMLDivElement>();
     const textareaRef = createRef<HTMLTextAreaElement>();
 
+    const close = useCallback(() => {
+        if (editing) onClose?.(textareaRef.current?.value?.trim() ?? '');
+    }, [editing, textareaRef, onClose]);
+
     useEffect(() => {
         if (editing && textareaRef.current) {
             const l = textareaRef.current.value.length;
@@ -94,20 +98,19 @@ export function StickyFramework({
                 containerRef.current &&
                 !containerRef.current.contains(event.target as Node)
             ) {
-                onClose?.(textareaRef.current?.value ?? '');
+                close();
             }
         };
+
         window.addEventListener('mousedown', handler);
         return () => window.removeEventListener('mousedown', handler);
-    }, [containerRef, onClose, textareaRef]);
+    }, [containerRef, close]);
 
     const onKeyDown = useCallback(
         (e: KeyboardEvent<HTMLTextAreaElement>) => {
-            if (e.key === 'Escape') {
-                onClose?.(textareaRef.current?.value ?? '');
-            }
+            if (e.key === 'Escape') close();
         },
-        [textareaRef, onClose]
+        [close]
     );
 
     return (
@@ -142,7 +145,7 @@ export function StickyFramework({
                         defaultValue={content}
                     />
                 ) : (
-                    <p>{content}</p>
+                    <p className="whitespace-pre-line">{content}</p>
                 )}
             </button>
         </div>

@@ -33,7 +33,7 @@ export function validateSticky(
     sticky: Partial<Pick<Sticky, 'color' | 'content'>>,
     requireAll = true
 ) {
-    if (requireAll && (!sticky.color || !sticky.content))
+    if (requireAll && (!sticky.color || typeof sticky.content === 'undefined'))
         return NextResponse.json(
             {
                 success: false,
@@ -42,11 +42,11 @@ export function validateSticky(
             { status: 400 }
         );
 
-    if (!sticky.content?.trim())
+    if (requireAll && typeof sticky.content !== 'string')
         return NextResponse.json(
             {
                 success: false,
-                error: 'content_empty',
+                error: 'invalid_content',
             },
             { status: 400 }
         );
