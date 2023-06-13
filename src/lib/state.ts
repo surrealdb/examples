@@ -1,5 +1,7 @@
+import { Sticky } from '@/app/api/sticky/lib';
 import { create } from 'zustand';
-import { StickyColor } from './style';
+
+type StickyColor = Sticky['color'];
 
 interface CreateStickyState {
     createColor: StickyColor | null;

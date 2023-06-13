@@ -1,11 +1,27 @@
 'use client';
 
 import { useDeleteSticky, useUpdateSticky } from '@/lib/hooks';
-import { StickyColor, style } from '@/lib/style';
 import { cn } from '@/lib/utils';
+import { cva } from 'class-variance-authority';
 import { X } from 'lucide-react';
 import React, { createRef, useCallback, useEffect, useState } from 'react';
 import { Textarea } from './textarea';
+
+export const style = cva('', {
+    variants: {
+        color: {
+            purple: 'bg-purple-sticky',
+            pink: 'bg-pink-sticky',
+        },
+    },
+});
+
+// Looks more complex than it actually is
+// This essentially extracts a type for the colors that we can pass
+export type StickyColor = Exclude<
+    Exclude<Parameters<typeof style>[0], undefined>['color'],
+    null | undefined
+>;
 
 export function Sticky({
     id,
