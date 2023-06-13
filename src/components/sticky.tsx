@@ -4,8 +4,13 @@ import { useDeleteSticky, useUpdateSticky } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
 import { cva } from 'class-variance-authority';
 import { X } from 'lucide-react';
-import React, { createRef, useCallback, useEffect, useState } from 'react';
-import { Textarea } from './textarea';
+import React, {
+    KeyboardEvent,
+    createRef,
+    useCallback,
+    useEffect,
+    useState,
+} from 'react';
 
 export const style = cva('', {
     variants: {
@@ -49,9 +54,8 @@ export function Sticky({
             color={color}
             content={content}
             onClick={() => setEditing(true)}
-            onClose={() => setEditing(false)}
+            onClose={submit}
             onDelete={deleteSticky}
-            onSubmit={submit}
             editing={editing}
         />
     );
@@ -62,29 +66,49 @@ export function StickyFramework({
     content,
     onClick,
     onClose,
-    onSubmit,
     onDelete,
     editing,
 }: {
     color: StickyColor;
     content?: string;
     onClick?: () => unknown;
-    onClose?: () => unknown;
-    onSubmit?: (content: string) => unknown;
+    onClose?: (content: string) => unknown;
     onDelete?: () => unknown;
     editing?: boolean;
 }) {
-    const ref = createRef<HTMLDivElement>();
+    const containerRef = createRef<HTMLDivElement>();
+    const textareaRef = createRef<HTMLTextAreaElement>();
+
+    useEffect(() => {
+        if (editing && textareaRef.current) {
+            const l = textareaRef.current.value.length;
+            textareaRef.current.selectionStart = l;
+            textareaRef.current.selectionEnd = l;
+            textareaRef.current.focus();
+        }
+    });
 
     useEffect(() => {
         const handler = (event: globalThis.MouseEvent) => {
-            if (ref.current && !ref.current.contains(event.target as Node)) {
-                onClose?.();
+            if (
+                containerRef.current &&
+                !containerRef.current.contains(event.target as Node)
+            ) {
+                onClose?.(textareaRef.current?.value ?? '');
             }
         };
         window.addEventListener('mousedown', handler);
         return () => window.removeEventListener('mousedown', handler);
-    }, [ref, onClose]);
+    }, [containerRef, onClose, textareaRef]);
+
+    const onKeyDown = useCallback(
+        (e: KeyboardEvent<HTMLTextAreaElement>) => {
+            if (e.key === 'Escape') {
+                onClose?.(textareaRef.current?.value ?? '');
+            }
+        },
+        [textareaRef, onClose]
+    );
 
     return (
         <div
@@ -92,7 +116,7 @@ export function StickyFramework({
                 'relative rounded-4xl transition-transform hover:scale-105 hover:shadow-lg active:scale-100',
                 editing && 'scale-105 shadow-lg'
             )}
-            ref={ref}
+            ref={containerRef}
         >
             <button
                 className="absolute right-0 top-0 z-10 m-4 border-none bg-transparent p-0 text-white outline-none"
@@ -108,11 +132,14 @@ export function StickyFramework({
                 onClick={onClick}
             >
                 {editing ? (
-                    <Textarea
-                        initialValue={content}
-                        onSubmit={onSubmit}
-                        editing={editing}
-                        setEditing={(s) => (s ? onClick : onClose)?.()}
+                    <textarea
+                        ref={textareaRef}
+                        placeholder="Enter the content for your sticky here"
+                        className={cn(
+                            'w-full flex-grow bg-transparent text-2xl text-dark placeholder-gray-600 outline-none'
+                        )}
+                        onKeyDown={onKeyDown}
+                        defaultValue={content}
                     />
                 ) : (
                     <p>{content}</p>

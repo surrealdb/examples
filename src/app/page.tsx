@@ -46,9 +46,8 @@ export default function Home() {
             {createColor && (
                 <StickyFramework
                     color={createColor}
-                    onClose={() => setCreateColor(null)}
+                    onClose={submit}
                     onDelete={() => setCreateColor(null)}
-                    onSubmit={submit}
                     editing={true}
                 />
             )}
