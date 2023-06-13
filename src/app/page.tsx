@@ -12,9 +12,12 @@ export default function Home() {
     const { trigger: createSticky } = useCreateSticky();
 
     const submit = useCallback(
-        (content: string) => {
+        (content?: string) => {
             if (createColor) {
-                createSticky({ color: createColor, content: content.trim() });
+                createSticky({
+                    color: createColor,
+                    content: content?.trim() ?? '',
+                });
                 setCreateColor(null);
             }
         },

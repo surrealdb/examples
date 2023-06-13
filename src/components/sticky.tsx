@@ -42,7 +42,7 @@ export function Sticky({
     const { trigger: updateSticky } = useUpdateSticky(id);
 
     const submit = useCallback(
-        (content: string) => {
+        (content?: string) => {
             updateSticky({ color, content });
             setEditing(false);
         },
@@ -72,7 +72,7 @@ export function StickyFramework({
     color: StickyColor;
     content?: string;
     onClick?: () => unknown;
-    onClose?: (content: string) => unknown;
+    onClose?: (content?: string) => unknown;
     onDelete?: () => unknown;
     editing?: boolean;
 }) {
@@ -80,8 +80,11 @@ export function StickyFramework({
     const textareaRef = createRef<HTMLTextAreaElement>();
 
     const close = useCallback(() => {
-        if (editing) onClose?.(textareaRef.current?.value?.trim() ?? '');
-    }, [editing, textareaRef, onClose]);
+        if (editing) {
+            const value = textareaRef.current?.value?.trim() ?? '';
+            onClose?.(value === content ? undefined : value);
+        }
+    }, [editing, textareaRef, onClose, content]);
 
     useEffect(() => {
         if (editing && textareaRef.current) {
