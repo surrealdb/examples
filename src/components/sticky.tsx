@@ -103,10 +103,11 @@ export function StickyFramework({
 
     const textAreaAdjust = useCallback(() => {
         const self = textareaRef.current;
-        const parent = self?.parentNode;
-        if (self && parent instanceof HTMLElement) {
-            parent.dataset.replicatedValue = self.value;
-        }
+        if (self)
+            setTimeout(function () {
+                self.style.cssText = 'height:auto; padding:0';
+                self.style.cssText = 'height:' + self.scrollHeight + 'px';
+            }, 0);
     }, [textareaRef]);
 
     const close = useCallback(() => {
@@ -125,14 +126,18 @@ export function StickyFramework({
     );
 
     useEffect(() => {
-        if (editing && textareaRef.current) {
+        if (
+            editing &&
+            textareaRef.current &&
+            document.activeElement !== textareaRef.current
+        ) {
             const l = textareaRef.current.value.length;
             textareaRef.current.selectionStart = l;
             textareaRef.current.selectionEnd = l;
             textareaRef.current.focus();
             textAreaAdjust();
         }
-    });
+    }, [editing, textareaRef, textAreaAdjust]);
 
     useEffect(() => {
         const handler = (event: globalThis.MouseEvent) => {
@@ -159,7 +164,7 @@ export function StickyFramework({
             ref={containerRef}
         >
             {loading && (
-                <div className="pointer-events-all absolute left-0 top-0 z-20 flex h-full w-full items-center justify-center rounded-4xl backdrop-brightness-90">
+                <div className="pointer-events-all absolute left-0 top-0 z-20 flex h-full w-full items-center justify-center rounded-4xl backdrop-brightness-75">
                     <Loader2 className="animate-spin text-white" size={40} />
                 </div>
             )}
@@ -177,26 +182,19 @@ export function StickyFramework({
                 onClick={onClick}
             >
                 {editing ? (
-                    <div className="grow-wrap w-full flex-grow">
-                        <textarea
-                            ref={textareaRef}
-                            placeholder="Enter the content for your sticky here"
-                            className={cn(
-                                'w-full overflow-hidden bg-transparent text-2xl text-dark placeholder-gray-600 outline-none'
-                            )}
-                            onKeyDown={onKeyDown}
-                            onInput={() => {
-                                const self = textareaRef.current;
-                                const parent = self?.parentNode;
-                                if (self && parent instanceof HTMLElement) {
-                                    parent.dataset.replicatedValue = self.value;
-                                }
-                            }}
-                            defaultValue={content}
-                        />
-                    </div>
+                    <textarea
+                        ref={textareaRef}
+                        placeholder="Enter the content for your sticky here"
+                        className={cn(
+                            'scrollbar-hide w-full max-w-full resize-none whitespace-pre-line break-words bg-transparent text-2xl text-dark placeholder-gray-600 outline-none'
+                        )}
+                        onKeyDown={onKeyDown}
+                        defaultValue={content}
+                    />
                 ) : (
-                    <p className="whitespace-pre-line">{content}</p>
+                    <p className="max-w-full whitespace-pre-line break-words">
+                        {content}
+                    </p>
                 )}
             </button>
         </div>
