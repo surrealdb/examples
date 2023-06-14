@@ -1,16 +1,11 @@
 'use client';
 
 import { useDeleteSticky, useUpdateSticky } from '@/lib/hooks';
+import { useStickiesStore } from '@/lib/stores';
 import { cn } from '@/lib/utils';
 import { cva } from 'class-variance-authority';
 import { X } from 'lucide-react';
-import React, {
-    KeyboardEvent,
-    createRef,
-    useCallback,
-    useEffect,
-    useState,
-} from 'react';
+import React, { KeyboardEvent, createRef, useCallback, useEffect } from 'react';
 
 export const style = cva('', {
     variants: {
@@ -37,26 +32,38 @@ export function Sticky({
     color: StickyColor;
     content: string;
 }) {
-    const [editing, setEditing] = useState(false);
     const { trigger: deleteSticky } = useDeleteSticky(id);
     const { trigger: updateSticky } = useUpdateSticky(id);
+    const {
+        deleteSticky: deleteStickyFromCache,
+        mergeStickies,
+        editing,
+        setEditing,
+    } = useStickiesStore();
 
     const submit = useCallback(
-        (content?: string) => {
-            updateSticky({ color, content });
-            setEditing(false);
+        async (content?: string) => {
+            const res = await updateSticky({ color, content });
+            if (res?.sticky) mergeStickies([res.sticky]);
+            setEditing(null);
         },
-        [color, updateSticky]
+        [color, updateSticky, mergeStickies, setEditing]
     );
+
+    const onDelete = useCallback(async () => {
+        const res = await deleteSticky();
+        if (res?.sticky) deleteStickyFromCache(res.sticky.id);
+        setEditing(null);
+    }, [deleteSticky, deleteStickyFromCache, setEditing]);
 
     return (
         <StickyFramework
             color={color}
             content={content}
-            onClick={() => setEditing(true)}
+            onClick={() => setEditing(id)}
             onClose={submit}
-            onDelete={deleteSticky}
-            editing={editing}
+            onDelete={onDelete}
+            editing={editing === id}
         />
     );
 }
