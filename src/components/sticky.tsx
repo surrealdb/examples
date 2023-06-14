@@ -50,9 +50,12 @@ export function Sticky({
 
     const submit = useCallback(
         async (content?: string) => {
-            setLoading(true);
-            const res = await updateSticky({ color, content });
-            if (res?.sticky) mergeStickies([res.sticky]);
+            if (content) {
+                setLoading(true);
+                const res = await updateSticky({ color, content });
+                if (res?.sticky) mergeStickies([res.sticky]);
+            }
+
             setEditing(null);
             setLoading(false);
         },
