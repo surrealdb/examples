@@ -79,6 +79,14 @@ export function StickyFramework({
     const containerRef = createRef<HTMLDivElement>();
     const textareaRef = createRef<HTMLTextAreaElement>();
 
+    const textAreaAdjust = useCallback(() => {
+        const self = textareaRef.current;
+        const parent = self?.parentNode;
+        if (self && parent instanceof HTMLElement) {
+            parent.dataset.replicatedValue = self.value;
+        }
+    }, [textareaRef]);
+
     const close = useCallback(() => {
         if (editing) {
             const value = textareaRef.current?.value?.trim() ?? '';
@@ -86,12 +94,21 @@ export function StickyFramework({
         }
     }, [editing, textareaRef, onClose, content]);
 
+    const onKeyDown = useCallback(
+        (e: KeyboardEvent<HTMLTextAreaElement>) => {
+            if (e.key === 'Escape') close();
+            textAreaAdjust();
+        },
+        [close, textAreaAdjust]
+    );
+
     useEffect(() => {
         if (editing && textareaRef.current) {
             const l = textareaRef.current.value.length;
             textareaRef.current.selectionStart = l;
             textareaRef.current.selectionEnd = l;
             textareaRef.current.focus();
+            textAreaAdjust();
         }
     });
 
@@ -109,17 +126,10 @@ export function StickyFramework({
         return () => window.removeEventListener('mousedown', handler);
     }, [containerRef, close]);
 
-    const onKeyDown = useCallback(
-        (e: KeyboardEvent<HTMLTextAreaElement>) => {
-            if (e.key === 'Escape') close();
-        },
-        [close]
-    );
-
     return (
         <div
             className={cn(
-                'relative rounded-4xl transition-transform hover:scale-105 hover:shadow-lg active:scale-100',
+                'relative mb-6 break-inside-avoid rounded-4xl transition-transform hover:scale-105 hover:shadow-lg active:scale-100',
                 editing && 'scale-105 shadow-lg'
             )}
             ref={containerRef}
@@ -138,15 +148,24 @@ export function StickyFramework({
                 onClick={onClick}
             >
                 {editing ? (
-                    <textarea
-                        ref={textareaRef}
-                        placeholder="Enter the content for your sticky here"
-                        className={cn(
-                            'w-full flex-grow bg-transparent text-2xl text-dark placeholder-gray-600 outline-none'
-                        )}
-                        onKeyDown={onKeyDown}
-                        defaultValue={content}
-                    />
+                    <div className="grow-wrap w-full flex-grow">
+                        <textarea
+                            ref={textareaRef}
+                            placeholder="Enter the content for your sticky here"
+                            className={cn(
+                                'w-full overflow-hidden bg-transparent text-2xl text-dark placeholder-gray-600 outline-none'
+                            )}
+                            onKeyDown={onKeyDown}
+                            onInput={() => {
+                                const self = textareaRef.current;
+                                const parent = self?.parentNode;
+                                if (self && parent instanceof HTMLElement) {
+                                    parent.dataset.replicatedValue = self.value;
+                                }
+                            }}
+                            defaultValue={content}
+                        />
+                    </div>
                 ) : (
                     <p className="whitespace-pre-line">{content}</p>
                 )}

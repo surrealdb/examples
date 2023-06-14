@@ -45,7 +45,7 @@ export default function Home() {
             <h1 className="text-2xl">{message}</h1>
         </div>
     ) : (
-        <div className="grid w-full grid-cols-1 gap-6 sm:py-16 md:grid-cols-2 xl:grid-cols-3">
+        <div className="w-full sm:py-16 md:columns-2 xl:columns-3">
             {createColor && (
                 <StickyFramework
                     color={createColor}
