@@ -28,7 +28,7 @@ export async function PATCH(
         Pick<Sticky, 'color' | 'content'>
     >;
 
-    const error = validateSticky(sticky);
+    const error = validateSticky(sticky, false);
     if (error) return error;
 
     const update: Partial<Sticky> = { updated: new Date() };
