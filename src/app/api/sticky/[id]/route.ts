@@ -33,7 +33,7 @@ export async function PATCH(
 
     const update: Partial<Sticky> = { updated: new Date() };
     if (sticky.color) update.color = sticky.color;
-    if (sticky.content) update.content = sticky.content;
+    if (typeof sticky.content == 'string') update.content = sticky.content;
 
     const result = await surreal.merge(`sticky:${id}`, update);
     return NextResponse.json({
