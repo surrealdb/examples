@@ -4,8 +4,14 @@ import { useDeleteSticky, useUpdateSticky } from '@/lib/hooks';
 import { useStickiesStore } from '@/lib/stores';
 import { cn } from '@/lib/utils';
 import { cva } from 'class-variance-authority';
-import { X } from 'lucide-react';
-import React, { KeyboardEvent, createRef, useCallback, useEffect } from 'react';
+import { Loader2, X } from 'lucide-react';
+import React, {
+    KeyboardEvent,
+    createRef,
+    useCallback,
+    useEffect,
+    useState,
+} from 'react';
 
 export const style = cva('', {
     variants: {
@@ -32,6 +38,7 @@ export function Sticky({
     color: StickyColor;
     content: string;
 }) {
+    const [loading, setLoading] = useState(false);
     const { trigger: deleteSticky } = useDeleteSticky(id);
     const { trigger: updateSticky } = useUpdateSticky(id);
     const {
@@ -43,9 +50,11 @@ export function Sticky({
 
     const submit = useCallback(
         async (content?: string) => {
+            setLoading(true);
             const res = await updateSticky({ color, content });
             if (res?.sticky) mergeStickies([res.sticky]);
             setEditing(null);
+            setLoading(false);
         },
         [color, updateSticky, mergeStickies, setEditing]
     );
@@ -64,6 +73,7 @@ export function Sticky({
             onClose={submit}
             onDelete={onDelete}
             editing={editing === id}
+            loading={loading}
         />
     );
 }
@@ -75,6 +85,7 @@ export function StickyFramework({
     onClose,
     onDelete,
     editing,
+    loading,
 }: {
     color: StickyColor;
     content?: string;
@@ -82,6 +93,7 @@ export function StickyFramework({
     onClose?: (content?: string) => unknown;
     onDelete?: () => unknown;
     editing?: boolean;
+    loading?: boolean;
 }) {
     const containerRef = createRef<HTMLDivElement>();
     const textareaRef = createRef<HTMLTextAreaElement>();
@@ -136,11 +148,18 @@ export function StickyFramework({
     return (
         <div
             className={cn(
-                'relative mb-6 break-inside-avoid rounded-4xl transition-transform hover:scale-105 hover:shadow-lg active:scale-100',
-                editing && 'scale-105 shadow-lg'
+                'relative mb-6 break-inside-avoid rounded-4xl transition-transform',
+                editing || loading
+                    ? 'scale-105 shadow-lg'
+                    : 'hover:scale-105 hover:shadow-lg active:scale-100'
             )}
             ref={containerRef}
         >
+            {loading && (
+                <div className="pointer-events-all absolute left-0 top-0 z-20 flex h-full w-full items-center justify-center rounded-4xl backdrop-brightness-90">
+                    <Loader2 className="animate-spin text-white" size={40} />
+                </div>
+            )}
             <button
                 className="absolute right-0 top-0 z-10 m-4 border-none bg-transparent p-0 text-white outline-none"
                 onClick={onDelete}
