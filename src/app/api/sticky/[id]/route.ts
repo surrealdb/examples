@@ -28,12 +28,12 @@ export async function PATCH(
         Pick<Sticky, 'color' | 'content'>
     >;
 
-    const error = validateSticky(sticky);
+    const error = validateSticky(sticky, false);
     if (error) return error;
 
     const update: Partial<Sticky> = { updated: new Date() };
     if (sticky.color) update.color = sticky.color;
-    if (sticky.content) update.content = sticky.content;
+    if (typeof sticky.content == 'string') update.content = sticky.content;
 
     const result = await surreal.merge(`sticky:${id}`, update);
     return NextResponse.json({

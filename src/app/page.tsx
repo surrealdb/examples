@@ -1,31 +1,25 @@
 'use client';
 
-import { Sticky, StickyFramework } from '@/components/sticky';
-import { useCreateSticky, useStickies } from '@/lib/hooks';
-import { useCreateStickyStore } from '@/lib/state';
+import { Sticky } from '@/components/sticky';
+import { useStickies } from '@/lib/hooks';
+import { useStickiesStore } from '@/lib/stores';
 import { Loader2 } from 'lucide-react';
-import React, { useCallback } from 'react';
+import React from 'react';
 
 export default function Home() {
-    const { data, error, isLoading } = useStickies();
-    const { createColor, setCreateColor } = useCreateStickyStore((s) => s);
-    const { trigger: createSticky } = useCreateSticky();
+    // Used purely for loading state and automatic refetching.
+    // The actual stickies are delivered through the stickies store for far local updates when the user makes a change.
+    const { error, isLoading } = useStickies();
+    const { stickies } = useStickiesStore();
 
-    const submit = useCallback(
-        (content?: string) => {
-            if (createColor) {
-                createSticky({
-                    color: createColor,
-                    content: content?.trim() ?? '',
-                });
-                setCreateColor(null);
-            }
-        },
-        [createColor, createSticky, setCreateColor]
+    console.log(stickies);
+
+    const sorted = Object.values(stickies).sort(
+        (a, b) => b.updated.getTime() - a.updated.getTime()
     );
 
     const message =
-        data?.stickies.length == 0 && !createColor ? (
+        sorted.length == 0 ? (
             'Create a sticky!'
         ) : error ? (
             <span className="text-red-500">
@@ -45,16 +39,8 @@ export default function Home() {
             <h1 className="text-2xl">{message}</h1>
         </div>
     ) : (
-        <div className="grid w-full grid-cols-1 gap-6 sm:py-16 md:grid-cols-2 xl:grid-cols-3">
-            {createColor && (
-                <StickyFramework
-                    color={createColor}
-                    onClose={submit}
-                    onDelete={() => setCreateColor(null)}
-                    editing={true}
-                />
-            )}
-            {data?.stickies.map(({ id, content, color }) => (
+        <div className="w-full sm:py-16 md:columns-2 xl:columns-3">
+            {sorted.map(({ id, content, color }) => (
                 <Sticky key={id} id={id} color={color} content={content} />
             ))}
         </div>
