@@ -1,0 +1,3 @@
+[submodule "notes-app"]
+	path = notes-app
+	url = https://github.com/timpratim/surrealstickies
