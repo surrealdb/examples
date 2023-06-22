@@ -13,7 +13,8 @@ With Surreal Stickies, you can add, update and delete notes at your convenience.
 
 ## Architecture
 
-![StickiesArchitecture drawio (1)](https://github.com/timpratim/surrealstickies/assets/32492961/467313c4-f035-47d6-9262-6c0dcd3824c9)
+![architecture](https://github.com/surrealdb/examples/assets/32492961/7e044fb0-e2b3-44a8-b71e-ceba600efc0d)
+
 
 
 ## **Prerequisites**
