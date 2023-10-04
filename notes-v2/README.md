@@ -1,6 +1,6 @@
 # Surreal Stickies 2.0: Adding Graph Relations, Live Queries, and Authentication.
 
-This application demonstrates how to use SurrealDB features like Live Queries, Authentication, Indexing and Graph Queries in your applications. Unlike the previous version of notes app in which we built an API layer and connectec with SurrealDB on the server side, in this application we securely connect to the database client side.
+This application demonstrates how to use SurrealDB features like Live Queries, Authentication, Indexing and Graph Queries in your applications. Unlike the previous version of notes app in which we built an API layer and connected with SurrealDB on the server side, in this application, we securely connect to the database client side.
 
 ## 🛠 Setup and Installation
 
@@ -13,7 +13,7 @@ This application demonstrates how to use SurrealDB features like Live Queries, A
 #### Clone the Examples Repository
 
 ```bash
-git clone https://github.com/your-repo/examples.git
+git clone https://github.com/surrealdb/examples.git
 ```
 #### Navigate to the Notes-V2 Directory
 ```bash
