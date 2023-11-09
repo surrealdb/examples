@@ -17,4 +17,4 @@ DEFINE FIELD updated ON tag
 
 DEFINE EVENT removal ON tag WHEN $event = "DELETE" THEN {
     DELETE $before.id->assigned_to;
-}
+};
