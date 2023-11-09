@@ -25,6 +25,6 @@ We welcome and appreciate contributions from the community! If you'd like to rep
 We value your feedback! If you have any suggestions or encounter any problems while working through the tutorials, please open an issue in this repository. We'll do our best to address your concerns promptly.
 
 ## License
-This project is licensed under the  Apache License. Please see the [LICENSE](https://github.com/surrealdb/examples/blob/timpratim-patch-1/LICENSE) file for more details.
+This project is licensed under the  Apache License. Please see the [LICENSE](https://github.com/surrealdb/examples/blob/LICENSE) file for more details.
 
 Remember, our goal is to help you succeed with SurrealDB. We hope that these tutorials provide a valuable resource on your journey! Happy learning!
