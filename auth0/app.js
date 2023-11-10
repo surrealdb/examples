@@ -5,7 +5,7 @@ const fetchConfig = () => fetch("/config.json");
 
 const configure = async () => {
 	const response = await fetchConfig();
-	const config = await response.json();
+	config = await response.json();
 
 	document.getElementById("surrealdb-endpoint").textContent = config.surrealdb_endpoint;
 	document.getElementById("auth0-domain").textContent = config.auth0_domain;
