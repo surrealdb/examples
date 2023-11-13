@@ -4,7 +4,7 @@
 
 **Important**: This example is intended to be used alongside the [Auth0 Integration Guide](#TBD).
 
-This example shows how Auth0 can be used as an authentication provider by web applications that rely on SurrealDB as their only backend.
+This example shows how Auth0 can be used as an authentication provider by web applications that rely on SurrealDB as the only backend.
 
 The application will authenticate the user with Auth0 and use the access token issued to create or update their user in the SurrealDB backend.
 
