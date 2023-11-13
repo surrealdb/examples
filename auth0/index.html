@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>SurrealDB Auth0 Authentication Example</title>
+		<script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
+		<script src="app.js"></script>
+		<link rel="stylesheet" type="text/css" href="style.css"/>
+	</head>
+	<body>
+		<h2>SurrealDB Auth0 Authentication Example</h2>
+		<h3>Configuration</h3>
+		<p>Values from the <a href="/config.json">configuration file</a>.</p>
+		<form>
+			<table>
+				<tr>
+					<td><b>SurrealDB Endpoint</b></td>
+					<td><span id="surrealdb-endpoint"></span></td>
+				</tr>
+				<tr>
+					<td><b>Auth0 Domain</b></td>
+					<td><span id="auth0-domain"></span></td>
+				</tr>
+				<tr>
+					<td><b>Auth0 Client ID</b></td>
+					<td><span id="auth0-client-id"></span></td>
+				</tr>
+				<tr>
+					<td><b>Auth0 Audience</b></td>
+					<td><span id="auth0-audience"></span></td>
+				</tr>
+			</table>
+		</form>
+		<br>
+		<h3>Authentication</h3>
+		<div>
+			<button id="btn-login" disabled="true" onclick="login()">Log in</button>
+			<button id="btn-logout" disabled="true" onclick="logout()">Log out</button>
+		</div>
+		<div class="hidden" id="gated-content">
+			<p>
+			You're seeing this content because you're currently
+			<strong>logged in</strong>.
+			</p>
+				<label>
+					Auth0 ID Token:
+					<pre id="ipt-id-token"></pre>
+				</label>
+				<label>
+					Auth0 Access Token:
+					<pre id="ipt-access-token"></pre>
+				</label>
+				<label>
+					Auth0 Access Token Decoded:
+					<pre id="ipt-access-token-decoded"></pre>
+				</label>
+				<label>
+					Auth0 User Profile:
+					<pre id="ipt-user-profile"></pre>
+				</label>
+				<label>
+					SurrealDB User Authorized by Token:
+					<pre id="ipt-sdb-getuser"></pre>
+				</label>
+				<label>
+					SurrealDB User Created/Updated by Token:
+					<pre id="ipt-sdb-createupdateuser"></pre>
+				</label>
+		</div>
+	</body>
+</html>

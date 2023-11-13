@@ -1,0 +1,27 @@
+.hidden {
+  display: none;
+}
+
+body {
+  width: 1024px;
+}
+
+label {
+  margin-bottom: 10px;
+  display: block;
+}
+
+pre {
+  white-space: pre-wrap; 
+  overflow-wrap: break-word;
+}
+
+table {
+  border: 1px solid black;
+}
+
+th, td {
+  padding: 10px;
+  padding-right: 20px;
+  border: 1px solid black;
+}
