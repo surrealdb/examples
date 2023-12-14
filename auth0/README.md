@@ -2,7 +2,7 @@
 
 ## Introduction
 
-**Important**: This example is intended to be used alongside the [Auth0 Integration Guide](#TBD).
+**Important**: This example is intended to be used alongside the [Auth0 Integration Guide](https://docs.surrealdb.com/docs/how-to/integrate-auth0-as-authentication-provider/).
 
 This example shows how Auth0 can be used as an authentication provider by web applications that rely on SurrealDB as the only backend.
 
@@ -14,7 +14,7 @@ It will also demonstrate how the authenticated user is only authorized to query 
 
 ### Configuration
 
-You must first configure the values that you generated while following the [Auth0 Integration Guide](#TBD) in the `config.json` file.
+You must first configure the values that you generated while following the [Auth0 Integration Guide](https://docs.surrealdb.com/docs/how-to/integrate-auth0-as-authentication-provider/) in the `config.json` file.
 
 You may also update the address of the SurrealDB endpoint to match your testing environment.
 
@@ -29,7 +29,7 @@ You may also update the address of the SurrealDB endpoint to match your testing 
 
 ### Preparation
 
-You must have a SurrealDB instance listening at the `surrealdb_endpoint` address and configured as described in the [Auth0 Integration Guide](#TBD).
+You must have a SurrealDB instance listening at the `surrealdb_endpoint` address and configured as described in the [Auth0 Integration Guide](https://docs.surrealdb.com/docs/how-to/integrate-auth0-as-authentication-provider/).
 
 ### Execution
 
