@@ -1,0 +1,7 @@
+{
+	"surrealdb_endpoint": "http://localhost:8000",
+	"cognito_region": "YOUR_AWS_COGNITO_REGION",
+	"cognito_domain": "YOUR_COGNITO_USER_POOL_DOMAIN",
+	"cognito_user_pool_id": "YOUR_COGNITO_USER_POOL_ID",
+	"cognito_client_id": "YOUR_COGNITO_CLIENT_ID"
+}

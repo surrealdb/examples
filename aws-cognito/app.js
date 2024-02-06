@@ -10,13 +10,13 @@ window.onload = async () => {
 	const urlParams = new URLSearchParams(window.location.search);
 	const code = urlParams.get("code");
 	if (code) {
-		// Authenticate using authorization code.
+		// Exchange authorization code for a token.
 		cognitoToken = await authenticate(code);
-		console.log(cognitoToken);
-		// Remove the authentication code from the URL after use.
+		// Remove the authorization code from the URL after use.
 		window.history.replaceState({}, document.title, "/");
 	}
 
+	// Show information using the token.
 	showInformation(cognitoToken);
 }
 
@@ -42,6 +42,7 @@ const configure = async () => {
 	document.getElementById("current-origin").textContent = config.origin;
 };
 
+// Exchange authorization code for a set of tokens.
 const authenticate = async (code) => {
 	// Connect to the Cognito token endpoint.
 	const tokenEndpoint = config.cognito_domain + "/oauth2/token";
@@ -49,6 +50,7 @@ const authenticate = async (code) => {
 
 	// Exchange authorization code for a token.
 	const queryParams = {
+		// This grant type does not require client credentials and is suitable for client applications.
 		"grant_type": "authorization_code",
 		"client_id": config.cognito_client_id,
 		"code": code,
@@ -59,21 +61,54 @@ const authenticate = async (code) => {
 		.map(key => encodeURIComponent(key) + "=" + encodeURIComponent(queryParams[key]))
 		.join("&");
 
-	try {
-		const cognitoAuth = await fetch(tokenEndpoint + "?" + queryString, {
-			method: "POST",
-			headers: headers,
-		});
+	const cognitoAuth = await fetch(tokenEndpoint + "?" + queryString, {
+		method: "POST",
+		headers: headers,
+	});
 
-		// Return object containing the Cognito tokens.
-		const cognitoToken = await cognitoAuth.json();
-		return cognitoToken;
-	} catch (error) {
-		console.error("Cognito error:", error);
-	}
+	// Return object containing the Cognito tokens.
+	const cognitoToken = await cognitoAuth.json();
+	return cognitoToken;
 };
 
-const showInformation = (cognitoToken) => {
+// Exchange refresh token for a new set of tokens.
+const refresh = async () => {
+	// Get value of refresh token from DOM element.
+	const refreshToken = document.getElementById("ipt-refresh-token").innerHTML;
+
+	// Connect to the Cognito token endpoint.
+	const tokenEndpoint = config.cognito_domain + "/oauth2/token";
+	const headers = {"Content-Type": "application/x-www-form-urlencoded"};
+
+	// Exchange refresh token for a new token.
+	const queryParams = {
+		"grant_type": "refresh_token",
+		"refresh_token": refreshToken,
+		"client_id": config.cognito_client_id,
+		"redirect_uri": origin,
+	};
+
+	const queryString = Object.keys(queryParams)
+		.map(key => encodeURIComponent(key) + "=" + encodeURIComponent(queryParams[key]))
+		.join("&");
+
+	const cognitoAuth = await fetch(tokenEndpoint + "?" + queryString, {
+		method: "POST",
+		headers: headers,
+	});
+
+	// Parse JSON object containing the new Cognito tokens.
+	// These tokens will not contain a new refresh token.
+	const newCognitoToken = await cognitoAuth.json();
+
+	// Update information in the UI with the new token.
+	showInformation(newCognitoToken);
+
+	// Set the original value of the refresh token in the DOM element.
+	document.getElementById("ipt-refresh-token").innerHTML = refreshToken;
+};
+
+const showInformation = async (cognitoToken) => {
 	// If we have a token, we are authenticated.
 	const isAuthenticated = cognitoToken != null;
 
@@ -87,12 +122,14 @@ const showInformation = (cognitoToken) => {
 
 		document.getElementById("ipt-id-token").innerHTML = cognitoToken.id_token;
 		document.getElementById("ipt-id-token-decoded").textContent = decodeToken(cognitoToken.id_token);
-		document.getElementById("ipt-access-token").innerHTML = cognitoToken.access_token;
-		document.getElementById("ipt-access-token-decoded").innerHTML = decodeToken(cognitoToken.access_token);
+		document.getElementById("ipt-refresh-token").innerHTML = cognitoToken.refresh_token;
+		// Uncomment the following lines and corresponding HTML elements if you want to work with the access token.
+		// document.getElementById("ipt-access-token").innerHTML = cognitoToken.access_token;
+		// document.getElementById("ipt-access-token-decoded").innerHTML = decodeToken(cognitoToken.access_token);
 
 		// Create or update user in SurrealDB with token and get their information from SurrealDB.
-		document.getElementById("ipt-sdb-createupdateuser").textContent = JSON.stringify(createUpdateUser(cognitoToken));
-		document.getElementById("ipt-sdb-getuser").textContent = JSON.stringify(getUser(cognitoToken));
+		const user = await createUpdateUser(cognitoToken);
+		document.getElementById("ipt-sdb-createupdateuser").textContent = JSON.stringify(user);
 	} else {
 		document.getElementById("gated-content").classList.add("hidden");
 	}
