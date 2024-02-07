@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>SurrealDB AWS Cognito Authentication Example</title>
+		<script src="https://sdk.amazonaws.com/js/aws-sdk-2.3.5.js"></script>
+		<script src="https://rawgit.com/aws/amazon-cognito-identity-js/master/dist/aws-cognito-sdk.min.js"></script>
+		<script src="https://rawgit.com/aws/amazon-cognito-identity-js/master/dist/amazon-cognito-identity.min.js"></script>		
+		<script src="app.js"></script>
+		<link rel="stylesheet" type="text/css" href="style.css"/>
+	</head>
+	<body>
+		<h2>SurrealDB AWS Cognito Authentication Example</h2>
+		<h3>Configuration</h3>
+		<p>Values from the <a href="/config.json">configuration file</a>.</p>
+		<form>
+			<table>
+				<tr>
+					<td><b>SurrealDB Endpoint</b></td>
+					<td><span id="surrealdb-endpoint"></span></td>
+				</tr>
+				<tr>
+					<td><b>Current Origin</b></td>
+					<td><span id="current-origin"></span></td>
+				</tr>
+				<tr>
+					<td><b>AWS Cognito Domain</b></td>
+					<td><span id="cognito-domain"></span></td>
+				</tr>
+				<tr>
+					<td><b>AWS Cognito User Pool ID</b></td>
+					<td><span id="cognito-user-pool-id"></span></td>
+				</tr>
+				<tr>
+					<td><b>AWS Cognito Client ID</b></td>
+					<td><span id="cognito-client-id"></span></td>
+				</tr>
+				<tr>
+					<td><b>AWS Cognito JWKS Endpoint</b></td>
+					<td><span id="cognito-jwks-endpoint"></span></td>
+				</tr>
+			</table>
+		</form>
+		<br>
+		<h3>Authentication</h3>
+		<div>
+			<button id="btn-login" disabled="true" onclick="login()">Log in</button>
+			<button id="btn-refresh" disabled="true" onclick="refresh()">Refresh</button>
+			<button id="btn-logout" disabled="true" onclick="logout()">Log out</button>
+		</div>
+		<div class="hidden" id="gated-content">
+			<p>
+			You're seeing this content because you're currently
+			<strong>logged in</strong>.
+			</p>
+				<label>
+					AWS Cognito Identity Token:
+					<pre id="ipt-id-token"></pre>
+				</label>
+				<label>
+					AWS Cognito Identity Token Decoded:
+					<pre id="ipt-id-token-decoded"></pre>
+				</label>
+				<label>
+					SurrealDB User Created/Updated by Token:
+					<pre id="ipt-sdb-createupdateuser"></pre>
+				</label>
+				<label>
+					AWS Cognito Refresh Token:
+					<pre id="ipt-refresh-token"></pre>
+				</label>
+<!--
+				<label>
+					AWS Cognito Access Token:
+					<pre id="ipt-access-token"></pre>
+				</label>
+				<label>
+					AWS Cognito Access Token Decoded:
+					<pre id="ipt-access-token-decoded"></pre>
+				</label>
+-->
+		</div>
+	</body>
+</html>
