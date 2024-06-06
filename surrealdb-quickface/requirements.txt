@@ -1,0 +1,7 @@
+Flask==3.0.3
+Flask-Uploads==0.2.1 
+requests==2.32.3 
+opencv-python==4.9.0.80
+keras-facenet==0.3.2
+scipy==1.13.1
+tensorflow==2.16.1
