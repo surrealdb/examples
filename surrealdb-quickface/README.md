@@ -29,7 +29,7 @@ cd surrealdb-quickface
 surreal start --allow-all -u root -p pass -b 127.0.0.1:8000
 ```
 
-1. Create a virtual environment and activate it:
+3. Create a virtual environment and activate it:
 
 ```bash
 python -m venv venv
@@ -42,7 +42,7 @@ source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
 pip install -r requirements.txt
 ```
 
-5. Ingest the data
+5. Ingest data
 
 ```bash
 python ingest.py
@@ -54,7 +54,7 @@ python ingest.py
 python server.py
 ```
 
-1. Open you browser to the following url:
+7. Open browser and point to the following url:
 
 ```bash
 http://127.0.0.1:5001
