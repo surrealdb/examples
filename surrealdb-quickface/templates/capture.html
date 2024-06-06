@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SurrealDB Face detection</title>
+    <link href="/static/styles.css" rel="stylesheet">
+</head>
+<body>
+
+    <div class="container">
+
+        
+    
+        <div class="video-placeholder">
+
+            
+
+            <div id="cameraFeedContainer" class="video-on">
+                <div class="logo-small"></div>
+                <video id="cameraFeed" autoplay playsinline></video>
+                <svg id="cameraIcon" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g id="Frame">
+                    <path id="Vector" fill-rule="evenodd" clip-rule="evenodd" d="M21.922 24.7319C22.4913 24.1233 22.8563 23.352 22.966 22.5259L29.186 25.2899C29.4905 25.4255 29.824 25.4829 30.1563 25.4569C30.4886 25.4309 30.8091 25.3222 31.0887 25.1408C31.3683 24.9593 31.5981 24.7109 31.7573 24.418C31.9164 24.1252 31.9999 23.7972 32 23.4639V8.53988C31.9997 8.20683 31.9163 7.87912 31.7572 7.58651C31.5982 7.29389 31.3685 7.04562 31.0892 6.86424C30.8099 6.68286 30.4897 6.57411 30.1577 6.54785C29.8257 6.52159 29.4924 6.57866 29.188 6.71387L22.966 9.47787C22.8389 8.51605 22.3666 7.6332 21.637 6.99373C20.9073 6.35426 19.9702 6.00176 19 6.00187H8.544L9.972 8.00187H19C19.5304 8.00187 20.0391 8.21259 20.4142 8.58766C20.7893 8.96273 21 9.47144 21 10.0019V22.0019C21.0004 22.367 20.9008 22.7253 20.712 23.0379L21.922 24.7319ZM2.856 8.36187C2.59181 8.54611 2.37602 8.79142 2.22698 9.07695C2.07795 9.36249 2.00008 9.67979 2 10.0019V22.0019C2 22.5323 2.21071 23.041 2.58579 23.4161C2.96086 23.7912 3.46957 24.0019 4 24.0019H14.028L15.456 26.0019H4C2.93913 26.0019 1.92172 25.5804 1.17157 24.8303C0.421427 24.0802 0 23.0627 0 22.0019V10.0019C0 8.65188 0.668 7.45787 1.694 6.73387L2.856 8.36187ZM30 23.4619L23 20.3519V11.6519L30 8.53988V23.4619ZM21.186 30.5819L1.186 2.58187L2.814 1.42188L22.814 29.4219L21.186 30.5819Z" fill="#888888"/>
+                    </g>
+                </svg>
+            </div>
+
+            <div class="buttons">    
+                <button id="capturePhoto" disabled>Take Photo</button>
+                <button id="toggleCamera" class="camera-on">Turn off Camera</button>
+            </div>
+        
+            <canvas id="photoCanvas" style="display:none;"></canvas>
+        
+            <div class="person">
+                <ul>
+                    <li><span class="property">NAME:</span> <div id="name" class="value">N/A</div></li>
+                    <li><span class="property">ROLE:</span> <div id="role" class="value">N/A</div></li>
+                    <li><span class="property">DEPARTMENT:</span> <div id="department" class="value">N/A</div></li>
+                </ul>
+            </div>
+
+        </div>
+    
+    
+        
+
+    </div>
+    
+
+    <div class="surreal-logo">
+        <img src="static/assets/surrealdb-logo-light.svg" />
+    </div>
+
+    <script src="{{ url_for('static', filename='camera.js') }}"></script>
+</body>
+</html>

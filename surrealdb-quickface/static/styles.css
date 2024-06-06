@@ -1,0 +1,199 @@
+@font-face {
+    font-family: "San Francisco";
+    font-weight: 400;
+    src: url("https://applesocial.s3.amazonaws.com/assets/styles/fonts/sanfrancisco/sanfranciscodisplay-regular-webfont.woff");
+}
+
+body, html {
+    height: 100%;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    background-color: #19191D;
+}
+
+.container {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    background:url(assets/quickface-ui-camera.png) center/cover;
+}
+
+.buttons {
+    position: relative;
+    margin-top: 40px;
+    margin-left: 15px;
+}
+
+button {
+    width: 262px;
+    height: 49px;
+    margin: 10px;
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    border-radius: 49px;
+    cursor: pointer;
+    font-family: San Francisco, sans-serif;
+}
+
+.logo {
+    background-image: url("assets/facedetection.svg");
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: bottom center, 50%, 50%;
+    width: 246px;
+    height: 246px;
+}
+
+.surreal-logo {
+    display: block;
+    position: fixed;
+    right: 40px;
+    bottom: 40px;
+    z-index: 1000;
+    width: 178px;
+    height: 38px;
+}
+
+.person {
+    display: block;
+    width: 100%;
+    max-height: 300px;
+}
+
+ul {
+    list-style-type: none;
+}
+
+.video-placeholder {
+
+    width: 600px;
+    height: 540px;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    -webkit-transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%);
+    border-radius: 47px;
+    background-color: rgb(255, 255, 255, .1);
+
+    .video {
+        height: 550px;
+        width: 410px;
+        top: 20px;
+        left: 20px;
+        position: relative;
+        border: 1px solid #333;
+    }
+
+    #cameraFeed {
+        width: 550px;
+        height: 410px;
+        border-radius: 25px;
+        position: relative;
+    }
+
+}
+
+#startCamera {
+    background: rgb(255,0,160);
+    background: linear-gradient(90deg, rgba(255,0,160,1) 0%, rgba(150,0,255,1) 100%);
+    color: white;
+}
+
+#cameraFeedContainer {
+    width: 550px;
+    height: 410px;
+    border-radius: 25px;
+
+    top: 25px;
+    left: 25px;
+    position: relative;
+}
+
+.video-off {
+    background-color: rgb(53, 53, 56);
+}
+
+.take-photo {
+    background: rgb(255,0,160); */
+    background: linear-gradient(90deg, rgba(255,0,160,1) 0%, rgba(150,0,255,1) 100%);
+    color: white;
+    border: none;
+}
+
+.camera-on {
+    background-color: rgb(255, 255, 255, .3);
+    border: white;
+    color: white;
+}
+.camera-off {
+    background-color: rgb(255, 255, 255, .3);
+    border: 1px solid white;
+    color: white;
+}
+
+.person {
+    position: absolute;
+    top: 10px;
+    left: 600px;
+    font-family: San Francisco, sans-serif;
+    color: white;
+}
+
+.property {
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 16px;
+    color: rgb(255, 255, 255, .5);
+}
+
+.value {
+    font-weight: 400;
+    font-size: 24px;
+    line-height: 28px;
+}
+
+ul {
+    li {
+        margin-bottom: 32px;
+    }
+}
+
+#cameraIcon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 50px;
+    height: 50px;
+    display: none;
+}
+
+#capturePhoto {
+    background: rgb(255,0,160); */
+    background: linear-gradient(90deg, rgba(255,0,160,1) 0%, rgba(150,0,255,1) 100%);
+    color: white;
+    border: none;
+}
+
+#capturePhoto:disabled {
+    background-color: gray;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.logo-small {
+    background:url(assets/logo.png);
+    width: 64px;
+    height: 64px;
+    position: absolute;
+    z-index: 1;
+    left: 16px;
+    top: 16px;
+}
