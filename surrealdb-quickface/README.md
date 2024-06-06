@@ -21,24 +21,29 @@ This project demonstrates a face recognition application using Flask, OpenCV, an
 ```bash
 git clone https://github.com/yourusername/face-recognition-flask.git
 cd face-recognition-flask
+```
 
 2. Create a virtual environment and activate it:
 
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+```
 
 3. Install the required Python packages:
 
 ```bash
 pip install -r requirements.txt
+```
 
 4. Ingest the data
 
 ```bash
 python ingest.py
+```
 
 5. Run the app
 
 ```bash
 python server.py
+```
