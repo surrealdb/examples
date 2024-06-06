@@ -23,27 +23,39 @@ git clone https://github.com/yourusername/surrealdb-quickface.git
 cd surrealdb-quickface
 ```
 
-2. Create a virtual environment and activate it:
+2. Make sure you run a SurrealDB instance
+
+```bash
+surreal start --allow-all -u root -p pass -b 127.0.0.1:8000
+```
+
+1. Create a virtual environment and activate it:
 
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
 ```
 
-3. Install the required Python packages:
+4. Install the required Python packages:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Ingest the data
+5. Ingest the data
 
 ```bash
 python ingest.py
 ```
 
-5. Run the app
+6. Run the app
 
 ```bash
 python server.py
+```
+
+1. Open you browser to the following url:
+
+```bash
+http://127.0.0.1:5001
 ```
