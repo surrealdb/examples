@@ -19,8 +19,8 @@ This project demonstrates a face recognition application using Flask, OpenCV, an
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/face-recognition-flask.git
-cd face-recognition-flask
+git clone https://github.com/yourusername/surrealdb-quickface.git
+cd surrealdb-quickface
 ```
 
 2. Create a virtual environment and activate it:
