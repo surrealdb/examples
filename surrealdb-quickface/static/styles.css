@@ -176,8 +176,7 @@ ul {
 }
 
 #capturePhoto {
-    background: rgb(255,0,160); */
-    background: linear-gradient(90deg, rgba(255,0,160,1) 0%, rgba(150,0,255,1) 100%);
+    background: rgb(255,0,160);    
     color: white;
     border: none;
 }
