@@ -39,6 +39,11 @@ button {
     border-radius: 49px;
     cursor: pointer;
     font-family: San Francisco, sans-serif;
+    transition: transform 0.3s;
+}
+
+button:hover {
+    transform: scale(1.1);
 }
 
 .logo {
