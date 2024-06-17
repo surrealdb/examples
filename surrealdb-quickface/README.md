@@ -26,7 +26,7 @@ cd surrealdb-quickface
 2. Make sure you run a SurrealDB instance
 
 ```bash
-surreal start --allow-all -u root -p pass -b 127.0.0.1:8000
+surreal start --allow-all -u root -p root -b 127.0.0.1:8000
 ```
 
 3. Create a virtual environment and activate it:
