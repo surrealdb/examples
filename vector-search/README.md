@@ -13,17 +13,16 @@ Vector search allows for similarity-based queries on high-dimensional data, whic
 ## Setup
 
 Import the dataset that includes vector embeddings for products.
-The dataset already includes the vector index and embeddings for the fields product name, product_details and review. 
-For this example we will only be using the product details embeddings. 
+The dataset already includes the vector indexes and fields to store embeddings. 
 
 The product embeddings will be stored in the `details_embedding` field.
-```sql
+```surql
 DEFINE FIELD details_embedding
     ON TABLE product 
     TYPE array<decimal>;
 ```
-The vector index `idx_product_details_embedding` uses the MTREE algorithm with 768 dimensions and cosine distance for similarity calculations.
-```sql
+The vector index `idx_product_details_embedding` uses the [MTREE algorithm](https://surrealdb.com/docs/surrealdb/surrealql/statements/define/indexes#m-tree-index-since-130) with 768 dimensions and [cosine distance](https://surrealdb.com/docs/surrealdb/surrealql/functions/database/vector#vectorsimilaritycosine) for similarity calculations.
+```surql
 DEFINE INDEX idx_product_details_embedding ON product 
     FIELDS details_embedding 
     MTREE DIMENSION 768 DIST COSINE;
@@ -31,10 +30,9 @@ DEFINE INDEX idx_product_details_embedding ON product
 
 ## Usage
 
-Generate query embeddings
-This uses the Ollama API to generate embeddings for the query text.
+To perform a meaningful vector search, we first need to convert our text query into a vector embedding. We are converting our query into a numerical representation that we can compare with our product embeddings. I am using the [Ollama API](https://ollama.com/library/nomic-embed-text) to generate these embeddings:
 
-```sql
+```surql
 LET $query_text = "baggy clothes"; 
 LET $query_embeddings = select * from http::post('http://localhost:11434/api/embeddings', {
   "model": "nomic-embed-text",
@@ -42,41 +40,42 @@ LET $query_embeddings = select * from http::post('http://localhost:11434/api/emb
 }).embedding;
 ```
 
+Once we have our query embeddings, we can perform a vector similarity search against our surreal deal store dataset.
+Let's select the record ID, name, and some more details of the products that fulfil our search for baggy clothes.
 
-Perform a vector similarity search:
-
-```sql
-SELECT
-id,
-name,
-category,
-sub_category,
-price,
-vector::similarity::cosine(details_embedding,$query_embeddings) AS similarity
-FROM product
-ORDER BY similarity DESC
-LIMIT 3;
+```surql
+SELECT id, name, category, sub_category, price, vector::similarity::cosine(details_embedding, $query_embeddings) AS similarity FROM product ORDER BY similarity DESC LIMIT 3;
 ```
+This query uses the `vector::similarity::cosine()` function to calculate the cosine similarity between our query embeddings and the product embeddings. We order the results by similarity in descending order to get the most relevant matches first and limit the output to the top 3 results.
 
-This query calculates the cosine similarity between the query embeddings and the product embeddings, then returns the top 2 most similar products.
-
-```json
+```surql
 [
-	{
-		category: 'Men',
-		id: product:01GBDKYEAG93XBKM07CFH1S9S6,
-		name: "Men's Slammer Heavy Hoodie",
-		price: 65,
-		similarity: 0.5410314334339928f,
-		sub_category: 'Shirts & Tops'
-	},
-	{
-		category: 'Men',
-		id: product:01GADYP46G8GN8YBPYTWGKYVB9,
-		name: "Men's Locker Heavy Zip-Through Hoodie",
-		price: 70,
-		similarity: 0.5395832679844547f,
-		sub_category: 'Shirts & Tops'
-	}
+    {
+        "id": "product:01GBDKYEAG93XBKM07CFH1S9S6",
+        "name": "Men's Slammer Heavy Hoodie",
+        "category": "Men",
+        "sub_category": "Shirts & Tops",
+        "price": 65,
+        "similarity": 0.5410314334339928
+    },
+    {
+        "id": "product:01GADYP46G8GN8YBPYTWGKYVB9",
+        "name": "Men's Locker Heavy Zip-Through Hoodie",
+        "category": "Men",
+        "sub_category": "Shirts & Tops",
+        "price": 70,
+        "similarity": 0.5395832679844547
+    },
+    {
+        "id": "product:01H36XDJRG95NB89AQKSV1NRGA",
+        "name": "Women's Locker Heavy Zip-Through Hoodie",
+        "category": "Women",
+        "sub_category": "Shirts & Tops",
+        "price": 65,
+        "similarity": 0.5395832679844547
+    }
 ]
 ```
+The similarity scores range from -1 to 1, with 1 indicating perfect similarity. The similarity score for the above products is around 0.54.
+
+This vector search approach allows us to find semantically related items even when the search terms in the product descriptions or names don't exactly match.
