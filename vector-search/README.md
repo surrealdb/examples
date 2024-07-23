@@ -42,9 +42,14 @@ Once we have our query embeddings, we can perform a vector similarity search aga
 Let's select the record ID, name, and some more details of the products that fulfil our search for baggy clothes.
 
 ```surql
-SELECT id, name, category, sub_category, price, vector::similarity::cosine(details_embedding, $query_embeddings) AS similarity FROM product ORDER BY similarity DESC LIMIT 3;
+SELECT id,
+name,
+category,
+sub_category,
+price, vector::similarity::cosine(details_embedding,$query_embeddings) AS similarity
+FROM product WHERE details_embedding <|3|> $query_embeddings;
 ```
-This query uses the `vector::similarity::cosine()` function to calculate the cosine similarity between our query embeddings and the product embeddings. We order the results by similarity in descending order to get the most relevant matches first and limit the output to the top 3 results.
+This query uses the `vector::similarity::cosine()` function to calculate the cosine similarity between our query embeddings and the product embeddings. And the [KNN operator](https://surrealdb.com/docs/surrealdb/surrealql/operators#knn) to find 3 records closest to the query embedding.
 
 ```surql
 [
