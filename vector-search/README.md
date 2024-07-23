@@ -23,9 +23,7 @@ DEFINE FIELD details_embedding
 ```
 The vector index `idx_product_details_embedding` uses the [MTREE algorithm](https://surrealdb.com/docs/surrealdb/surrealql/statements/define/indexes#m-tree-index-since-130) with 768 dimensions and [cosine distance](https://surrealdb.com/docs/surrealdb/surrealql/functions/database/vector#vectorsimilaritycosine) for similarity calculations.
 ```surql
-DEFINE INDEX idx_product_details_embedding ON product 
-    FIELDS details_embedding 
-    MTREE DIMENSION 768 DIST COSINE;
+DEFINE INDEX idx_product_details_embedding ON product FIELDS details_embedding MTREE DIMENSION 768 DIST COSINE TYPE F32;
 ```
 
 ## Usage
