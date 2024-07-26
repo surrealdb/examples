@@ -8,11 +8,20 @@ Vector search allows for similarity-based queries on high-dimensional data, whic
 
 - [SurrealDB installed](https://surrealdb.com/install) and running
 - Ollama installed with the [nomic-embed-text model](https://ollama.com/library/nomic-embed-text)
-- Import [Surreal Deal dataset](https://surrealdb.com/docs/surrealdb/surrealql/demo).
+- Import the SurrealDB store dataset with embeddings.
 
 ## Setup
 
-Import the dataset that includes vector embeddings for products.
+- Start your SurrealDB server.
+```sh
+surreal start memory -A --auth --user root --pass root
+```
+- [Import](https://surrealdb.com/docs/surrealdb/cli/import) the dataset that includes vector embeddings for products. Use the following command:
+```sh
+surreal import --conn http://localhost:8000 --user root --pass root --ns test --db test /path/to/surreal-deal-store.surql
+```
+
+Make sure to put in the correct username and password here. 
 The dataset already includes the vector indexes and fields to store embeddings. 
 
 The product embeddings will be stored in the `details_embedding` field.
