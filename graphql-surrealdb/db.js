@@ -1,4 +1,3 @@
-// const Surreal = require('surrealdb.js').default;
 import Surreal from 'surrealdb.js';
 
 const db = new Surreal();
