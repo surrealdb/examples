@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatSurrealDB</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}" />
+</head>
+
+<body>
+    <nav>
+        <button hx-post="/create-chat" hx-target="#chats" hx-swap="afterbegin">
+            <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+            New Chat
+        </button>
+        <div id="chats" hx-get="/chats" hx-trigger="load"></div>
+    </nav>
+    <main>
+
+    </main>
+</body>
+
+</html>
