@@ -1,0 +1,17 @@
+<div class="messages">
+    {% for message in messages %}
+    <div class="{{ message.role }} message">
+        <div class="message-header">
+            <span class="messenger-name">{{ message.role | capitalize }}</span>
+            <span class="message-time">{{ message.timestamp | convert_timestamp_to_date }}</span>
+        </div>
+        <p class="message-content">{{ message.content | safe }}</p>
+    </div>
+    {% endfor %}
+</div>
+
+<form id="messageform" hx-post="/send-user-message" hx-target=".messages" hx-swap="beforeend">
+    <input type="hidden" name="chat_id" value="{{ chat_id }}" />
+    <input type="text" name="content" />
+    <button>Send</button>
+</form>

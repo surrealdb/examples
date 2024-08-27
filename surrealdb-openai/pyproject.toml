@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "surrealdb_openai"
+version = "0"
+description = "Example of RAG using SurrealDB and OpenAI"
+authors = [
+    {name="Cellan Hall", email="cellan.hall@gmail.com"}
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.11"
+dependencies = [
+    "pandas",
+    "wget",
+    "pandas-stubs",
+    "surrealdb==0.3.1",
+    "tqdm",
+    "fastapi",
+    "uvicorn",
+    "jinja2",
+    "python-multipart",
+    "python-dotenv",
+]
+
+[project.scripts]
+surreal-insert = "surrealdb_openai.__insert__:main"
+get-data = "surrealdb_openai.__main__:get_data"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 80
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    ".git",
+    "__pycache__",
+]
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"

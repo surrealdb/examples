@@ -1,0 +1,8 @@
+<div class="system message" {% if create_title %}hx-trigger="load" hx-get="/create-title/{{ chat_id }}"
+    hx-target=".chat-{{ chat_id | extract_id }}" {% endif %}>
+    <div class="message-header">
+        <span class="messenger-name"> System</span>
+        <span class=" message-time">{{ timestamp | convert_timestamp_to_date }}</span>
+    </div>
+    <p class="message-content">{{ content | safe }}</p>
+</div>
