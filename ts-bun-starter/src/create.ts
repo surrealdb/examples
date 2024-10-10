@@ -1,5 +1,5 @@
 import { getDb } from "../utils/surreal";
-import { jsonify } from "surrealdb.js";
+import { jsonify } from "surrealdb";
 
 async function createUser() {
   const db = await getDb();
