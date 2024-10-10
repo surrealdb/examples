@@ -11,26 +11,14 @@ bun install
 To run:
 
 ```bash
-bun run index.ts
+bun run src/index.ts 
 ```
 
-To start Database:
+The head over to `http://localhost:3000/` and you should see this UI 
 
-```bash 
-surreal start
-```
+First click on the `Start Database` button to start the SurrealDB instance.
 
-To Run functions in `/src/`: 
-
-```bash 
--- Create a new user 
-bun run src/create.ts
-```
-
-```bash 
--- Get all users 
-bun run src/select.ts
-```
+Then you can click on the `Create`, `Select`, `Update`, and `Delete` buttons to see the corresponding functions in action. 
 
 This project was created using `bun init` in bun v1.1.3. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
 

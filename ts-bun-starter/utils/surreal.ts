@@ -1,4 +1,4 @@
-import { Surreal } from "surrealdb.js";
+import Surreal from "surrealdb";
 
 export async function getDb(): Promise<Surreal | undefined> {
   const db = new Surreal();
