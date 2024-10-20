@@ -14,6 +14,12 @@ git clone https://github.com/surrealdb/examples.git
 cd examples/{tutorial-name}
 ```
 
+## Learn SurrealDB
+
+- SurrealDB University: https://surrealdb.com/learn/fundamentals
+- Aeon's Surreal Renaissance (Interative book): https://surrealdb.com/learn/book
+- Documentation: https://surrealdb.com/docs
+
 Each tutorial has its own list of requirements and setup instructions. We encourage you to read these thoroughly before proceeding with the tutorial.
 
 This repository is under active development, and we are continuously working on adding new tutorials that showcase the various features of SurrealDB. We encourage you to regularly check back for updates.
