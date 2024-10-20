@@ -16,7 +16,7 @@ export async function updateUser() {
     return;
   }
   try {
-    const updatedUser = await db.update(new RecordId("User", "nsg3k2he7mhxa8hk5qdu"), {
+    const updatedUser = await db.update(new RecordId("User", "6n05gxwudius9ri7mypq"), {
         username: "John Doe",
         email: "john@example.com",
     });

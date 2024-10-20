@@ -1,7 +1,7 @@
 import { jsonify } from "surrealdb";
 import { getDb } from "../utils/surreal";
 
-export async function deleteUser(userId: string) {
+export async function deleteUser() {
   const db = await getDb();
   if (!db) {
     console.error("Database not initialized");
