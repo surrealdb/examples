@@ -16,6 +16,7 @@ import tqdm
 import wget
 from fastapi import templating, responses, staticfiles
 
+from dotenv import load_dotenv
 load_dotenv()
 
 FORMATTED_RECORD_FOR_INSERT_WIKI_EMBEDDING = string.Template(
