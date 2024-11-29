@@ -1,0 +1,10 @@
+[package]
+name = "query-example"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+serde = { version = "1.0.209", features = ["derive"] }
+surrealdb = "2.1.2"
+tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
