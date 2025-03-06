@@ -99,7 +99,7 @@ async def index(request: fastapi.Request) -> responses.HTMLResponse:
 async def get_llm_model_details(llm_model: str = fastapi.Query(...)):
     model_data = life_span["llm_models"].get(llm_model)
     if model_data:
-        s = f"Model Version: {model_data['model_version']}, Host: {model_data['host']}"
+        s = f"Version: {model_data['model_version']}, Host: {model_data['host']}"
     else:
         s = "Model details not found."
     return fastapi.Response(s, media_type="text/html") #Return response object
@@ -108,7 +108,7 @@ async def get_llm_model_details(llm_model: str = fastapi.Query(...)):
 async def get_embed_model_details(embed_model: str = fastapi.Query(...)):
     model_data = life_span["embed_models"].get(embed_model)
     if model_data:
-        s = f"Version: {model_data['dimensions']}, Host: {model_data['host']}"
+        s = f"Dimensions: {model_data['dimensions']}, Host: {model_data['host']}"
     else:
         s = "Model details not found."
     return fastapi.Response(s, media_type="text/html") #Return response object
@@ -157,6 +157,24 @@ async def load_chat(
             "chat_id": chat_id,
         },
     )
+@app.get("/messages/{message_id}", response_class=responses.HTMLResponse)
+async def load_chat(
+    request: fastapi.Request, message_id: str
+) -> responses.HTMLResponse:
+    """Load a chat."""
+    message = await life_span["surrealdb"].query(
+        """RETURN fn::load_message_detail($message_id)""",params = {"message_id":message_id}    
+    )
+    return templates.TemplateResponse(
+        "load_message_detail.html",
+        {
+            "request": request,
+            "message": message,
+            "message_id": message_id,
+        },
+    )
+
+
 
 
 @app.get("/chats", response_class=responses.HTMLResponse)

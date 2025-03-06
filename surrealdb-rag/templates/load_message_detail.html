@@ -1,0 +1,25 @@
+
+<div>
+message detail:
+<div>ID:{{message.id}}</div>
+
+<div>role: {{message.role}}</div>
+<div>created_at: {{message.created_at}}</div>
+<div>updated_at: {{message.updated_at}}</div>
+<div>embedding_model: {{message.sent[0].embedding_model}}</div>
+<div>llm_model: {{message.sent[0].llm_model}}</div>
+<div>timestamp: {{message.sent[0].timestamp}}</div>
+
+{% if message.sent[0].referenced_documents %}
+    <div>
+        Referenced Documents:
+        {%for doc in message.sent[0].referenced_documents %}
+        <div>
+            
+            Score: {{doc.score}}
+            Doc: {{doc.doc}}
+        </div>
+        {% endfor %}
+    </div>
+{% endif %}
+</div>

@@ -23,7 +23,45 @@ nav {
     display: flex;
     flex-direction: column;
 }
+/* Modal Styles */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgb(0,0,0); /* Fallback color */
+    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
 
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto; /* 15% from the top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%; /* Could be more or less, depending on screen size */
+    position: relative; /* For close button positioning */
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    position: absolute;
+    top: 10px;
+    right: 15px;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
 #chats {
     flex: 1; /* Allow chats to grow and take available space */
     overflow-y: auto; /* Enable scrolling within chats */
@@ -40,14 +78,16 @@ nav {
     color: #fff;
     
 }
-
+.chat-id{
+    color: #fff;
+}
 button {
     background: #000000;
     color: #fff;
+    cursor: pointer;
     border: 2px solid #000;
     border-radius: 8px;
     font-size: 12px;
-    cursor: pointer;
     transition: background-color 0.3s ease;
     box-sizing: border-box;
 }
@@ -169,6 +209,10 @@ a:-webkit-any-link {
 .message .message-time {
     font-size: 0.85rem;
     color: #f5f5f7;
+    display: flex; 
+}
+.message .message-time button {
+    padding: 4px 8px;
 }
 
 .message p.message-content {

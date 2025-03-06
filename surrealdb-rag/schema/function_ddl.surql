@@ -258,6 +258,7 @@ Returns:
 DEFINE FUNCTION OVERWRITE fn::load_chat($chat_id: string) {
     RETURN 
         SELECT
+            out.id AS id,
             out.role AS role,
             out.content AS content,
             timestamp

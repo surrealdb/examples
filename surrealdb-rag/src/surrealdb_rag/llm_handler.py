@@ -43,33 +43,52 @@ class ModelListHandler():
                 content_fasttext_vector!=None AS has_fasttext_vectors
                 FROM embedded_wiki LIMIT 1;""")
         check_for_vectors = check_for_vectors[0]
-        #you need an api key for gemini
-        if self.model_params.gemini_token:
-            self.LLM_MODELS["GEMINI"] = ModelParams.LLM_MODELS["GEMINI"]
-            self.LLM_MODELS["GEMINI-SURREAL"] = ModelParams.LLM_MODELS["GEMINI-SURREAL"]
-
-        #you need an api key for openai
-        if self.model_params.openai_token:
-            self.LLM_MODELS["OPENAI"] = ModelParams.LLM_MODELS["OPENAI"]
-            self.LLM_MODELS["OPENAI-SURREAL"] = ModelParams.LLM_MODELS["OPENAI-SURREAL"]
-            #you need the vector field populated for openai
-            if check_for_vectors["has_openai_vectors"] == True:
-                self.EMBED_MODELS["OPENAI"] = ModelParams.EMBED_MODELS["OPENAI"] 
+        #you need the vector field populated for fasttext
+        if check_for_vectors["has_fasttext_vectors"] == True: 
+                self.EMBED_MODELS["CUST_FASTTEXT"] = ModelParams.EMBED_MODELS["CUST_FASTTEXT"] 
 
         #you need the vector field populated for glove
         if check_for_vectors["has_glove_vectors"] == True: 
                 self.EMBED_MODELS["GLOVE"] = ModelParams.EMBED_MODELS["GLOVE"] 
 
-        #you need the vector field populated for fasttext
-        if check_for_vectors["has_fasttext_vectors"] == True: 
-                self.EMBED_MODELS["CUST_FASTTEXT"] = ModelParams.EMBED_MODELS["CUST_FASTTEXT"] 
+        #you need an api key for gemini
+        if self.model_params.gemini_token:
+            genai.configure(api_key=self.model_params.gemini_token)
+
+            for model in genai.list_models():
+                #print(model)
+                if (    model.supported_generation_methods in
+                        [ 
+                            ['generateContent', 'countTokens'] , 
+                            ['generateContent', 'countTokens', 'createCachedContent']
+                        ]
+                        and "gemini" in model.name 
+                        and (model.display_name == model.description
+                             or "stable" in model.description.lower()) ):
+                    self.LLM_MODELS["GOOGLE - " + model.display_name] = {"model_version":model.name,"host":"API","platform":"GOOGLE","temperature":None}
+                    self.LLM_MODELS["GOOGLE - " + model.display_name + " (surreal)"] = {"model_version":model.name, "host":"SQL","platform":"GOOGLE","temperature":None}
+                
+        #you need an api key for openai
+        if self.model_params.openai_token:
+            openai.api_key = self.model_params.openai_token
+            models = openai.models.list()
+            for model in models.data:
+                if(model.owned_by == "openai" and "gpt" in model.id):
+                    #print(model)
+                    self.LLM_MODELS["OPENAI - " + model.id] = {"model_version":model.id,"host":"API","platform":"OPENAI","temperature":0.5}
+                    self.LLM_MODELS["OPENAI - " + model.id + " (surreal)"] = {"model_version":model.id,"host":"SQL","platform":"OPENAI","temperature":0.5}
+                
+
+            # self.LLM_MODELS["OPENAI"] = ModelParams.LLM_MODELS["OPENAI"]
+            # self.LLM_MODELS["OPENAI-SURREAL"] = ModelParams.LLM_MODELS["OPENAI-SURREAL"]
+            #you need the vector field populated for openai
+            if check_for_vectors["has_openai_vectors"] == True:
+                self.EMBED_MODELS["OPENAI"] = ModelParams.EMBED_MODELS["OPENAI"] 
 
         response: ollama.ListResponse = ollama.list()
 
-
-
         for model in response.models:
-            self.LLM_MODELS[model.model] = {"model_version":model.model,"host":"OLLAMA","platform":"local","temperature":None}
+            self.LLM_MODELS["OLLAMA " + model.model] = {"model_version":model.model,"host":"OLLAMA","platform":"local","temperature":None}
 
             # print('Name:', model.model)
             # print('  Size (MB):', f'{(model.size.real / 1024 / 1024):.2f}')
