@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "surrealdb_rag"
+version = "0"
+description = "Example of RAG using SurrealDB"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.11"
+dependencies = [
+    "pandas",
+    "wget",
+    "pandas-stubs",
+    "surrealdb",
+    "tqdm",
+    "fastapi",
+    "uvicorn",
+    "jinja2",
+    "python-multipart",
+    "python-dotenv",
+    "ollama",
+    "google.generativeai",
+    "openai",
+    "fasttext"
+]
+
+[project.scripts]
+surreal-create-db = "surrealdb_rag.create_database:surreal_create_database"
+surreal-insert-wiki = "surrealdb_rag.insert_wiki:surreal_wiki_insert"
+download-data = "surrealdb_rag.download:download_data"
+download-glove = "surrealdb_rag.download:download_glove_model"
+surreal-insert-glove = "surrealdb_rag.insert_glove:surreal_glove_insert"

@@ -1,0 +1,15 @@
+pandas
+surrealdb
+wget
+pandas-stubs`
+surrealdb
+tqdm
+fastapi
+uvicorn
+jinja2
+python-multipart
+python-dotenv
+ollama
+google.generativeai
+openai
+fasttext

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatSurrealDB</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}" />
+
+    <script>
+    
+        document.addEventListener('htmx:afterRequest', function(evt) {
+
+            if (evt.detail.successful) {
+                
+                if (evt.detail.elt.hasAttribute('hx-delete')) {
+                    const targetId = evt.detail.elt.getAttribute('hx-target');
+                    console.log("delete " + targetId)
+                    if (targetId) {
+                        const targetElement = document.querySelector(targetId);
+                        if (targetElement) {
+                            targetElement.remove();
+                        }
+                        const mainElement = document.querySelector('main');
+                        if (mainElement) {
+                            mainElement.innerHTML = ''; // Clear the inner HTML
+                        }
+                    }
+                } else {
+                    const messagesDiv = document.querySelector('main .messages');
+                    if (messagesDiv) {
+                        const lastMessage = messagesDiv.lastElementChild;
+                        if (lastMessage) {
+                            lastMessage.focus();
+                            lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        }
+                    }
+
+                }
+
+            }
+
+        });
+
+    </script>
+</head>
+
+<body>
+    <nav>
+        <button hx-post="/chats" hx-target="#chats" hx-swap="afterbegin">
+            <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+            New Chat
+        </button>
+        <div id="chats" hx-get="/chats" hx-trigger="load"></div>
+
+
+
+        <div id="modelSelector" class="model_selector">
+            LLM:<br>
+            <select id="llmModelSelect" name="llm_model" hx-get="/get_llm_model_details"
+                    hx-trigger="change"
+                    hx-target="#llmModelDetails"
+                    hx-include="this">
+                {% for model in available_llm_models %}
+                <option value="{{ model }}">{{ model }}</option>
+                {% endfor %}
+            </select>
+            <br>
+            <div id="llmModelDetails">
+                {% if default_llm_model %}
+                Version: {{default_llm_model['model_version']}}, Host: {{default_llm_model['host']}}
+                {% endif %}
+            </div>
+            <br>
+            Embedding:<br>
+            <select id="embedModelSelect" name="embed_model" hx-get="/get_embed_model_details"
+            hx-trigger="change"
+            hx-target="#embedModelDetails"
+            hx-include="this">
+                {% for model in available_embed_models %}
+                <option value="{{ model }}">{{ model }}</option>
+                {% endfor %}
+            </select>
+            <br>
+            <div id="embedModelDetails">
+                {% if default_embed_model %}
+                Dimensions: {{default_embed_model['dimensions']}}, Host: {{default_embed_model['host']}}
+                {% endif %}
+            </div>
+            <br>
+            </div>
+    </nav>
+    <main>
+
+    </main>
+</body>
+
+</html>

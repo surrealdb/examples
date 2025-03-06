@@ -1,0 +1,9 @@
+<div class="user message" hx-trigger="load" hx-post="chats/{{ chat_id }}/send-system-message" hx-target=".messages"
+    hx-swap="beforeend"  hx-include="#llmModelSelect, #embedModelSelect">
+    <div class="message-header">
+        <span class="messenger-name"> User</span>
+        <span class=" message-time">{{ timestamp | convert_timestamp_to_date }}</span>
+    </div>
+    <p class="message-content">{{ content | safe }}</p>
+</div>
+<script>document.getElementById('messageform').reset();</script>
