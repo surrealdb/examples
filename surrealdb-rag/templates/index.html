@@ -68,7 +68,120 @@
                 console.error("Modal or close button not found.");
             }
         });
+        const available_llm_models_string = `{{ available_llm_models | safe }}`; // @ts-ignore - Ignore templating syntax
+        let available_llm_models = {};
+        try {
+            available_llm_models = JSON.parse(available_llm_models_string);
+        } catch (e) {
+            console.error("Error parsing available_llm_models:", e);
+        }
 
+
+        const available_corpus_tables_string = `{{ available_corpus_tables | safe }}`; // @ts-ignore - Ignore templating syntax
+        let available_corpus_tables = {};
+        try {
+            available_corpus_tables = JSON.parse(available_corpus_tables_string);
+        } catch (e) {
+            console.error("Error parsing available_corpus_tables:", e);
+        }
+
+
+
+        function updateLlmModelSelect(){
+            const platformSelect = document.getElementById("platformSelect");
+            const hostSelect = document.getElementById("hostSelect");
+            const llmModelSelect = document.getElementById("llmModelSelect");
+
+            const selectedPlatform = platformSelect.value;
+            if(selectedPlatform=="OLLAMA"){
+                hostSelect.value = "OLLAMA";
+            } else {
+                if (hostSelect.value == "OLLAMA"){
+                    hostSelect.value = "API";
+                }
+            }
+            const selectedHost = hostSelect.value;
+            
+            // Clear existing options
+            llmModelSelect.innerHTML = "";
+
+
+
+            // Create a default "Select a Model" option
+            // const defaultOption = document.createElement("option");
+            // defaultOption.text = "Select a Model";
+            // defaultOption.value = ""; // You can set this to an empty string or a specific value
+            // llmModelSelect.add(defaultOption);
+
+            // Populate with matching models
+            for (const modelName in available_llm_models) {
+                const model = available_llm_models[modelName];
+                if (model.platform === selectedPlatform && model.host === selectedHost) {
+                    const option = document.createElement("option");
+                    option.text = model.model_version;
+                    option.value = modelName; // Or you can set this to a different identifier if needed
+                    llmModelSelect.add(option);
+                }
+            }
+            llmModelSelect.dispatchEvent(new Event('change'));
+        }   
+
+        function arrayToCsvString(arr) {
+            const quotedElements = arr.map(element => `"${element}"`);
+            return `[${quotedElements.join(',')}]`;
+        }
+        
+        function updateEmbedModelSelect(){
+            const embedModelSelect = document.getElementById("embedModelSelect");
+            const corpusTableSelect = document.getElementById("corpusTableSelect");
+            const selectedCorpusTable = corpusTableSelect.value;
+            const corpusTable = available_corpus_tables[selectedCorpusTable];
+            embedModelSelect.innerHTML = "";
+            for (const embedModel in corpusTable.embed_models) {
+                const modelName = corpusTable.embed_models[embedModel].model.join(' - ');
+                const modelId = arrayToCsvString(corpusTable.embed_models[embedModel].model);
+                const option = document.createElement("option");
+                console.log("updateEmbedModelSelect" + modelName );
+                option.text = modelName;
+                option.value = modelId;
+                embedModelSelect.add(option);
+            }
+        
+        
+        }
+        function populateCorpusTableSelect(){
+            const corpusTableSelect = document.getElementById("corpusTableSelect");
+            
+            console.log("populateCorpusTableSelect")
+            console.log(available_corpus_tables)
+            
+            // Clear existing options
+            corpusTableSelect.innerHTML = "";
+            for (const corpusTableID in available_corpus_tables) {
+                const option = document.createElement("option");
+                option.text = available_corpus_tables[corpusTableID].display_name;
+                option.value = corpusTableID; // Or you can set this to a different identifier if needed
+                corpusTableSelect.add(option);
+            }
+            corpusTableSelect.add(document.createElement("option"));
+                
+            
+            corpusTableSelect.dispatchEvent(new Event('change'));
+        }   
+
+        document.addEventListener("DOMContentLoaded", function() {
+            updateLlmModelSelect();
+        });
+
+
+        document.addEventListener("DOMContentLoaded", function() {
+            populateCorpusTableSelect();
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            updateEmbedModelSelect();
+        });
+        
     </script>
 </head>
 
@@ -80,38 +193,57 @@
         </button>
         <div id="chats" hx-get="/chats" hx-trigger="load"></div>
 
-
-
+      
         <div id="modelSelector" class="model_selector">
+            Data Set:
+            <select id="corpusTableSelect" name="corpus_table"
+                    hx-include="this"  onchange="updateEmbedModelSelect()"
+                    hx-get="/get_corpus_table_details"
+                    hx-target="#corpusTableDetails"
+                    hx-include="this">
+            </select>
+            <div id="corpusTableDetails">
+                {% if default_corpus_table %}
+                Table: {{default_corpus_table['table_name']}}
+                {% endif %}
+
+            </div>
+            <br><br>
             LLM:<br>
+            <select name="platformSelect" id="platformSelect" onchange="updateLlmModelSelect()">
+                <option>GOOGLE</option>
+                <option>OPENAI</option>
+                <option>OLLAMA</option>
+            </select>
+            <select name="hostSelect" id="hostSelect" onchange="updateLlmModelSelect()">
+                <option>API</option>
+                <option>SQL</option>
+                <option>OLLAMA</option>
+            </select>
             <select id="llmModelSelect" name="llm_model" hx-get="/get_llm_model_details"
                     hx-trigger="change"
                     hx-target="#llmModelDetails"
                     hx-include="this">
-                {% for model in available_llm_models %}
-                <option value="{{ model }}">{{ model }}</option>
-                {% endfor %}
             </select>
             <br>
             <div id="llmModelDetails">
-                {% if default_llm_model %}
-                Version: {{default_llm_model['model_version']}}, Host: {{default_llm_model['host']}}
-                {% endif %}
+                
             </div>
             <br>
             Embedding:<br>
             <select id="embedModelSelect" name="embed_model" hx-get="/get_embed_model_details"
             hx-trigger="change"
             hx-target="#embedModelDetails"
-            hx-include="this">
-                {% for model in available_embed_models %}
-                <option value="{{ model }}">{{ model }}</option>
-                {% endfor %}
+            hx-include="this, #corpusTableSelect">
+               
             </select>
             <br>
             <div id="embedModelDetails">
                 {% if default_embed_model %}
-                Dimensions: {{default_embed_model['dimensions']}}, Host: {{default_embed_model['host']}}
+                    Dimensions: {{default_embed_model['dimensions']}}, Host: {{default_embed_model['host']}}<br> 
+                    Corpus: {{default_embed_model['corpus']}}<br>  
+                    Description: {{default_embed_model['description']}}
+
                 {% endif %}
             </div>
             <br>
@@ -123,7 +255,9 @@
     <div id="myModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <message_detail></message_detail>
+            <message_detail id="message_detail"></message_detail>
+            <doc_detail id="doc_detail"></doc_detail>
+            
         </div>
     </div>
 </body>

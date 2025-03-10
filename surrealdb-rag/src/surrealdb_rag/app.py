@@ -7,9 +7,12 @@ import fastapi
 from surrealdb import AsyncSurreal,RecordID
 from fastapi import responses, staticfiles, templating
 from surrealdb_rag.llm_handler import LLMModelHander,ModelListHandler
+from urllib.parse import quote
+import json
 
 import uvicorn
-
+import ast
+from urllib.parse import urlencode
 from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
 db_params = DatabaseParams()
 model_params = ModelParams()
@@ -17,6 +20,23 @@ args_loader = ArgsLoader("LLM Model Handler",db_params,model_params)
 args_loader.LoadArgs()
 
 
+
+def format_url_id(surrealdb_id: RecordID) -> str:
+
+    if RecordID == type(surrealdb_id):
+        str_to_format = surrealdb_id.id
+    else:
+        str_to_format = surrealdb_id
+    return quote(str_to_format).replace("/","|")
+    
+
+def unformat_url_id(surrealdb_id: str) -> str:
+    return surrealdb_id.replace("|","/")
+    if RecordID == type(surrealdb_id):
+        str_to_format = surrealdb_id.id
+    else:
+        str_to_format = surrealdb_id
+    return quote(str_to_format)
 
 
 def extract_id(surrealdb_id: RecordID) -> str:
@@ -56,6 +76,7 @@ def convert_timestamp_to_date(timestamp: str) -> str:
 
 templates = templating.Jinja2Templates(directory="templates")
 templates.env.filters["extract_id"] = extract_id
+templates.env.filters["format_url_id"] = format_url_id
 templates.env.filters["convert_timestamp_to_date"] = convert_timestamp_to_date
 life_span = {}
 
@@ -71,9 +92,11 @@ async def lifespan(_: fastapi.FastAPI) -> AsyncGenerator:
 
 
     model_list = ModelListHandler(model_params,life_span["surrealdb"])
-
+    
+    
     life_span["llm_models"] = await model_list.available_llm_models()
-    life_span["embed_models"] = await model_list.available_embed_models()
+    life_span["corpus_tables"] = await model_list.available_corpus_tables()
+
 
     yield
     life_span.clear()
@@ -87,30 +110,61 @@ app.mount("/static", staticfiles.StaticFiles(directory="static"), name="static")
 async def index(request: fastapi.Request) -> responses.HTMLResponse:
 
 
+    available_llm_models_json = json.dumps(life_span["llm_models"])
+    available_corpus_tables_json = json.dumps(life_span["corpus_tables"])
+
+    default_llm_model = life_span["llm_models"][next(iter(life_span["llm_models"]))]
+    default_corpus_table = life_span["corpus_tables"][next(iter(life_span["corpus_tables"]))]
+    default_embed_model = default_corpus_table["embed_models"][0]
+
     return templates.TemplateResponse("index.html", {
             "request": request, 
-                                                     "available_llm_models": life_span["llm_models"], 
-                                                     "available_embed_models": life_span["embed_models"],
-                                                     "default_llm_model": life_span["llm_models"][next(iter(life_span["llm_models"]))],
-                                                     "default_embed_model":life_span["embed_models"][next(iter(life_span["embed_models"]))]
+                                                     "available_llm_models": available_llm_models_json, 
+                                                     "available_corpus_tables": available_corpus_tables_json,
+                                                     "default_llm_model": default_llm_model,
+                                                     "default_corpus_table": default_corpus_table,
+                                                     "default_embed_model":default_embed_model
                                                      })
+
+@app.get("/get_corpus_table_details")
+async def get_corpus_table_details(corpus_table: str = fastapi.Query(...)):
+    corpus_table_detail = life_span["corpus_tables"].get(corpus_table)
+    if corpus_table_detail:
+        s = f"Table: {corpus_table_detail['table_name']}"
+    else:
+        s = "Corpus table details not found."
+    return fastapi.Response(s, media_type="text/html") #Return response object
+    
+
 
 @app.get("/get_llm_model_details")
 async def get_llm_model_details(llm_model: str = fastapi.Query(...)):
     model_data = life_span["llm_models"].get(llm_model)
     if model_data:
-        s = f"Version: {model_data['model_version']}, Host: {model_data['host']}"
+        s = f" Platform: {model_data['platform']},  Host: {model_data['host']} <br> Version: {model_data['model_version']}"
     else:
         s = "Model details not found."
     return fastapi.Response(s, media_type="text/html") #Return response object
     
 @app.get("/get_embed_model_details")
-async def get_embed_model_details(embed_model: str = fastapi.Query(...)):
-    model_data = life_span["embed_models"].get(embed_model)
-    if model_data:
-        s = f"Dimensions: {model_data['dimensions']}, Host: {model_data['host']}"
+async def get_embed_model_details(corpus_table: str = fastapi.Query(...),embed_model: str = fastapi.Query(...)):
+    embed_models = life_span["corpus_tables"][corpus_table]["embed_models"]
+    embed_model_detail = None
+    embed_model = ast.literal_eval(embed_model)
+    for model in embed_models:
+        #arrays are passed as csv from the html
+        if embed_model == model["model"]:
+            embed_model_detail = model
+            break
+    if embed_model_detail==None :
+        raise Exception(f"Invalid embedd model {embed_model}")
     else:
-        s = "Model details not found."
+        s = f""" 
+            Dimensions: {embed_model_detail['dimensions']}, Host: {embed_model_detail['host']}<br> 
+            Corpus: {embed_model_detail['corpus']}<br>  
+            Description: {embed_model_detail['description']}
+        """
+    
     return fastapi.Response(s, media_type="text/html") #Return response object
     
 
@@ -149,16 +203,21 @@ async def load_chat(
     message_records = await life_span["surrealdb"].query(
         """RETURN fn::load_chat($chat_id)""",params = {"chat_id":chat_id}    
     )
+
+    title = await life_span["surrealdb"].query(
+        """RETURN fn::get_chat_title($chat_id);""",params = {"chat_id":chat_id}
+    )
+
     return templates.TemplateResponse(
-        "load_chat.html",
+        "chat.html",
         {
             "request": request,
             "messages": message_records,
-            "chat_id": chat_id,
+            "chat": {"id":chat_id,"title": title }
         },
     )
 @app.get("/messages/{message_id}", response_class=responses.HTMLResponse)
-async def load_chat(
+async def load_message(
     request: fastapi.Request, message_id: str
 ) -> responses.HTMLResponse:
     """Load a chat."""
@@ -166,11 +225,31 @@ async def load_chat(
         """RETURN fn::load_message_detail($message_id)""",params = {"message_id":message_id}    
     )
     return templates.TemplateResponse(
-        "load_message_detail.html",
+        "message_detail.html",
         {
             "request": request,
             "message": message,
-            "message_id": message_id,
+            "message_id": message_id
+        },
+    )
+
+
+@app.get("/documents/{document_id}", response_class=responses.HTMLResponse)
+async def load_document(
+    request: fastapi.Request, document_id: str,
+    corpus_table: str = fastapi.Query(...)
+) -> responses.HTMLResponse:
+    """Load a chat."""
+    document_id = unformat_url_id(document_id)
+    document = await life_span["surrealdb"].query(
+        """RETURN fn::load_document_detail($corpus_table,$document_id)""",params = {"corpus_table":corpus_table,"document_id":document_id}    
+    )
+    return templates.TemplateResponse(
+        "document.html",
+        {
+            "request": request,
+            "document": document[0],
+            "document_id": document_id
         },
     )
 
@@ -195,26 +274,30 @@ async def send_user_message(
     request: fastapi.Request,
     chat_id: str,
     content: str = fastapi.Form(...),
-    embed_model: str = fastapi.Form(...)
+    embed_model: str = fastapi.Form(...),
+    corpus_table: str = fastapi.Form(...)
 ) -> responses.HTMLResponse:
     """Send user message."""
-    if embed_model == "OPENAI":
-         message = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
-            """RETURN fn::create_user_message($chat_id, $content,$embedding_model,$openaitoken);""",params = {"chat_id":chat_id,"content":content,"embedding_model":embed_model,"openaitoken":model_params.openai_token}    
+
+    embed_model = ast.literal_eval(embed_model)
+    # need to fix for model_trainer
+    if embed_model[0] == "OPENAI":
+         outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
+            """RETURN fn::create_user_message($chat_id,$corpus_table, $content,type::thing('embedding_model_definition',$embedding_model),$openaitoken);""",params = {"chat_id":chat_id,"corpus_table":corpus_table,"content":content,"embedding_model":embed_model,"openaitoken":model_params.openai_token}    
         ))
     else:
-        message = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
-            """RETURN fn::create_user_message($chat_id, $content,$embedding_model);""",params = {"chat_id":chat_id,"content":content,"embedding_model":embed_model}    
+        outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
+            """RETURN fn::create_user_message($chat_id,$corpus_table, $content,type::thing('embedding_model_definition',$embedding_model));""",params = {"chat_id":chat_id,"corpus_table":corpus_table,"content":content,"embedding_model":embed_model}    
         ))
 
-
+    message = outcome["result"][0]["result"]
     return templates.TemplateResponse(
-        "send_user_message.html",
+        "message.html",
         {
             "request": request,
             "chat_id": chat_id,
-            "content": message["result"][0]["result"]["content"],
-            "timestamp": message["result"][0]["result"]["timestamp"]
+            "new_message": True,
+            "message" : message
         },
     )
 
@@ -232,10 +315,10 @@ async def send_system_message(
     
     
 
-    message = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
+    outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
         """RETURN fn::get_last_user_message_input_and_prompt($chat_id);""",params = {"chat_id":chat_id}
     ))
-    result =  message["result"][0]["result"]
+    result =  outcome["result"][0]["result"]
     prompt_text = result["prompt_text"]
     content = result["content"]
     #call the LLM
@@ -248,10 +331,10 @@ async def send_system_message(
     llm_response = llm_handler.get_chat_response(prompt_text,content)
     
     #save the response in the DB
-    message = SurrealParams.ParseResponseForErrors(await life_span["surrealdb"].query_raw(
-        """RETURN fn::create_message($chat_id, "system", $llm_response);""",params = {"chat_id":chat_id,"llm_response":llm_response}
+    outcome = SurrealParams.ParseResponseForErrors(await life_span["surrealdb"].query_raw(
+        """RETURN fn::create_system_message($chat_id,$llm_response,$llm_model,$prompt_text);""",params = {"chat_id":chat_id,"llm_response":llm_response,"llm_model":llm_model,"prompt_text":prompt_text}
         ))
-
+    
     title = await life_span["surrealdb"].query(
         """RETURN fn::get_chat_title($chat_id);""",params = {"chat_id":chat_id}
     )
@@ -261,7 +344,7 @@ async def send_system_message(
             "RETURN fn::get_first_message($chat_id);",params={"chat_id":chat_id}
         )
         system_prompt = "You are a conversation title generator for a ChatGPT type app. Respond only with a simple title using the user input."
-        new_title = llm_handler.get_chat_response(system_prompt,first_message_text)
+        new_title = llm_handler.get_short_plain_text_response(system_prompt,first_message_text)
         #update chat title in database
         SurrealParams.ParseResponseForErrors(await life_span["surrealdb"].query_raw(
             """UPDATE type::record($chat_id) SET title=$title;""",params = {"chat_id":chat_id,"title":new_title}    
@@ -269,18 +352,17 @@ async def send_system_message(
 
 
 
-    result =  message["result"][0]["result"]
+    message = outcome["result"][0]["result"]
 
-
-
+    
     return templates.TemplateResponse(
-        "send_system_message.html",
+        "message.html",
         {
             "request": request,
-            "content": result["content"],
-            "timestamp": result["timestamp"],
             "new_title": new_title.strip(),
             "chat_id": chat_id,
+            "new_message": True,
+            "message": message
         },
     )
 

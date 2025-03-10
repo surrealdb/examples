@@ -21,3 +21,7 @@ dsstore-remove:
 
 .PHONY: cleanup
 cleanup: pycache-remove dsstore-remove 
+
+.PHONY: surreal-insert-glove
+surreal-insert-glove: python src/surrealdb_rag/insert_embedding_model.py -emtr GLOVE -emv 300d -emp data/glove.6B.300d.txt -des "Standard pretrained GLoVE model from https://nlp.stanford.edu/projects/glove/ 300 dimensions version"
+

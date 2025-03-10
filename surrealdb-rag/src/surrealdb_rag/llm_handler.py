@@ -8,113 +8,176 @@ import google.generativeai as genai
 
 from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader
 from surrealdb import AsyncSurreal
-
-
-    # LLM_MODELS = {
-    #     "GEMINI-SURREAL": {"model_version":"gemini-2.0-flash","host":"SQL","platform":"GOOGLE","temperature":None},
-    #     "GEMINI": {"model_version":"gemini-2.0-flash","host":"API","platform":"GOOGLE","temperature":None},
-    #     "DEEPSEEK": {"model_version":"deepseek-r1:1.5b","host":"OLLAMA","platform":"local","temperature":None},
-    #     "OPENAI-SURREAL": {"model_version":"gpt-3.5-turbo","host":"API","platform":"OPENAI","temperature":0.5},
-    #     "OPENAI": {"model_version":"gpt-3.5-turbo","host":"API","platform":"OPENAI","temperature":0.5}
-    # # }
-
-    # EMBED_MODELS = {
-    #     "CUST_FASTTEXT": {"dimensions":100,"host":"SQL"},
-    #     "GLOVE": {"dimensions":300,"host":"SQL"},
-    #     "OPENAI": {"dimensions":1536,"host":"API"}
-    # }
+import re
 
 class ModelListHandler():
 
     def __init__(self, model_params, connection):
         self.LLM_MODELS = {}
-        self.EMBED_MODELS = {}
+        self.CORPUS_TABLES = {}
         self.model_params = model_params
         self.connection = connection
-
-    async def populate_models(self):
-        self.LLM_MODELS = {}
-        self.EMBED_MODELS = {}
-
-        check_for_vectors = await self.connection.query(
-            """SELECT 
-                content_openai_vector!=None AS has_openai_vectors, 
-                content_glove_vector!=None AS has_glove_vectors, 
-                content_fasttext_vector!=None AS has_fasttext_vectors
-                FROM embedded_wiki LIMIT 1;""")
-        check_for_vectors = check_for_vectors[0]
-        #you need the vector field populated for fasttext
-        if check_for_vectors["has_fasttext_vectors"] == True: 
-                self.EMBED_MODELS["CUST_FASTTEXT"] = ModelParams.EMBED_MODELS["CUST_FASTTEXT"] 
-
-        #you need the vector field populated for glove
-        if check_for_vectors["has_glove_vectors"] == True: 
-                self.EMBED_MODELS["GLOVE"] = ModelParams.EMBED_MODELS["GLOVE"] 
-
-        #you need an api key for gemini
-        if self.model_params.gemini_token:
-            genai.configure(api_key=self.model_params.gemini_token)
-
-            for model in genai.list_models():
-                #print(model)
-                if (    model.supported_generation_methods in
-                        [ 
-                            ['generateContent', 'countTokens'] , 
-                            ['generateContent', 'countTokens', 'createCachedContent']
-                        ]
-                        and "gemini" in model.name 
-                        and (model.display_name == model.description
-                             or "stable" in model.description.lower()) ):
-                    self.LLM_MODELS["GOOGLE - " + model.display_name] = {"model_version":model.name,"host":"API","platform":"GOOGLE","temperature":None}
-                    self.LLM_MODELS["GOOGLE - " + model.display_name + " (surreal)"] = {"model_version":model.name, "host":"SQL","platform":"GOOGLE","temperature":None}
-                
-        #you need an api key for openai
-        if self.model_params.openai_token:
-            openai.api_key = self.model_params.openai_token
-            models = openai.models.list()
-            for model in models.data:
-                if(model.owned_by == "openai" and "gpt" in model.id):
-                    #print(model)
-                    self.LLM_MODELS["OPENAI - " + model.id] = {"model_version":model.id,"host":"API","platform":"OPENAI","temperature":0.5}
-                    self.LLM_MODELS["OPENAI - " + model.id + " (surreal)"] = {"model_version":model.id,"host":"SQL","platform":"OPENAI","temperature":0.5}
-                
-
-            # self.LLM_MODELS["OPENAI"] = ModelParams.LLM_MODELS["OPENAI"]
-            # self.LLM_MODELS["OPENAI-SURREAL"] = ModelParams.LLM_MODELS["OPENAI-SURREAL"]
-            #you need the vector field populated for openai
-            if check_for_vectors["has_openai_vectors"] == True:
-                self.EMBED_MODELS["OPENAI"] = ModelParams.EMBED_MODELS["OPENAI"] 
-
-        response: ollama.ListResponse = ollama.list()
-
-        for model in response.models:
-            self.LLM_MODELS["OLLAMA " + model.model] = {"model_version":model.model,"host":"OLLAMA","platform":"local","temperature":None}
-
-            # print('Name:', model.model)
-            # print('  Size (MB):', f'{(model.size.real / 1024 / 1024):.2f}')
-            # if model.details:
-            #     print('  Format:', model.details.format)
-            #     print('  Family:', model.details.family)
-            #     print('  Parameter Size:', model.details.parameter_size)
-            #     print('  Quantization Level:', model.details.quantization_level)
-            # print('\n')
-
 
     async def available_llm_models(self):
         if self.LLM_MODELS != {}:
             return self.LLM_MODELS 
         else:
-            await self.populate_models()
+            self.LLM_MODELS = {}
+            
+
+            #you need an api key for gemini
+            if self.model_params.gemini_token:
+                genai.configure(api_key=self.model_params.gemini_token)
+
+                for model in genai.list_models():
+                    #print(model)
+                    if (    model.supported_generation_methods in
+                            [ 
+                                ['generateContent', 'countTokens'] , 
+                                ['generateContent', 'countTokens', 'createCachedContent']
+                            ]
+                            and "gemini" in model.name 
+                            and (model.display_name == model.description
+                                or "stable" in model.description.lower()) ):
+                        self.LLM_MODELS["GOOGLE - " + model.display_name] = {"model_version":model.name,"host":"API","platform":"GOOGLE","temperature":0}
+                        self.LLM_MODELS["GOOGLE - " + model.display_name + " (surreal)"] = {"model_version":model.name, "host":"SQL","platform":"GOOGLE","temperature":0}
+                    
+            #you need an api key for openai
+            if self.model_params.openai_token:
+                openai.api_key = self.model_params.openai_token
+                models = openai.models.list()
+                for model in models.data:
+                    if(model.owned_by == "openai" and "gpt" in model.id):
+                        #print(model)
+                        self.LLM_MODELS["OPENAI - " + model.id] = {"model_version":model.id,"host":"API","platform":"OPENAI","temperature":0.5}
+                        self.LLM_MODELS["OPENAI - " + model.id + " (surreal)"] = {"model_version":model.id,"host":"SQL","platform":"OPENAI","temperature":0.5}
+                    
+
+            response: ollama.ListResponse = ollama.list()
+
+            for model in response.models:
+                self.LLM_MODELS["OLLAMA " + model.model] = {"model_version":model.model,"host":"OLLAMA","platform":"OLLAMA","temperature":0}
+
+        
+
             return self.LLM_MODELS 
     
-    async def available_embed_models(self):
-        if self.EMBED_MODELS != {}:
-            return self.EMBED_MODELS 
+    async def available_corpus_tables(self):
+        if self.CORPUS_TABLES != {}:
+            return self.CORPUS_TABLES 
         else:
-            await self.populate_models()
-            return self.EMBED_MODELS 
-            
+            self.CORPUS_TABLES = {}
+            corpus_tables = await self.connection.query("""
+                SELECT display_name,table_name,embed_models FROM corpus_table FETCH embed_models,embed_models.model;
+            """)
+
+            #you need an api key for openai so remove openai from list if api is absent
+
+            for corpus_table in corpus_tables:
+                # example record 
+                # {
+                #     display_name: 'Wikipedia',
+                #     embed_models: [
+                #         {
+                #             corpus_table: corpus_table:embedded_wiki,
+                #             field_name: 'content_fasttext_vector',
+                #             id: corpus_table_model:[
+                #                 corpus_table:embedded_wiki,
+                #                 embedding_model_definition:[
+                #                     'FASTTEXT',
+                #                     'wiki'
+                #                 ]
+                #             ],
+                #             model: {
+                #                 corpus: 'https://cdn.openai.com/API/examples/data/vector_database_wikipedia_articles_embedded.zip',
+                #                 description: 'Custom trained model using fasttext based on OPENAI wiki example download',
+                #                 dimensions: 100,
+                #                 host: 'SQL',
+                #                 id: embedding_model_definition:[
+                #                     'FASTTEXT',
+                #                     'wiki'
+                #                 ],
+                #                 model_trainer: 'FASTTEXT',
+                #                 version: 'wiki'
+                #             }
+                #         },
+                #         {
+                #             corpus_table: corpus_table:embedded_wiki,
+                #             field_name: 'content_glove_vector',
+                #             id: corpus_table_model:[
+                #                 corpus_table:embedded_wiki,
+                #                 embedding_model_definition:[
+                #                     'GLOVE',
+                #                     '6b 300d'
+                #                 ]
+                #             ],
+                #             model: {
+                #                 corpus: 'Wikipedia 2014 + Gigaword 5',
+                #                 description: 'Standard pretrained GLoVE model from https://nlp.stanford.edu/projects/glove/ 300 dimensions version',
+                #                 dimensions: 300,
+                #                 host: 'SQL',
+                #                 id: embedding_model_definition:[
+                #                     'GLOVE',
+                #                     '6b 300d'
+                #                 ],
+                #                 model_trainer: 'GLOVE',
+                #                 version: '6b 300d'
+                #             }
+                #         },
+                #         {
+                #             corpus_table: corpus_table:embedded_wiki,
+                #             field_name: 'content_openai_vector',
+                #             id: corpus_table_model:[
+                #                 corpus_table:embedded_wiki,
+                #                 embedding_model_definition:[
+                #                     'OPENAI',
+                #                     'text-embedding-ada-002'
+                #                 ]
+                #             ],
+                #             model: {
+                #                 corpus: 'generic pretrained',
+                #                 description: 'The standard OPENAI embedding model',
+                #                 dimensions: 1536,
+                #                 host: 'API',
+                #                 id: embedding_model_definition:[
+                #                     'OPENAI',
+                #                     'text-embedding-ada-002'
+                #                 ],
+                #                 model_trainer: 'OPENAI',
+                #                 version: 'text-embedding-ada-002'
+                #             }
+                #         }
+                #     ],
+                #     table_name: 'embedded_wiki'
+                # }
+                # create an dict item for table_name
+                table_name = corpus_table["table_name"]
+                self.CORPUS_TABLES[table_name] = {}
+                self.CORPUS_TABLES[table_name]["display_name"] = corpus_table["display_name"]
+                self.CORPUS_TABLES[table_name]["table_name"] = corpus_table["table_name"]
+                self.CORPUS_TABLES[table_name]["embed_models"] = []
+                for model in corpus_table["embed_models"]:
+                    model_def =  model["model"]
+                    model_def_id = model_def["id"].id
+                    if model_def_id[0] != "OPENAI" or (
+                        model_def_id[0] == "OPENAI" and self.model_params.openai_token):
+
+                        self.CORPUS_TABLES[table_name]["embed_models"].append(
+                                {"model":model_def_id,
+                                 "field_name":model["field_name"],
+                                 "corpus":model_def["corpus"],
+                                 "description":model_def["description"],
+                                 "host":model_def["host"],
+                                 "model_trainer":model_def["model_trainer"],
+                                 "version":model_def["version"],
+                                 "dimensions":model_def["dimensions"],
+                                 }
+                            )
+            return self.CORPUS_TABLES 
+
+
         
+
 
         
 
@@ -129,7 +192,34 @@ class LLMModelHander():
         self.connection = connection
 
 
+    def extract_plain_text(text):
+        """
+        Extracts plain text from a string by removing content within tags.
 
+        Args:
+            text (str): The input string containing tags.
+
+        Returns:
+            str: The plain text with tags and their contents removed.
+        """
+        # Use a regular expression to find and remove content within tags
+        clean_text = remove_think_tags(clean_text)
+        clean_text = re.sub(r'<[^>]*>', '', clean_text)
+        return clean_text
+    def remove_think_tags(text):
+        """
+        Removes <think> tags and their content from the given text, leaving only the text after the closing tag.
+
+        Args:
+            text (str): The input string.
+
+        Returns:
+            str: The string with <think> tags and their content removed.
+        """
+        return re.sub(r'<think>.*?</think>\n*', '', text, flags=re.DOTALL | re.IGNORECASE).strip()
+
+    def get_short_plain_text_response(self,prompt_with_context:str,input:str):
+        return LLMModelHander.extract_plain_text(self.get_chat_response(prompt_with_context,input))
 
     def get_chat_response(self,prompt_with_context:str,input:str):
 

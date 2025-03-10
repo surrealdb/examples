@@ -1,0 +1,16 @@
+<div class="chat-header">
+        <span id="{{ chat.id | extract_id }}_title">{{chat.title}}</span> (ID: {{chat.id}}) </div>
+<div class="messages">
+    {% for message in messages %}
+
+    {% include 'message.html' %}
+    
+    {% endfor %}
+</div>
+
+<form id="messageform" hx-post="/chats/{{ chat.id }}/send-user-message" hx-target=".messages" hx-swap="beforeend" 
+hx-include="#llmModelSelect, #embedModelSelect, #corpusTableSelect">
+   
+    <input type="text" name="content" />
+    <button>Send</button>
+</form>

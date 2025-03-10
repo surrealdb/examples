@@ -14,6 +14,8 @@ from surrealdb_rag.embeddings import WordEmbeddingModel
 import pandas as pd
 import tqdm
 
+
+
 def download_data() -> None:
     """Extract `vector_database_wikipedia_articles_embedded.csv` to `/data`."""
     logger = loggers.setup_logger("DownloadData")
@@ -45,7 +47,7 @@ def download_data() -> None:
         logger.error(f"Error opening embedding model. please check the model file was downloaded using download_glove_model {e}")
 
     try:
-        fastTextEmbeddingModel = WordEmbeddingModel(constants.CUSTOM_FS_PATH)
+        fastTextEmbeddingModel = WordEmbeddingModel(constants.FS_WIKI_PATH)
     except Exception as e:
         logger.error(f"Error opening embedding model. train the model using train_fastText {e}")
 

@@ -4,21 +4,10 @@ This file defines the SurrealQL for the chat functionality of this project. and 
 
 
 
-DEFINE FUNCTION OVERWRITE fn::retrieve_vector_size_for_model($model:string) 
-{
-    RETURN (SELECT VALUE array::len(embedding) FROM embedding_model:[
-    	$model,
-    	NONE
-    ]..[
-    	$model,
-    	..
-    ] LIMIT 1)[0]
-};
-
-DEFINE FUNCTION OVERWRITE fn::sentence_to_vector($sentence: string,$model: string) {
+DEFINE FUNCTION OVERWRITE fn::sentence_to_vector($sentence: string,$model: Record<embedding_model_definition>) {
     
     #Pull the first row to determine the size of the vector (they should all be the same)
-    LET $vector_size = fn::retrieve_vector_size_for_model($model);
+    LET $vector_size = $model.dimensions;
     
     #select the vectors from the embedding table that match the words
     LET $vectors = fn::retrieve_vectors_for_sentence($sentence,$model);
@@ -38,7 +27,7 @@ DEFINE FUNCTION OVERWRITE fn::sentence_to_vector($sentence: string,$model: strin
 
     #if the array size is correct return it, otherwise return array of zeros
     RETURN 
-        IF array::len($mean_vector) == $vector_size {$mean_vector}
+        IF array::len($mean_vector) == $vector_size 
         ELSE {None}
         ;
 };
@@ -50,43 +39,45 @@ DEFINE FUNCTION OVERWRITE fn::sentence_to_vector($sentence: string,$model: strin
 Args:
     input_vector: embedding to search for within the embedding field
     threshold: min threshold above and beyond the N returned
-    model: the name of the embedding model to use... "GLOVE", "CUST_FASTTEXT" or "OPENAI"
+    model: the name of the embedding model to use... "GLOVE", "OPENAI" or "FASTTEXT"
 Returns:
     array<float>: Array of embeddings.
 */
 
-DEFINE FUNCTION OVERWRITE fn::search_for_documents($input_vector: array<float>, $threshold: float, $model: string) {
-   
+DEFINE FUNCTION OVERWRITE fn::search_for_documents($corpus_table: string, $input_vector: array<float>, $threshold: float, $model: Record<embedding_model_definition>) {
+    
     LET $first_pass = 
-        (IF $model = "GLOVE" THEN
+        (IF $model.model_trainer = "GLOVE" THEN
             (
              SELECT
                 id,
                 vector::similarity::cosine(content_glove_vector, $input_vector) AS similarity_score
-            FROM embedded_wiki
+            FROM type::table($corpus_table)
             WHERE content_glove_vector <|5,40|> $input_vector
             );
-        ELSE IF $model = "CUST_FASTTEXT" THEN
+        ELSE IF $model.model_trainer = "FASTTEXT" THEN
             (
              SELECT
                 id,
                 vector::similarity::cosine(content_fasttext_vector, $input_vector) AS similarity_score
-            FROM embedded_wiki
+            FROM type::table($corpus_table)
             WHERE content_fasttext_vector <|5,40|> $input_vector
             );
-        ELSE IF $model = "OPENAI" THEN
+        ELSE IF $model.model_trainer = "OPENAI" THEN
             SELECT id FROM (
              SELECT
                 id,
                 vector::similarity::cosine(content_openai_vector, $input_vector) AS similarity_score
-            FROM embedded_wiki
+            FROM type::table($corpus_table)
             WHERE content_openai_vector <|5,40|> $input_vector
             ) ;
         END);
     
     
     RETURN SELECT similarity_score as score,id as doc FROM $first_pass WHERE similarity_score > $threshold;
-}
+};
+
+
 
 /* Get prompt for RAG.
 
@@ -96,7 +87,7 @@ Args:
 Returns:
     string: Prompt with context.
 */
-DEFINE FUNCTION OVERWRITE fn::get_prompt_with_context($documents: array<record<embedded_wiki>>) {
+DEFINE FUNCTION OVERWRITE fn::get_prompt_with_context($documents: array<any>) {
     
     LET $prompt = "You are an AI assistant answering questions about anything from Simple English Wikipedia the context will provide you with the most relevant data from Simple English Wikipedia including the page title, url, and page content.
 
@@ -136,9 +127,11 @@ DEFINE FUNCTION OVERWRITE fn::create_message(
     $chat_id: string, 
     $role: string,
     $content: string,
-    $documents: option<array<{ score:float ,doc:record<embedded_wiki> }>>,
-    $embedding_model: option<string>,
+    $documents: option<array<{ score:float ,doc:any }>>,
+    $embedding_model: option<Record<embedding_model_definition>>,
     $llm_model: option<string>,
+    $prompt_text: option<string>
+
 ) {
     # Create a message record and get the resulting ID.
     LET $message_id = 
@@ -158,36 +151,61 @@ DEFINE FUNCTION OVERWRITE fn::create_message(
             RELATE ONLY $chat->sent->$message_id CONTENT { 
                 referenced_documents: $documents,
                 embedding_model: $embedding_model,
-                llm_model: $llm_model
+                llm_model: $llm_model,
+                prompt_text: $prompt_text
                  };
 
-    RETURN {
-        content: $content,
-        timestamp: $timestamp
-    };
+
+    RETURN fn::load_message_detail(<string>$message_id);
+
 };
+
+
 
 /* Create a user message.
 
 Args:
     chat_id: Record ID from the `chat` table that the message was sent in.
     content: Sent message content.
+    embedding_model: the embed model used to find docs
+    openai_token: token if using openai embeddings
 
 Returns:
     object: Content and timestamp.
 */
-DEFINE FUNCTION OVERWRITE fn::create_user_message($chat_id: string, $content: string, $embedding_model: string,$openai_token: option<string>) {
+DEFINE FUNCTION OVERWRITE fn::create_user_message($chat_id: string, $corpus_table: string, $content: string, $embedding_model: option<Record<embedding_model_definition>>,$openai_token: option<string>) {
 
     LET $threshold = 0.7;
     
     LET $vector = IF $embedded_model == "OPENAI" THEN 
-        fn::openai_embeddings_complete("text-embedding-ada-002", $content, $openai_token)
+        fn::openai_embeddings_complete($embedding_model.version, $content, $openai_token)
     ELSE
         fn::sentence_to_vector($content,$embedding_model)
     END;
-    LET $documents = fn::search_for_documents($vector, $threshold ,$embedding_model);
-    RETURN fn::create_message($chat_id, "user", $content, $documents,$embedding_model,None);
+    LET $documents = fn::search_for_documents($corpus_table,$vector, $threshold ,$embedding_model);
+    
+    RETURN fn::create_message($chat_id, "user", $content, $documents,$embedding_model);
 };
+
+
+
+/* Create a system message.
+
+Args:
+    chat_id: Record ID from the `chat` table that the message was sent in.
+    content: Sent message content.
+    llm_model: the llm model used to generate the content
+
+Returns:
+    object: Content and timestamp.
+*/
+DEFINE FUNCTION OVERWRITE fn::create_system_message($chat_id: string, $content: string, $llm_model: string,$prompt_text:string) {
+    RETURN fn::create_message($chat_id, "system", $content, None,None,$llm_model,$prompt_text);
+};
+
+
+
+
 
 /* Create get the last user message and the reference docs for generating a prompt.
 
@@ -195,7 +213,7 @@ Args:
     chat_id: Record ID from the `chat` table that the message was sent in\
 
 Returns:
-    object: Content, referenced documents [{score,embedded_wiki}], timestamp.
+    object: Content, referenced documents [{score,documents}], timestamp.
 */
 
 DEFINE FUNCTION OVERWRITE fn::get_last_user_message_input_and_prompt($chat_id: string) {
@@ -407,8 +425,20 @@ DEFINE FUNCTION OVERWRITE fn::gemini_chat_complete($llm: string, $prompt_with_co
 };
 
 
+
+
+
+DEFINE FUNCTION OVERWRITE fn::load_document_detail($corpus_table:string,$document_id: string) {
+    RETURN SELECT * FROM type::thing($corpus_table,$document_id);
+};
+    
+
+DEFINE FUNCTION OVERWRITE fn::load_message_detail($message_id: string) {
+    RETURN (SELECT *,<-sent.{referenced_documents,embedding_model,llm_model,timestamp,prompt_text} AS sent FROM  type::record($message_id))[0];
+};
+
 #these funtions calulates the mean vector for the tokens in a sentence using the glove Model
-DEFINE FUNCTION OVERWRITE fn::retrieve_vectors_for_sentence($sentence:string,$model:string) 
+DEFINE FUNCTION OVERWRITE fn::retrieve_vectors_for_sentence($sentence:string,$model:Record<embedding_model_definition>) 
 {
     LET $sentence = $sentence.lowercase().
         replace('.',' .').

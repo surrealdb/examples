@@ -10,7 +10,7 @@ GLOVE_URL = "https://nlp.stanford.edu/data/glove.6B.zip"
 GLOVE_ZIP_PATH = "data/glove.6B.zip"
 GLOVE_PATH = "data/glove.6B.300d.txt"
 
-CUSTOM_FS_PATH = "data/custom_fast_text.txt"
+FS_WIKI_PATH = "data/custom_fast_wiki_text.txt"
 
 
 class SurrealParams():
@@ -50,11 +50,11 @@ class ModelParams():
     # #     "OPENAI": {"model_version":"gpt-3.5-turbo","host":"API","platform":"OPENAI","temperature":0.5}
     # # }
 
-    EMBED_MODELS = {
-        "CUST_FASTTEXT": {"dimensions":100,"host":"SQL"},
-        "GLOVE": {"dimensions":300,"host":"SQL"},
-        "OPENAI": {"dimensions":1536,"host":"API"}
-    }
+    # EMBED_MODELS = {
+    #     "FASTTEXT": {"dimensions":100,"host":"SQL"},
+    #     "GLOVE": {"dimensions":300,"host":"SQL"},
+    #     "OPENAI": {"dimensions":1536,"host":"API"}
+    # }
     def __init__(self):
         self.openai_token_env_var = "OPENAI_API_KEY"
         self.openai_token = None
@@ -197,19 +197,55 @@ class ArgsLoader():
         self.model_params = model_params
         self.model_params.AddArgs(self.parser)
         self.db_params.AddArgs(self.parser)
+        self.AdditionalArgs = {}
+
+    def AddArg(self,name:str,flag:str,action:str,help:str,default:str):
+        self.parser.add_argument(f"-{flag}",f"--{action}", help=help.format(default))
+        self.AdditionalArgs[name] = {"flag":flag,"action":action,"value":default}
         
 
+    
 
     def LoadArgs(self):
         self.args = self.parser.parse_args()
         self.db_params.SetArgs(self.args)
         self.model_params.SetArgs(self.args)
+        for key in self.AdditionalArgs.keys():
+            if getattr(self.args, self.AdditionalArgs[key]["action"]):
+                self.AdditionalArgs[key]["value"] = getattr(self.args, self.AdditionalArgs[key]["action"])
 
     def string_to_print(self):
         ret_val = self.parser.description
-        ret_val += f"/n{self.db_params.DB_PARAMS.__dict__}"
-        ret_val += f"/n{self.model_params.__dict__}"
+
+
+        ret_val += "\n\nDB Params:"
+        ret_val += ArgsLoader.dict_to_str(self.db_params.DB_PARAMS.__dict__)
+        ret_val += "\n\nModel Params:"
+        ret_val += ArgsLoader.dict_to_str(self.model_params.__dict__)
+        ret_val += "\n\nAdditional Params:"
+        ret_val += ArgsLoader.additional_args_dict_to_str(self.AdditionalArgs)
         return ret_val
+
+        ret_val += f"\n{self.db_params.DB_PARAMS.__dict__}"
+        ret_val += f"\n{self.model_params.__dict__}"
+        for key in self.AdditionalArgs.keys():
+            ret_val += f"\n{key} : {self.AdditionalArgs[key]["value"]}"
+        return ret_val
+    
+    def additional_args_dict_to_str(the_dict:dict):
+        ret_val = ""
+        for key in the_dict.keys():
+            ret_val += f"\n{key} : {the_dict[key]["value"]}"
+        return ret_val
+
+
+    def dict_to_str(the_dict:dict):
+        ret_val = ""
+        for key in the_dict.keys():
+            ret_val += f"\n{key} : {the_dict[key]}"
+        return ret_val
+
+
     
     def print(self):
         print(self.string_to_print())

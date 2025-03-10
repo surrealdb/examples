@@ -37,10 +37,7 @@ def surreal_create_database() -> None:
         logger.info("Database created successfully")
         connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
 
-        logger.info("Executing common DDL")
-        with open("./schema/table_ddl.surql") as f: 
-            surlql_to_execute = f.read()
-            SurrealParams.ParseResponseForErrors( connection.query_raw(surlql_to_execute))
+        logger.info("Executing common function DDL")
 
         with open("./schema/function_ddl.surql") as f: 
             surlql_to_execute = f.read()
