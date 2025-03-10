@@ -14,13 +14,25 @@ import uvicorn
 import ast
 from urllib.parse import urlencode
 from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
+
+
+# Load configuration parameters
 db_params = DatabaseParams()
 model_params = ModelParams()
 args_loader = ArgsLoader("LLM Model Handler",db_params,model_params)
 args_loader.LoadArgs()
 
 
+"""Format a SurrealDB RecordID for use in a URL.
 
+    Replaces '/' with '|' and URL-encodes the ID.
+
+    Args:
+        surrealdb_id: SurrealDB RecordID.
+
+    Returns:
+        Formatted string for use in a URL.
+    """
 def format_url_id(surrealdb_id: RecordID) -> str:
 
     if RecordID == type(surrealdb_id):
@@ -29,18 +41,20 @@ def format_url_id(surrealdb_id: RecordID) -> str:
         str_to_format = surrealdb_id
     return quote(str_to_format).replace("/","|")
     
+"""Unformat a URL-encoded SurrealDB RecordID.
 
+    Replaces '|' with '/'.
+
+    Args:
+        surrealdb_id: URL-encoded SurrealDB RecordID.
+
+    Returns:
+        Unformatted string.
+    """
 def unformat_url_id(surrealdb_id: str) -> str:
     return surrealdb_id.replace("|","/")
-    if RecordID == type(surrealdb_id):
-        str_to_format = surrealdb_id.id
-    else:
-        str_to_format = surrealdb_id
-    return quote(str_to_format)
 
-
-def extract_id(surrealdb_id: RecordID) -> str:
-    """Extract numeric ID from SurrealDB record ID.
+"""Extract numeric ID from SurrealDB record ID.
 
     SurrealDB record ID comes in the form of `<table_name>:<unique_id>`.
     CSS classes cannot be named with a `:` so for CSS we extract the ID.
@@ -49,8 +63,10 @@ def extract_id(surrealdb_id: RecordID) -> str:
         surrealdb_id: SurrealDB record ID.
 
     Returns:
-        ID.
+        ID with ':' replaced by '-'.
     """
+def extract_id(surrealdb_id: RecordID) -> str:
+    
     if RecordID == type(surrealdb_id):
     #return surrealdb_id.id
         return surrealdb_id.id.replace(":","-")
@@ -58,11 +74,7 @@ def extract_id(surrealdb_id: RecordID) -> str:
         return surrealdb_id.replace(":","-")
 
 
-
-def convert_timestamp_to_date(timestamp: str) -> str:
-    """Convert a SurrealDB `datetime` to a readable string.
-
-    The result will be of the format: `April 05 2024, 15:30`.
+"""Convert a SurrealDB `datetime` to a readable string.
 
     Args:
         timestamp: SurrealDB `datetime` value.
@@ -70,6 +82,8 @@ def convert_timestamp_to_date(timestamp: str) -> str:
     Returns:
         Date as a string.
     """
+def convert_timestamp_to_date(timestamp: str) -> str:
+    
     # parsed_timestamp = datetime.datetime.fromisoformat(timestamp.rstrip("Z"))
     # return parsed_timestamp.strftime("%B %d %Y, %H:%M")
     return timestamp
@@ -83,8 +97,10 @@ life_span = {}
 
 @contextlib.asynccontextmanager
 async def lifespan(_: fastapi.FastAPI) -> AsyncGenerator:
-    """FastAPI lifespan to create and destroy objects."""
+    """FastAPI lifespan to create and destroy objects.
 
+    Initializes and closes the SurrealDB connection and loads LLM and corpus data.
+    """
     connection = AsyncSurreal(db_params.DB_PARAMS.url)
     await connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
     await connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
@@ -102,6 +118,7 @@ async def lifespan(_: fastapi.FastAPI) -> AsyncGenerator:
     life_span.clear()
 
 
+# Initialize FastAPI application
 app = fastapi.FastAPI(lifespan=lifespan)
 app.mount("/static", staticfiles.StaticFiles(directory="static"), name="static")
 
@@ -109,6 +126,7 @@ app.mount("/static", staticfiles.StaticFiles(directory="static"), name="static")
 @app.get("/", response_class=responses.HTMLResponse)
 async def index(request: fastapi.Request) -> responses.HTMLResponse:
 
+    """Render the main chat interface."""
 
     available_llm_models_json = json.dumps(life_span["llm_models"])
     available_corpus_tables_json = json.dumps(life_span["corpus_tables"])
@@ -123,22 +141,25 @@ async def index(request: fastapi.Request) -> responses.HTMLResponse:
                                                      "available_corpus_tables": available_corpus_tables_json,
                                                      "default_llm_model": default_llm_model,
                                                      "default_corpus_table": default_corpus_table,
-                                                     "default_embed_model":default_embed_model
+                                                     "default_embed_model":default_embed_model,
+                                                     "default_prompt_text":LLMModelHander.DEFAULT_PROMPT_TEXT
                                                      })
 
 @app.get("/get_corpus_table_details")
 async def get_corpus_table_details(corpus_table: str = fastapi.Query(...)):
+    """Retrieve and return details of a corpus table."""
     corpus_table_detail = life_span["corpus_tables"].get(corpus_table)
     if corpus_table_detail:
         s = f"Table: {corpus_table_detail['table_name']}"
     else:
         s = "Corpus table details not found."
-    return fastapi.Response(s, media_type="text/html") #Return response object
+    return fastapi.Response(s, media_type="text/html") 
     
 
 
 @app.get("/get_llm_model_details")
 async def get_llm_model_details(llm_model: str = fastapi.Query(...)):
+    """Retrieve and return details of an LLM model."""
     model_data = life_span["llm_models"].get(llm_model)
     if model_data:
         s = f" Platform: {model_data['platform']},  Host: {model_data['host']} <br> Version: {model_data['model_version']}"
@@ -148,6 +169,7 @@ async def get_llm_model_details(llm_model: str = fastapi.Query(...)):
     
 @app.get("/get_embed_model_details")
 async def get_embed_model_details(corpus_table: str = fastapi.Query(...),embed_model: str = fastapi.Query(...)):
+    """Retrieve and return details of an embedding model."""
     embed_models = life_span["corpus_tables"][corpus_table]["embed_models"]
     embed_model_detail = None
     embed_model = ast.literal_eval(embed_model)
@@ -171,7 +193,7 @@ async def get_embed_model_details(corpus_table: str = fastapi.Query(...),embed_m
 
 @app.post("/chats", response_class=responses.HTMLResponse)
 async def create_chat(request: fastapi.Request) -> responses.HTMLResponse:
-    """Create a chat."""
+    """Create a new chat."""
     chat_record = await life_span["surrealdb"].query(
         """RETURN fn::create_chat();"""
     )
@@ -190,6 +212,7 @@ async def delete_chat(
     request: fastapi.Request, chat_id: str
 ) -> responses.HTMLResponse:
     
+    """Delete a chat and its messages."""
     SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
         """RETURN fn::delete_chat($chat_id)""",params = {"chat_id":chat_id}    
     ))
@@ -216,11 +239,13 @@ async def load_chat(
             "chat": {"id":chat_id,"title": title }
         },
     )
+
+
 @app.get("/messages/{message_id}", response_class=responses.HTMLResponse)
 async def load_message(
     request: fastapi.Request, message_id: str
 ) -> responses.HTMLResponse:
-    """Load a chat."""
+    """Load a message."""
     message = await life_span["surrealdb"].query(
         """RETURN fn::load_message_detail($message_id)""",params = {"message_id":message_id}    
     )
@@ -308,15 +333,19 @@ async def send_user_message(
 )
 async def send_system_message(
     request: fastapi.Request, chat_id: str,
-    llm_model: str = fastapi.Form(...)
+    llm_model: str = fastapi.Form(...),
+    prompt_template: str = fastapi.Form(...)
 ) -> responses.HTMLResponse:
     """Send system message."""
 
     
     
 
+    # outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
+    #     """RETURN fn::get_last_user_message_input_and_prompt($chat_id,$prompt,$message_memory_length);""",params = {"chat_id":chat_id,"prompt":LLMModelHander.DEFAULT_PROMPT_TEXT,"message_memory_length":5}
+    # ))
     outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
-        """RETURN fn::get_last_user_message_input_and_prompt($chat_id);""",params = {"chat_id":chat_id}
+        """RETURN fn::get_last_user_message_input_and_prompt($chat_id,$prompt,$message_memory_length);""",params = {"chat_id":chat_id,"prompt":prompt_template,"message_memory_length":5}
     ))
     result =  outcome["result"][0]["result"]
     prompt_text = result["prompt_text"]
@@ -328,7 +357,7 @@ async def send_system_message(
     
     llm_handler = LLMModelHander(model_data,model_params,life_span["surrealdb"])
 
-    llm_response = llm_handler.get_chat_response(prompt_text,content)
+    llm_response = await llm_handler.get_chat_response(prompt_text,content)
     
     #save the response in the DB
     outcome = SurrealParams.ParseResponseForErrors(await life_span["surrealdb"].query_raw(
@@ -344,7 +373,7 @@ async def send_system_message(
             "RETURN fn::get_first_message($chat_id);",params={"chat_id":chat_id}
         )
         system_prompt = "You are a conversation title generator for a ChatGPT type app. Respond only with a simple title using the user input."
-        new_title = llm_handler.get_short_plain_text_response(system_prompt,first_message_text)
+        new_title = await llm_handler.get_short_plain_text_response(system_prompt,first_message_text)
         #update chat title in database
         SurrealParams.ParseResponseForErrors(await life_span["surrealdb"].query_raw(
             """UPDATE type::record($chat_id) SET title=$title;""",params = {"chat_id":chat_id,"title":new_title}    

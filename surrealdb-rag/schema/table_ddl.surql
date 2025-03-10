@@ -21,8 +21,6 @@ DEFINE FIELD IF NOT EXISTS updated_at ON TABLE chat TYPE datetime
 DEFINE TABLE IF NOT EXISTS message SCHEMAFULL;
 
 /* Field can only be populated with `user` or `system`.
-
-There are CSS and HTML that relies on these values.
 */
 DEFINE FIELD IF NOT EXISTS role ON message TYPE string
     ASSERT $input IN ["user", "system"];

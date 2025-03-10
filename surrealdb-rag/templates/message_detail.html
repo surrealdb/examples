@@ -6,12 +6,11 @@ message detail:
 <div>role: {{message.role}}</div>
 <div>created_at: {{message.created_at}}</div>
 <div>updated_at: {{message.updated_at}}</div>
-<div>content: {{message.content}}</div>
 <div>embedding_model: {{message.sent[0].embedding_model}}</div>
 <div>llm_model: {{message.sent[0].llm_model}}</div>
 <div>timestamp: {{message.sent[0].timestamp}}</div>
-
 {% if message.sent[0].referenced_documents %}
+----------------------
     <div>
         Referenced Documents:
         {%for doc in message.sent[0].referenced_documents %}
@@ -25,8 +24,20 @@ message detail:
         {% endfor %}
     </div>
 {% endif %}
-<div>prompt: {{message.sent[0].prompt_text}}</div>
+----------------------
+<div>
+    <pre style="white-space: pre-wrap;">content: 
+        {{message.content}}</pre></div>
+
+
+{% if message.sent[0].prompt_text %}
+----------------------
+<div>
+<pre style="white-space: pre-wrap;">prompt: 
+    {{message.sent[0].prompt_text}}</pre></div>
 </div>
+
+{% endif %}
 <script>
 docDetail = document.getElementById("doc_detail");
 if(docDetail) docDetail.innerHTML = "";

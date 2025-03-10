@@ -14,13 +14,29 @@ FS_WIKI_PATH = "data/custom_fast_wiki_text.txt"
 
 
 class SurrealParams():
+    """
+    Class to hold SurrealDB connection parameters.
+    """
     def __init__(self = None, url = None,username = None, password = None, namespace = None, database = None):
+        
         self.username = username
         self.password = password
         self.namespace = namespace
         self.database = database
         self.url = url
 
+    """
+      Parses the SurrealDB response for errors.
+
+      Args:
+          outcome (dict): The SurrealDB response.
+
+      Returns:
+          dict: The parsed response, or None if the outcome is None.
+
+      Raises:
+          SystemError: If an error is found in the response.
+      """
     @staticmethod
     def ParseResponseForErrors(outcome):
       
@@ -40,43 +56,32 @@ class SurrealParams():
 
 class ModelParams():
 
-    # GEMINI_MODELS = ["gemini-2.0-flash-lite","gemini-2.0-flash","gemini-1.5-flash","gemini-1.5-flash-8b","gemini-1.5-pro"]
-    # # OPENAI_MODELS = ["gemini-2.0-flash-lite","gemini-2.0-flash","gemini-1.5-flash","gemini-1.5-flash-8b","gemini-1.5-pro"]
-    # # LLM_MODELS = {
-    # #     "GEMINI-SURREAL": {"model_version":"gemini-2.0-flash","host":"SQL","platform":"GOOGLE","temperature":None},
-    # #     "GEMINI": {"model_version":"gemini-2.0-flash","host":"API","platform":"GOOGLE","temperature":None},
-    # #     "DEEPSEEK": {"model_version":"deepseek-r1:1.5b","host":"OLLAMA","platform":"local","temperature":None},
-    # #     "OPENAI-SURREAL": {"model_version":"gpt-3.5-turbo","host":"API","platform":"OPENAI","temperature":0.5},
-    # #     "OPENAI": {"model_version":"gpt-3.5-turbo","host":"API","platform":"OPENAI","temperature":0.5}
-    # # }
-
-    # EMBED_MODELS = {
-    #     "FASTTEXT": {"dimensions":100,"host":"SQL"},
-    #     "GLOVE": {"dimensions":300,"host":"SQL"},
-    #     "OPENAI": {"dimensions":1536,"host":"API"}
-    # }
     def __init__(self):
+
+        #These are just the pointers to the env variables
+        #Don't put the actual tokens here
+
         self.openai_token_env_var = "OPENAI_API_KEY"
         self.openai_token = None
         self.gemini_token_env_var = "GOOGLE_GENAI_API_KEY"
         self.gemini_token = None
-        # self.embedding_model_env_var = "SURREAL_RAG_EMBEDDING_MODEL"
-        # self.embedding_model = None
-        # self.llm_model_env_var = "SURREAL_RAG_LLM_MODEL"
-        # self.llm_model = None
-        # self.version = None
-        # self.host = None
-        # self.temperature = 0.5
+       
+    """
+    Adds command-line arguments for model parameters.
 
+    Args:
+        parser (argparse.ArgumentParser): The argument parser.
+    """
     def AddArgs(self, parser:argparse.ArgumentParser):
         parser.add_argument("-oenv","--openai_token_env", help="Your env variable for LLM openai_token (Default: {0} for ollama hosted ignore)".format(self.openai_token_env_var))
         parser.add_argument("-genv","--gemini_token_env", help="Your env variable for LLM gemini_token (Default: {0} for ollama hosted ignore)".format(self.gemini_token_env_var))
         
-        #parser.add_argument("-emenv","--embedding_model_env_var", help="Your env variable for embedding model value can be 'OPENAI' or 'GLOVE' (Default: {0})".format(self.embedding_model_env_var))
-        #parser.add_argument("-em","--embedding_model", help="Embedding model value can be 'OPENAI' or 'GLOVE', if none it will use env var (Default: {0})".format("<from env variable>"))
-        # parser.add_argument("-llmenv","--llm_model_env_var", help="Your env variable for LLM model value can be 'OPENAI','DEEPSEEK' or 'GEMINI' (Default: {0})".format(self.llm_model_env_var))
-        # parser.add_argument("-llm","--llm_model", help="LLM model value can be 'OPENAI'.'DEEPSEEK' or 'GEMINI', if none it will use env var (Default: {0})".format("<from env variable>"))
-        
+    """
+    Sets model parameters from command-line arguments and environment variables.
+
+    Args:
+        args (argparse.Namespace): The parsed command-line arguments.
+    """    
     def SetArgs(self,args:argparse.Namespace):
         if args.openai_token_env:
             self.openai_token_env_var = args.openai_token_env
@@ -88,35 +93,19 @@ class ModelParams():
         self.gemini_token = os.getenv(self.gemini_token_env_var)
 
 
-        # if args.embedding_model_env_var:
-        #     self.embedding_model_env_var = args.embedding_model_env_var
-        # if args.llm_model_env_var:
-        #     self.llm_model_env_var = args.llm_model_env_var
 
-
-        # if args.embedding_model:
-        #     self.embedding_model = args.embedding_model
-        # else:
-        #     self.embedding_model = os.getenv(self.embedding_model_env_var)
-            
-        # if self.embedding_model not in ["OPENAI","GLOVE"]:
-        #     raise ValueError("Embedding model must be 'OPENAI' or 'GLOVE'")
-
-        # if args.llm_model:
-        #     self.llm_model = args.llm_model
-        # else:
-        #     self.llm_model = os.getenv(self.llm_model_env_var)
-
-        # self.version = self.LLM_MODELS[self.llm_model]["model_version"]
-        # self.host = self.LLM_MODELS[self.llm_model]["host"]
-            
 
     
     
 class DatabaseParams():
     def __init__(self):
-        #export SURREAL_CLOUD_TEST_USER=xxx
-        #export SURREAL_CLOUD_TEST_PASS=xxx
+
+        #The path to your SurrealDB instance
+        #The the SurrealDB namespace and database 
+        #For use in authenticating your database
+        #These are just the pointers to the env variables
+        #Don't put the actual passwords here
+
         self.DB_USER_ENV_VAR = "SURREAL_RAG_USER"
         self.DB_PASS_ENV_VAR = "SURREAL_RAG_PASS"
         self.DB_URL_ENV_VAR = "SURREAL_RAG_DB_URL"
@@ -124,13 +113,16 @@ class DatabaseParams():
         self.DB_DB_ENV_VAR = "SURREAL_RAG_DB_DB"
     
         
-        #The path to your SurrealDB instance
-        #The the SurrealDB namespace and database to upload the model to
         self.DB_PARAMS = SurrealParams()
                     
-        #For use in authenticating your database in database.py
-        #These are just the pointers to the env variables
-        #Don't put the actual passwords here
+
+     
+    """
+    Sets model parameters from command-line arguments and environment variables.
+
+    Args:
+        args (argparse.Namespace): The parsed command-line arguments.
+    """   
     def AddArgs(self, parser:argparse.ArgumentParser):
         
         parser.add_argument("-urlenv","--url_env", help="Your env variable for Path to your SurrealDB instance (Default: {0})".format(self.DB_URL_ENV_VAR))
@@ -187,9 +179,18 @@ class DatabaseParams():
     
 
     
-
+"""
+Class to load and manage command-line arguments using argparse.
+"""
 class ArgsLoader():
+    """
+        Initializes the ArgsLoader with a description and parameter objects.
 
+    Args:
+        description (str): Description of the program for the help message.
+        db_params (DatabaseParams): Instance of DatabaseParams to manage database arguments.
+        model_params (ModelParams): Instance of ModelParams to manage model arguments.
+    """
     def __init__(self,description,
             db_params: DatabaseParams,model_params: ModelParams):
         self.parser = argparse.ArgumentParser(description=description)
@@ -198,14 +199,25 @@ class ArgsLoader():
         self.model_params.AddArgs(self.parser)
         self.db_params.AddArgs(self.parser)
         self.AdditionalArgs = {}
+    
+    """
+    Adds a custom argument to the parser.
 
+    Args:
+        name (str): Name of the argument.
+        flag (str): Short flag for the argument (e.g., 'f').
+        action (str): Long flag for the argument (e.g., 'file').
+        help (str): Help message for the argument.
+        default (str): Default value for the argument.
+    """
     def AddArg(self,name:str,flag:str,action:str,help:str,default:str):
         self.parser.add_argument(f"-{flag}",f"--{action}", help=help.format(default))
         self.AdditionalArgs[name] = {"flag":flag,"action":action,"value":default}
         
 
-    
-
+    """
+        Parses the command-line arguments and sets the parameter objects.
+    """
     def LoadArgs(self):
         self.args = self.parser.parse_args()
         self.db_params.SetArgs(self.args)
@@ -213,7 +225,12 @@ class ArgsLoader():
         for key in self.AdditionalArgs.keys():
             if getattr(self.args, self.AdditionalArgs[key]["action"]):
                 self.AdditionalArgs[key]["value"] = getattr(self.args, self.AdditionalArgs[key]["action"])
+    """
+    Generates a formatted string containing all parsed arguments.
 
+    Returns:
+        str: Formatted string of arguments.
+    """
     def string_to_print(self):
         ret_val = self.parser.description
 
@@ -226,19 +243,30 @@ class ArgsLoader():
         ret_val += ArgsLoader.additional_args_dict_to_str(self.AdditionalArgs)
         return ret_val
 
-        ret_val += f"\n{self.db_params.DB_PARAMS.__dict__}"
-        ret_val += f"\n{self.model_params.__dict__}"
-        for key in self.AdditionalArgs.keys():
-            ret_val += f"\n{key} : {self.AdditionalArgs[key]["value"]}"
-        return ret_val
-    
+    """
+    Converts a dictionary of additional arguments to a formatted string.
+
+    Args:
+        the_dict (dict): Dictionary of additional arguments.
+
+    Returns:
+        str: Formatted string.
+    """
     def additional_args_dict_to_str(the_dict:dict):
         ret_val = ""
         for key in the_dict.keys():
             ret_val += f"\n{key} : {the_dict[key]["value"]}"
         return ret_val
 
+    """
+    Converts a dictionary to a formatted string.
 
+    Args:
+        the_dict (dict): Dictionary to convert.
+
+    Returns:
+        str: Formatted string.
+    """
     def dict_to_str(the_dict:dict):
         ret_val = ""
         for key in the_dict.keys():
@@ -246,7 +274,9 @@ class ArgsLoader():
         return ret_val
 
 
-    
+    """
+    Prints the formatted string of arguments.
+    """
     def print(self):
         print(self.string_to_print())
 

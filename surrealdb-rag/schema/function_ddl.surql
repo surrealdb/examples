@@ -4,6 +4,16 @@ This file defines the SurrealQL for the chat functionality of this project. and 
 
 
 
+/*
+Calculates the mean vector for a sentence using a specified embedding model.
+
+Args:
+    sentence (string): The input sentence.
+    model (Record<embedding_model_definition>): The embedding model definition.
+
+Returns:
+    array<float>|None: The mean vector of the sentence, or None if an error occurs.
+*/
 DEFINE FUNCTION OVERWRITE fn::sentence_to_vector($sentence: string,$model: Record<embedding_model_definition>) {
     
     #Pull the first row to determine the size of the vector (they should all be the same)
@@ -33,18 +43,20 @@ DEFINE FUNCTION OVERWRITE fn::sentence_to_vector($sentence: string,$model: Recor
 };
 
 
-
-/* Search for documents using embeddings.
+/*
+Searches for documents using embeddings.
 
 Args:
-    input_vector: embedding to search for within the embedding field
-    threshold: min threshold above and beyond the N returned
-    model: the name of the embedding model to use... "GLOVE", "OPENAI" or "FASTTEXT"
-Returns:
-    array<float>: Array of embeddings.
-*/
+    corpus_table (string): The name of the corpus table to search.
+    input_vector (array<float>): The embedding vector to search for.
+    threshold (float): The minimum similarity threshold.
+    model (Record<embedding_model_definition>): The embedding model definition.
 
+Returns:
+    array<{score: float, doc: any}>: An array of documents with their similarity scores.
+*/
 DEFINE FUNCTION OVERWRITE fn::search_for_documents($corpus_table: string, $input_vector: array<float>, $threshold: float, $model: Record<embedding_model_definition>) {
+
     
     LET $first_pass = 
         (IF $model.model_trainer = "GLOVE" THEN
@@ -64,7 +76,7 @@ DEFINE FUNCTION OVERWRITE fn::search_for_documents($corpus_table: string, $input
             WHERE content_fasttext_vector <|5,40|> $input_vector
             );
         ELSE IF $model.model_trainer = "OPENAI" THEN
-            SELECT id FROM (
+            (
              SELECT
                 id,
                 vector::similarity::cosine(content_openai_vector, $input_vector) AS similarity_score
@@ -79,50 +91,92 @@ DEFINE FUNCTION OVERWRITE fn::search_for_documents($corpus_table: string, $input
 
 
 
-/* Get prompt for RAG.
+/*
+Generates a prompt with context and chat history.
 
 Args:
-    context: Context to add to the prompt.
+    prompt (string): The prompt template.
+    documents (array<any>): The documents to include in the context.
+    chat_history (Record<message>): The chat history to include.
 
 Returns:
-    string: Prompt with context.
+    string: The generated prompt.
 */
-DEFINE FUNCTION OVERWRITE fn::get_prompt_with_context($documents: array<any>) {
+DEFINE FUNCTION OVERWRITE fn::get_prompt_with_context($prompt:string, $documents: array<any>, $chat_history: Record<message>) {
     
-    LET $prompt = "You are an AI assistant answering questions about anything from Simple English Wikipedia the context will provide you with the most relevant data from Simple English Wikipedia including the page title, url, and page content.
-
-    If referencing the text/context refer to it as Simple English Wikipedia.
-
-    Please provide your response in Markdown converted to HTML format. Include appropriate headings and lists where relevant.
-
-    At the end of the response, add link a HTML link and replace the title and url with the associated title and url of the more relevant page from the context.
-
-    The maximum number of links you can include is 1, do not provide any other references or annotations.
-
-    Only reply with the context provided. If the context is an empty string, reply with 'I am sorry, I do not know the answer.'.
-
-    Do not use any prior knowledge that you have been trained on.
-
-    <context>
-        $context
-    </context>";
     LET $context = (SELECT VALUE "\n ------------- \n URL: " + url + "\nTitle: " + title + "\n Content:\n" + text as content
         FROM $documents).join("\n");
-    RETURN string::replace($prompt, '$context', $context);
+    LET $chat_history = (SELECT VALUE "\n ------------- \n Role: " + role + "\n Content:\n" + content as content
+        FROM $chat_history).join("\n"); 
+
+    RETURN string::replace(string::replace($prompt, '$context', $context),'$chat_history', $chat_history);
+};
+
+/*
+Retrieves the message history for a chat.
+
+Args:
+    chat_id (string): The ID of the chat.
+    message_memory_length (int): The number of messages to retrieve.
+
+Returns:
+    array<Record<message>>: An array of message records.
+*/
+DEFINE FUNCTION OVERWRITE fn::get_message_history($chat_id: string,$message_memory_length: int) {
+   LET $full_history = (SELECT VALUE out FROM (SELECT out,updated_at FROM type::record($chat_id)->sent ORDER BY updated_at DESC));
+    RETURN array::slice($full_history, 1, $message_memory_length - 1);
+    
 };
 
 
-/* Create a message.
+/*
+Retrieves the last user message, its input, and the generated prompt.
 
 Args:
-    chat_id: Record ID from the `chat` table that the message was sent in.
-    role: Role that sent the message. Allowed values are `user` or `system`.
-    content: Sent message content.
+    chat_id (string): The ID of the chat.
+    prompt (string): The prompt template.
+    message_memory_length (int): The number of messages to include in the history.
 
 Returns:
-    oject: Content and timestamp.
+    object: An object containing the content, prompt, and timestamp of the last user message.
 */
+DEFINE FUNCTION OVERWRITE fn::get_last_user_message_input_and_prompt($chat_id: string,$prompt:string,$message_memory_length: int) {
 
+        LET $message =  
+            SELECT content,fn::get_prompt_with_context($prompt,docs,chat_history) as prompt_text
+            FROM
+                (
+                SELECT
+                    out.id,
+                    out.content AS content,
+                    referenced_documents.doc as docs,
+                    fn::get_message_history($chat_id,$message_memory_length) as chat_history,
+                    timestamp
+                FROM ONLY type::record($chat_id)->sent
+                WHERE out.role = "user"
+                ORDER BY timestamp DESC
+                LIMIT 1
+                FETCH out 
+            );
+        
+        RETURN $message[0];
+};
+
+/*
+Creates a new message in a chat.
+
+Args:
+    chat_id (string): The ID of the chat.
+    role (string): The role of the message sender (e.g., "user", "system").
+    content (string): The message content.
+    documents (option<array<{score: float, doc: any}>>): Referenced documents.
+    embedding_model (option<Record<embedding_model_definition>>): The embedding model used.
+    llm_model (option<string>): The LLM model used.
+    prompt_text (option<string>): The prompt text used.
+
+Returns:
+    object: The created message details.
+*/
 DEFINE FUNCTION OVERWRITE fn::create_message(
     $chat_id: string, 
     $role: string,
@@ -161,43 +215,46 @@ DEFINE FUNCTION OVERWRITE fn::create_message(
 };
 
 
-
-/* Create a user message.
+/*
+Creates a new user message in a chat.
 
 Args:
-    chat_id: Record ID from the `chat` table that the message was sent in.
-    content: Sent message content.
-    embedding_model: the embed model used to find docs
-    openai_token: token if using openai embeddings
+    chat_id (string): The ID of the chat.
+    corpus_table (string): The corpus table the document resides in.
+    content (string): The message content.
+    embedding_model (option<Record<embedding_model_definition>>): The embedding model used.
+    openai_token (option<string>): OpenAI API token (if applicable).
 
 Returns:
-    object: Content and timestamp.
+    object: The created user message details.
 */
 DEFINE FUNCTION OVERWRITE fn::create_user_message($chat_id: string, $corpus_table: string, $content: string, $embedding_model: option<Record<embedding_model_definition>>,$openai_token: option<string>) {
 
     LET $threshold = 0.7;
     
-    LET $vector = IF $embedded_model == "OPENAI" THEN 
+    LET $vector = IF $embedding_model.model_trainer == "OPENAI" THEN 
         fn::openai_embeddings_complete($embedding_model.version, $content, $openai_token)
     ELSE
         fn::sentence_to_vector($content,$embedding_model)
     END;
+
     LET $documents = fn::search_for_documents($corpus_table,$vector, $threshold ,$embedding_model);
     
     RETURN fn::create_message($chat_id, "user", $content, $documents,$embedding_model);
 };
 
 
-
-/* Create a system message.
+/*
+Creates a new system message in a chat.
 
 Args:
-    chat_id: Record ID from the `chat` table that the message was sent in.
-    content: Sent message content.
-    llm_model: the llm model used to generate the content
+    chat_id (string): The ID of the chat.
+    content (string): The message content.
+    llm_model (string): The LLM model used.
+    prompt_text (string): The prompt used to generate the system message.
 
 Returns:
-    object: Content and timestamp.
+    object: The created system message details.
 */
 DEFINE FUNCTION OVERWRITE fn::create_system_message($chat_id: string, $content: string, $llm_model: string,$prompt_text:string) {
     RETURN fn::create_message($chat_id, "system", $content, None,None,$llm_model,$prompt_text);
@@ -207,39 +264,15 @@ DEFINE FUNCTION OVERWRITE fn::create_system_message($chat_id: string, $content: 
 
 
 
-/* Create get the last user message and the reference docs for generating a prompt.
+/*
+Retrieves the first message in a chat.
 
 Args:
-    chat_id: Record ID from the `chat` table that the message was sent in\
+    chat_id (string): The ID of the chat.
 
 Returns:
-    object: Content, referenced documents [{score,documents}], timestamp.
+    string|null: The content of the first message, or null if the chat is empty.
 */
-
-DEFINE FUNCTION OVERWRITE fn::get_last_user_message_input_and_prompt($chat_id: string) {
-        LET $message = 
-            SELECT content,fn::get_prompt_with_context(docs) as prompt_text FROM (
-                SELECT
-                    out.content AS content,
-                    referenced_documents.doc as docs,
-                    timestamp
-                FROM ONLY type::record($chat_id)->sent
-                WHERE out.role = "user"
-                ORDER BY timestamp DESC
-                LIMIT 1
-                FETCH out);
-
-        RETURN $message[0];
-};
-/* Generate get the user's message in a chat for generating a tile.
-
-Args:
-    chat_id: Record ID from the `chat` table to generate a title for.
-
-Returns:
-    string: first chat content.
-*/
-
 DEFINE FUNCTION OVERWRITE fn::get_first_message($chat_id: string) {
     # Get the `content` of the user's initial message.
     RETURN (
@@ -255,23 +288,26 @@ DEFINE FUNCTION OVERWRITE fn::get_first_message($chat_id: string) {
 };
 
 
-/* Create a new chat.
+/*
+Creates a new chat.
 
 Returns:
-    object: Object containing `id` and `title`.
+    object: The created chat object with `id` and `title`.
 */
 DEFINE FUNCTION OVERWRITE fn::create_chat() {
     RETURN CREATE ONLY chat 
         RETURN id, title;
 };
 
-/* Load a chat.
+
+/*
+Loads the messages in a chat.
 
 Args:
-    chat_id: Record ID from the `chat` table to load.
+    chat_id (string): The ID of the chat.
 
 Returns:
-    array[objects]: Array of messages containing `role` and `content`.
+    array<object>: An array of message objects.
 */
 DEFINE FUNCTION OVERWRITE fn::load_chat($chat_id: string) {
     RETURN 
@@ -285,10 +321,11 @@ DEFINE FUNCTION OVERWRITE fn::load_chat($chat_id: string) {
         FETCH out;
 };
 
-/* Load all chats
+/*
+Loads all chats.
 
 Returns:
-    array[objects]: array of chats records containing `id`, `title`, and `created_at`.
+    array<object>: An array of chat objects.
 */
 DEFINE FUNCTION OVERWRITE fn::load_all_chats() {
     RETURN 
@@ -298,25 +335,28 @@ DEFINE FUNCTION OVERWRITE fn::load_all_chats() {
         ORDER BY created_at DESC;
 };
 
-/* Get chat title
+/*
+Retrieves the title of a chat.
 
-Args: Record ID of the chat to get the title for.
+Args:
+    chat_id (string): The ID of the chat.
 
 Returns:
-    string: Chat title.
+    string: The chat title.
 */
 DEFINE FUNCTION OVERWRITE fn::get_chat_title($chat_id: string) {
     RETURN SELECT VALUE title FROM ONLY type::record($chat_id);
 };
 
-/* delete a chat and sent messages.
+/*
+Deletes a chat and its messages.
 
-Args: Record ID of the chat to get the title for.
+Args:
+    chat_id (string): The ID of the chat to delete.
 
 Returns:
-    string: chat id that was delete.
+    string: The ID of the deleted chat.
 */
-
 DEFINE FUNCTION OVERWRITE fn::delete_chat($chat_id:string){
     $chat = type::record($chat_id);
     DELETE message WHERE id IN (SELECT ->sent->message FROM $chat);
@@ -325,15 +365,16 @@ DEFINE FUNCTION OVERWRITE fn::delete_chat($chat_id:string){
     RETURN $chat;
 };
 
+/*
+Generates embeddings using the OpenAI API.
 
-/* OpenAI embeddings complete.
 Args:
-    embeddings_model: Embedding model from OpenAI.
-    input: User input.
-    openai_token: the token used to authorize calling the API
+    embedding_model (string): The OpenAI embedding model to use.
+    input (string): The input text.
+    openai_token (string): The OpenAI API token.
 
 Returns:
-    array<float>: Array of embeddings.
+    array<float>: The generated embeddings.
 */
 DEFINE FUNCTION OVERWRITE fn::openai_embeddings_complete($embedding_model: string, $input: string, $openai_token:string) {
     RETURN http::post(
@@ -348,18 +389,20 @@ DEFINE FUNCTION OVERWRITE fn::openai_embeddings_complete($embedding_model: strin
     )["data"][0]["embedding"]
 };
 
-
-/* OpenAI chat complete.
+/*
+Generates a chat completion using the OpenAI API.
 
 Args:
-    llm: Large Language Model to use for generation.
-    input: Initial user input.
-    prompt_with_context: Prompt with context for the system.
+    llm (string): The OpenAI LLM to use.
+    prompt_with_context (string): The prompt with context.
+    input (string): The user input.
+    temperature (float): The temperature for generation.
+    openai_token (string): The OpenAI API token.
 
 Returns:
-    string: Response from LLM.
+    string: The generated chat response.
 */
-DEFINE FUNCTION OVERWRITE fn::openai_chat_complete($llm: string, $input: string, $prompt_with_context: string, $temperature: float, $openai_token:string) {
+DEFINE FUNCTION OVERWRITE fn::openai_chat_complete($llm: string, $prompt_with_context: string, $input: string, $temperature: float, $openai_token:string) {
     LET $response = http::post(
         "https://api.openai.com/v1/chat/completions",
         {
@@ -376,7 +419,7 @@ DEFINE FUNCTION OVERWRITE fn::openai_chat_complete($llm: string, $input: string,
         "temperature": $temperature
     },
     {
-        "Authorization": $openai_token
+        "Authorization": "Bearer " + $openai_token
     }
     )["choices"][0]["message"]["content"];
 
@@ -384,31 +427,31 @@ DEFINE FUNCTION OVERWRITE fn::openai_chat_complete($llm: string, $input: string,
     RETURN string::replace($response, '"', '');
 };
 
-
-/* Gemini format for their endpoint has the model name and key in the query 
+/*
+Generates the Gemini API URL.
 
 Args:
-    llm: Large Language Model to use for generation.
-    google_token: the API token for gemini
+    llm (string): The Gemini LLM to use.
+    google_token (string): The Google API token.
+
 Returns:
-    string: path to query for LLM.
+    string: The Gemini API URL.
 */
 DEFINE FUNCTION OVERWRITE fn::get_gemini_api_url($llm: string,$google_token:string){
  return string::concat("https://generativelanguage.googleapis.com/v1beta/models/",$llm,":generateContent?key=",$google_token);
 
 };
 
-
 /* Gemini chat complete.
 
 Args:
-    llm: Large Language Model to use for generation.
-    input: Initial user input.
-    prompt_with_context: Prompt with context for the system.
-    google_token: the API token for gemini
+    llm (string): Large Language Model to use for generation.
+    input (string): Initial user input.
+    prompt_with_context (string): Prompt with context for the system.
+    google_token (string): The API token for Gemini.
 
 Returns:
-    string: Response from LLM.
+    object: Response from LLM.
 */
 DEFINE FUNCTION OVERWRITE fn::gemini_chat_complete($llm: string, $prompt_with_context: string, $input: string,$google_token:string) {
 
@@ -427,17 +470,43 @@ DEFINE FUNCTION OVERWRITE fn::gemini_chat_complete($llm: string, $prompt_with_co
 
 
 
+/*
+Loads the details of a document.
 
+Args:
+    corpus_table (string): The name of the corpus table.
+    document_id (string): The ID of the document.
+
+Returns:
+    object: The document details.
+*/
 DEFINE FUNCTION OVERWRITE fn::load_document_detail($corpus_table:string,$document_id: string) {
     RETURN SELECT * FROM type::thing($corpus_table,$document_id);
 };
     
 
+/*
+Loads the details of a message, including related sent data.
+
+Args:
+    message_id (string): The ID of the message.
+
+Returns:
+    object: The message details, including related sent data.
+*/
 DEFINE FUNCTION OVERWRITE fn::load_message_detail($message_id: string) {
     RETURN (SELECT *,<-sent.{referenced_documents,embedding_model,llm_model,timestamp,prompt_text} AS sent FROM  type::record($message_id))[0];
 };
+/*
+Retrieves the vectors for each word in a sentence using the specified embedding model.
 
-#these funtions calulates the mean vector for the tokens in a sentence using the glove Model
+Args:
+    sentence (string): The input sentence.
+    model (Record<embedding_model_definition>): The embedding model definition.
+
+Returns:
+    array<array<float>>: An array of embedding vectors, one for each word.
+*/
 DEFINE FUNCTION OVERWRITE fn::retrieve_vectors_for_sentence($sentence:string,$model:Record<embedding_model_definition>) 
 {
     LET $sentence = $sentence.lowercase().

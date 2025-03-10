@@ -1,4 +1,4 @@
-"""Download OpenAI Wikipedia data."""
+"""Train a fasttext with the wiki data """
 
 
 import fasttext
@@ -19,7 +19,7 @@ def preprocess_text(text):
     return token
 
 
-def train_fastText() -> None:
+def train_wiki_fastText() -> None:
     logger = loggers.setup_logger("Train FastText Embedding Model") 
 
     usecols=[
@@ -39,9 +39,9 @@ def train_fastText() -> None:
     logger.info(all_text.describe())
     logger.info(len(all_text))
 
-    traning_data_file = constants.CUSTOM_FS_PATH + "_train.txt"
-    model_bin_file = constants.CUSTOM_FS_PATH + ".bin"
-    model_txt_file = constants.CUSTOM_FS_PATH
+    traning_data_file = constants.FS_WIKI_PATH + "_train.txt"
+    model_bin_file = constants.FS_WIKI_PATH + ".bin"
+    model_txt_file = constants.FS_WIKI_PATH
     # Save the combined text to a file
     with open(traning_data_file, "w") as f:
         for text in all_text:
@@ -70,4 +70,4 @@ def train_fastText() -> None:
 
 
 if __name__ == "__main__":
-    train_fastText()
+    train_wiki_fastText()

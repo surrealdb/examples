@@ -1,4 +1,4 @@
-"""Download OpenAI Wikipedia data."""
+"""Download GLoVe pre trained model."""
 
 import zipfile
 

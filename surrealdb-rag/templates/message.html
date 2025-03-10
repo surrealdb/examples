@@ -5,7 +5,7 @@
     {% if message.role=="user" %}
         hx-trigger="load" hx-post="chats/{{ chat_id }}/send-system-message" hx-target=".messages"
     {% endif %}
-    hx-swap="beforeend"  hx-include="#llmModelSelect, #embedModelSelect, #corpusTableSelect">
+    hx-swap="beforeend"  hx-include="#promptTemplateText, #llmModelSelect, #embedModelSelect, #corpusTableSelect">
 {% else %}
    >
 {% endif %}
@@ -14,7 +14,8 @@
         
 
             <span class=" message-time">{{ message.timestamp | convert_timestamp_to_date }}
-                <button hx-get="/messages/{{ message.id }}" id="message-{{ message.id | extract_id }}" class="message" hx-target="message_detail">
+                <button hx-get="/messages/{{ message.id }}" id="message-{{ message.id | extract_id }}" class="message"
+                hx-swap="innerHTML" hx-target="message_detail">
                     detail
                 </button> 
 

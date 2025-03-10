@@ -21,13 +21,7 @@ def download_data() -> None:
     logger = loggers.setup_logger("DownloadData")
 
     logger.info("Downloading Wikipedia")
-    # if not os.path.exists("data"):
-    #     os.makedirs("data")
-    # wget.download(
-    #     url=constants.WIKI_URL,
-    #     out=constants.WIKI_ZIP_PATH,
-    # )
-
+ 
     logger.info("Extracting to data directory")
     with zipfile.ZipFile(
         constants.WIKI_ZIP_PATH, "r"
@@ -38,8 +32,6 @@ def download_data() -> None:
         raise FileNotFoundError(f"File not found: {constants.WIKI_PATH}")
 
     logger.info("Loading Glove embedding model")
-
-
 
     try:
         gloveEmbeddingModel = WordEmbeddingModel(constants.GLOVE_PATH)

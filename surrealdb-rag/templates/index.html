@@ -43,6 +43,22 @@
             }
 
         });
+
+        function clearAllModalHTML(){
+            const messageDetail = document.getElementById('message_detail');
+            const docDetail = document.getElementById('doc_detail');
+            const promptArea = document.getElementById('promptArea');
+            if (messageDetail) {
+                messageDetail.innerHTML = '';
+            }
+            if (docDetail) {
+                docDetail.innerHTML = '';
+            }
+            if (promptArea) {
+                promptArea.style.display = 'none';
+            }
+
+        }
         document.addEventListener("DOMContentLoaded", function() {
             const modal = document.getElementById("myModal");
             const closeBtn = document.querySelector(".close");
@@ -57,11 +73,13 @@
             if (modal && closeBtn) {
                 closeBtn.onclick = function() {
                     modal.style.display = "none";
+                    clearAllModalHTML();
                 };
 
                 window.onclick = function(event) {
                     if (event.target === modal) {
                         modal.style.display = "none";
+                        clearAllModalHTML();
                     }
                 };
             } else {
@@ -85,7 +103,19 @@
             console.error("Error parsing available_corpus_tables:", e);
         }
 
+        function unescapeHTML(html) {
+            var temp = document.createElement("div");
+            temp.innerHTML = html;
+            var result = temp.textContent || temp.innerText || "";
+            return result;
+        }
+        const default_prompt_text = unescapeHTML(`{{default_prompt_text}}`);
 
+        function resetPrompt(){
+
+            const promptTemplateText = document.getElementById("promptTemplateText");
+            promptTemplateText.value = default_prompt_text;
+        }
 
         function updateLlmModelSelect(){
             const platformSelect = document.getElementById("platformSelect");
@@ -180,8 +210,22 @@
 
         document.addEventListener("DOMContentLoaded", function() {
             updateEmbedModelSelect();
+            
         });
-        
+        document.addEventListener("DOMContentLoaded", function() {
+            const togglePrompt = document.getElementById('togglePrompt');
+            const togglePromptArea = document.getElementById('togglePromptArea');
+
+            if (togglePrompt) {
+                togglePrompt.addEventListener('click', function() {
+                    document.getElementById('myModal').style.display = 'block';
+                    document.getElementById("promptArea").style.display = "block";
+                });
+            } else {
+                console.error("togglePrompt button not found.");
+            }
+
+        });
     </script>
 </head>
 
@@ -199,8 +243,7 @@
             <select id="corpusTableSelect" name="corpus_table"
                     hx-include="this"  onchange="updateEmbedModelSelect()"
                     hx-get="/get_corpus_table_details"
-                    hx-target="#corpusTableDetails"
-                    hx-include="this">
+                    hx-target="#corpusTableDetails">
             </select>
             <div id="corpusTableDetails">
                 {% if default_corpus_table %}
@@ -248,6 +291,10 @@
             </div>
             <br>
             </div>
+            <br>
+            <div class="advanced-prompt">
+                <button id="togglePrompt">Advanced Prompt Settings</button>
+            </div>
     </nav>
     <main>
 
@@ -257,7 +304,14 @@
             <span class="close">&times;</span>
             <message_detail id="message_detail"></message_detail>
             <doc_detail id="doc_detail"></doc_detail>
-            
+            <div id="promptArea" style="display: none;">
+                
+                <textarea id="promptTemplateText" name="prompt_template" rows="30" cols="120">
+                    {{default_prompt_text}}
+                </textarea>
+                <br>
+                <button id="resetPrompt" onclick="resetPrompt()">reset</button>
+            </div>
         </div>
     </div>
 </body>

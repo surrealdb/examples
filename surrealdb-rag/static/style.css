@@ -56,7 +56,8 @@ nav {
     right: 15px;
 }
 
-.close:hover,
+.close:hover, 
+.doc:hover,
 .close:focus {
     color: black;
     text-decoration: none;
