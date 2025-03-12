@@ -13,3 +13,5 @@ ollama
 google.generativeai
 openai
 fasttext
+edgartools
+bs4

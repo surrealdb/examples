@@ -254,7 +254,7 @@ async def load_message(
         {
             "request": request,
             "message": message,
-            "message_id": message_id
+            "message_id": message_id,
         },
     )
 

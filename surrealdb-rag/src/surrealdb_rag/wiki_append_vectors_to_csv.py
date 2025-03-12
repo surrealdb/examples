@@ -1,0 +1,62 @@
+"""Download OpenAI Wikipedia data."""
+
+import zipfile
+
+import wget
+import os
+
+from surrealdb_rag import loggers
+
+import surrealdb_rag.constants as constants
+
+from surrealdb_rag.embeddings import WordEmbeddingModel
+
+import pandas as pd
+import tqdm
+
+
+def append_wiki_vectors() -> None:
+    logger = loggers.setup_logger("DownloadData")
+
+    if not os.path.exists(constants.WIKI_PATH):
+        raise FileNotFoundError(f"File not found: {constants.WIKI_PATH}")
+
+    logger.info(f"Loading Glove embedding model {constants.GLOVE_PATH}")
+    try:
+        gloveEmbeddingModel = WordEmbeddingModel(constants.GLOVE_PATH,False)
+    except Exception as e:
+        logger.error(f"Error opening embedding model. please check the model file was downloaded using download_glove_model {e}")
+
+    logger.info(f"Loading custom FastText embedding model {constants.FS_WIKI_PATH}")
+    try:
+        fastTextEmbeddingModel = WordEmbeddingModel(constants.FS_WIKI_PATH,True)
+    except Exception as e:
+        logger.error(f"Error opening embedding model. train the model using train_fastText {e}")
+
+    usecols=[
+        "url",
+        "title",
+        "text",
+        "content_vector"
+    ]
+
+
+    logger.info("Loading Wiki data to data frame")
+    wiki_records_df = pd.read_csv(constants.WIKI_PATH,usecols=usecols)
+    
+    logger.info("Processing glove embeddings")
+    wiki_records_df['content_glove_vector'] = [gloveEmbeddingModel.sentence_to_vec(x) for x in tqdm.tqdm(wiki_records_df["text"], desc="Processing content glove embeddings")]
+    
+    logger.info("Processing fast text embeddings")
+    wiki_records_df['content_fasttext_vector'] = [fastTextEmbeddingModel.sentence_to_vec(x) for x in tqdm.tqdm(wiki_records_df["text"], desc="Processing content fast text embeddings")]
+    
+    logger.info(f"Backing up file {constants.WIKI_PATH + ".bak"}")
+    
+    os.rename(constants.WIKI_PATH, constants.WIKI_PATH + ".bak")
+    logger.info(f"Saving file {constants.WIKI_PATH}")
+    wiki_records_df.to_csv(constants.WIKI_PATH, index=False)  # index=False prevents writing the index
+
+    logger.info("Appended vectors successfully. Please check the data directory")
+
+if __name__ == "__main__":
+    append_wiki_vectors()

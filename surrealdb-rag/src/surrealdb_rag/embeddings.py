@@ -7,8 +7,28 @@ PUNCTUATION_TO_SEPARATE = [
 
 class WordEmbeddingModel:
     
+    # Preprocess token text
+    staticmethod
+    def process_token_text_for_txt_file(text:str) ->str:
+        token = str(text).lower()
+        token = re.sub(r'[^\w\s]', '', token)  # Remove punctuation
+        token = re.sub(r'\s+', ' ', token)  # Normalize whitespace (replace multiple spaces, tabs, newlines with a single ' ')
+        token = token.strip()
+        token = token.replace(" ","!") # escape character should be no punctuation
+        return token
+    
+    
+    # Preprocess token text (example - adjust as needed)
+    staticmethod
+    def unescape_token_text_for_txt_file(text:str) ->str:
+        if text:
+            return text.replace("!"," ") # unescape to get back the space
+        else:
+            return ""
 
-    def __init__(self,model_path):
+
+
+    def __init__(self,model_path,unescape_words:False):
         self.dictionary = {}
         self.vector_size = 0
         self.model_path = model_path
@@ -16,7 +36,10 @@ class WordEmbeddingModel:
         with open(self.model_path, 'r', encoding='utf-8') as f:
             for line in f:
                 values = line.split()
-                word = values[0]
+                if unescape_words:
+                    word = WordEmbeddingModel.unescape_token_text_for_txt_file(values[0])
+                else:
+                    word = values[0]
                 vector = np.asarray(values[1:], "float32")
                 self.dictionary[word] = vector
                 if self.vector_size==0:

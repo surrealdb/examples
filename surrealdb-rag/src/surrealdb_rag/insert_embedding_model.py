@@ -13,6 +13,7 @@ from surrealdb_rag.embeddings import WordEmbeddingModel
 
 import surrealdb_rag.constants as constants
 
+
 # Initialize database and model parameters, and argument loader
 db_params = DatabaseParams()
 model_params = ModelParams()
@@ -66,7 +67,7 @@ def surreal_model_insert(model_trainer,model_version,model_path,description,corp
 
     logger.info(f"Reading {model_trainer} {model_version} model")
      # Load the embedding model
-    embeddingModel = WordEmbeddingModel(model_path) 
+    embeddingModel = WordEmbeddingModel(model_path, model_trainer=="FASTTEXT") 
     # Create DataFrame from model data.
     embeddings_df = pd.DataFrame({'word': embeddingModel.dictionary.keys(), 'embedding': embeddingModel.dictionary.values()})
     # Calculate number of chunks for batch processing.
@@ -91,7 +92,7 @@ def surreal_model_insert(model_trainer,model_version,model_path,description,corp
                 # create an array of dicts to bulk load into surreal
                 formatted_rows = [
                     {
-                        "word":str(row["word"]),
+                        "word": WordEmbeddingModel.unescape_token_text_for_txt_file(str(row["word"])),
                         "embedding":row["embedding"].tolist()
                     }
                     for _, row in chunk.iterrows()
@@ -170,7 +171,7 @@ def surreal_embeddings_insert() -> None:
     # Insert the embedding model.
     surreal_model_insert(model_trainer,model_version,model_path,description,corpus,logger)
 
-
+    logger.info(f"Model loaded!")
 
 if __name__ == "__main__":
     surreal_embeddings_insert()

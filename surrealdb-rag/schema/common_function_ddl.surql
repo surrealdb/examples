@@ -37,10 +37,13 @@ DEFINE FUNCTION OVERWRITE fn::sentence_to_vector($sentence: string,$model: Recor
 
     #if the array size is correct return it, otherwise return array of zeros
     RETURN 
-        IF array::len($mean_vector) == $vector_size 
-        ELSE {None}
-        ;
+        IF array::len($mean_vector) == $vector_size THEN 
+            $mean_vector
+        ELSE 
+            None
+        END;
 };
+
 
 
 /*
@@ -102,7 +105,7 @@ Args:
 Returns:
     string: The generated prompt.
 */
-DEFINE FUNCTION OVERWRITE fn::get_prompt_with_context($prompt:string, $documents: array<any>, $chat_history: Record<message>) {
+DEFINE FUNCTION OVERWRITE fn::get_prompt_with_context($prompt:string, $documents: array<any>, $chat_history: array<Record<message>>) {
     
     LET $context = (SELECT VALUE "\n ------------- \n URL: " + url + "\nTitle: " + title + "\n Content:\n" + text as content
         FROM $documents).join("\n");
@@ -111,6 +114,7 @@ DEFINE FUNCTION OVERWRITE fn::get_prompt_with_context($prompt:string, $documents
 
     RETURN string::replace(string::replace($prompt, '$context', $context),'$chat_history', $chat_history);
 };
+
 
 /*
 Retrieves the message history for a chat.
@@ -122,12 +126,13 @@ Args:
 Returns:
     array<Record<message>>: An array of message records.
 */
+
 DEFINE FUNCTION OVERWRITE fn::get_message_history($chat_id: string,$message_memory_length: int) {
-   LET $full_history = (SELECT VALUE out FROM (SELECT out,updated_at FROM type::record($chat_id)->sent ORDER BY updated_at DESC));
-    RETURN array::slice($full_history, 1, $message_memory_length - 1);
+
+   LET $full_history = (SELECT VALUE out FROM (SELECT out,timestamp FROM type::record($chat_id)->sent ORDER BY timestamp DESC));
+   RETURN array::slice($full_history, 1, $message_memory_length - 1);
     
 };
-
 
 /*
 Retrieves the last user message, its input, and the generated prompt.
@@ -140,8 +145,10 @@ Args:
 Returns:
     object: An object containing the content, prompt, and timestamp of the last user message.
 */
+
 DEFINE FUNCTION OVERWRITE fn::get_last_user_message_input_and_prompt($chat_id: string,$prompt:string,$message_memory_length: int) {
 
+        LET $chat_history = fn::get_message_history($chat_id,$message_memory_length);
         LET $message =  
             SELECT content,fn::get_prompt_with_context($prompt,docs,chat_history) as prompt_text
             FROM
@@ -150,7 +157,7 @@ DEFINE FUNCTION OVERWRITE fn::get_last_user_message_input_and_prompt($chat_id: s
                     out.id,
                     out.content AS content,
                     referenced_documents.doc as docs,
-                    fn::get_message_history($chat_id,$message_memory_length) as chat_history,
+                    $chat_history as chat_history,
                     timestamp
                 FROM ONLY type::record($chat_id)->sent
                 WHERE out.role = "user"
@@ -161,6 +168,7 @@ DEFINE FUNCTION OVERWRITE fn::get_last_user_message_input_and_prompt($chat_id: s
         
         RETURN $message[0];
 };
+
 
 /*
 Creates a new message in a chat.

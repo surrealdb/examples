@@ -23,11 +23,23 @@ dependencies = [
     "ollama",
     "google.generativeai",
     "openai",
-    "fasttext"
+    "fasttext",
+    "edgartools",
+    "bs4"
 ]
 
 [project.scripts]
-surreal-create-db = "surrealdb_rag.create_database:surreal_create_database"
-surreal-insert-wiki = "surrealdb_rag.insert_wiki:surreal_wiki_insert"
-download-data = "surrealdb_rag.download:download_data"
-download-glove = "surrealdb_rag.download:download_glove_model"
+create-db = "surrealdb_rag.scripts:create_database"
+download-glove-model = "surrealdb_rag.scripts:download_glove"
+insert-glove-model = "surrealdb_rag.scripts:insert_glove"
+download-wiki-data = "surrealdb_rag.scripts:download_wiki"
+train-wiki-fasttext = "surrealdb_rag.scripts:train_wiki"
+insert-wiki-fasttext-model = "surrealdb_rag.scripts:insert_wiki_fs"
+add-vectors-wiki-csv = "surrealdb_rag.scripts:add_vectors_to_wiki"
+insert-wiki-data = "surrealdb_rag.scripts:insert_wiki"
+download-edgar-data = "surrealdb_rag.scripts:download_edgar"
+train-edgar-fasttext = "surrealdb_rag.scripts:train_edgar"
+insert-edgar-fasttext-model = "surrealdb_rag.scripts:insert_edgar_fs"
+add-vectors-edgar-csv = "surrealdb_rag.scripts:add_vectors_to_edgar"
+insert-edgar-data = "surrealdb_rag.scripts:insert_edgar"
+run-app = "surrealdb_rag.scripts:app"

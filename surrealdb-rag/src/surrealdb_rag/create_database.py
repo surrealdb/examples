@@ -5,7 +5,7 @@ from surrealdb_rag import loggers
 
 
 from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
-
+import surrealdb_rag.constants as constants
 # Initialize parameter objects and argument loader
 db_params = DatabaseParams()
 model_params = ModelParams()
@@ -44,14 +44,20 @@ def surreal_create_database() -> None:
         logger.info("Database created successfully")
         connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
 
-        logger.info("Executing common function DDL")
-
+        
+        logger.info("Executing common table DDL")
         # Read the schema DDL that holds the SurQL functions from file
-        with open("./schema/function_ddl.surql") as f: 
+        with open(constants.COMMON_TABLES_DDL) as f: 
             surlql_to_execute = f.read()
             SurrealParams.ParseResponseForErrors( connection.query_raw(surlql_to_execute))
 
         
+        logger.info("Executing common function DDL")
+        # Read the schema DDL that holds the SurQL functions from file
+        with open(constants.COMMON_FUNCTIONS_DDL) as f: 
+            surlql_to_execute = f.read()
+            SurrealParams.ParseResponseForErrors( connection.query_raw(surlql_to_execute))
+
 
 if __name__ == "__main__":
     surreal_create_database()

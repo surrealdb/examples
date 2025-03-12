@@ -12,6 +12,79 @@ GLOVE_PATH = "data/glove.6B.300d.txt"
 
 FS_WIKI_PATH = "data/custom_fast_wiki_text.txt"
 
+EDGAR_FOLDER = "data/edgar/"
+EDGAR_FOLDER_FILE_INDEX = "data/edgar/index.csv"
+EDGAR_PATH = "data/vector_database_edgar_data_embedded.csv"
+FS_EDGAR_PATH = "data/custom_fast_edgar_text.txt"
+
+COMMON_FUNCTIONS_DDL = "./schema/common_function_ddl.surql"
+COMMON_TABLES_DDL = "./schema/common_tables_ddl.surql"
+CORPUS_TABLE_DDL = "./schema/corpus_table_ddl.surql"
+
+
+
+class SurrealDML():
+    
+    # SurrealQL query to get embedding model definitions
+    GET_EMBED_MODEL_DESCRIPTIONS = """
+        SELECT * FROM embedding_model_definition;
+    """
+
+    # Mapping of embedding models to their field names and definitions
+    EMBED_MODEL_DEFINITIONS = {
+        "GLOVE":{"field_name":"content_glove_vector","model_definition":[
+            'GLOVE',
+            '6b 300d'
+            ]},
+        "OPENAI":{"field_name":"content_openai_vector","model_definition":[
+            'OPENAI',
+            'text-embedding-ada-002'
+            ]},
+        "FASTTEXT":{"field_name":"content_fasttext_vector","model_definition":[
+            'FASTTEXT',
+            'wiki'
+            ]},
+    }
+
+
+    # SurrealQL query to update corpus table information    
+    def DELETE_CORPUS_TABLE_INFO(TABLE_NAME:str):
+        return f"""
+                DELETE FROM corpus_table_model WHERE corpus_table = corpus_table:{TABLE_NAME};
+                DELETE corpus_table:{TABLE_NAME};  
+            """
+    
+
+    # SurrealQL query to update corpus table information    
+    def UPDATE_CORPUS_TABLE_INFO(TABLE_NAME:str,DISPLAY_NAME:str):
+        return f"""
+                DELETE FROM corpus_table_model WHERE corpus_table = corpus_table:{TABLE_NAME};
+                FOR $model IN $embed_models {{
+                    LET $model_definition = type::thing("embedding_model_definition",$model.model_id);
+                    UPSERT corpus_table_model:[corpus_table:{TABLE_NAME},$model_definition] SET model = $model_definition,field_name = $model.field_name, corpus_table=corpus_table:{TABLE_NAME};
+                }};
+                UPSERT corpus_table:{TABLE_NAME} SET table_name = '{TABLE_NAME}', display_name = '{DISPLAY_NAME}', 
+                    embed_models = (SELECT value id FROM corpus_table_model WHERE corpus_table = corpus_table:{TABLE_NAME}) RETURN NONE;
+                    
+            """
+    # SurrealQL query to insert corpus table records
+    def INSERT_RECORDS(TABLE_NAME:str):
+        return f"""
+        FOR $row IN $records {{
+            CREATE type::thing("{TABLE_NAME}",$row.url)  CONTENT {{
+                url : $row.url,
+                title: $row.title,
+                text: $row.text,
+                content_glove_vector: IF $row.content_glove_vector= NULL THEN None ELSE $row.content_glove_vector END,
+                content_openai_vector: IF $row.content_openai_vector= NULL THEN None ELSE $row.content_openai_vector END,
+                content_fasttext_vector: IF $row.content_fasttext_vector= NULL THEN None ELSE $row.content_fasttext_vector END,
+                additional_data: IF $row.additional_data= NULL THEN None ELSE $row.additional_data END
+            }} RETURN NONE;
+        }};
+    """
+
+
+
 
 class SurrealParams():
     """

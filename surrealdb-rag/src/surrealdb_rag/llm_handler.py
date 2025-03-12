@@ -138,7 +138,7 @@ class LLMModelHander():
     
     You may also refer to the text in the <chat_history></chat_history> tags but only for refining your understanding of what is being asked of you. Do not rely on the chat_history for answering the question!
     
-    Please provide your response in Markdown converted to HTML format. Include appropriate headings and lists where relevant.
+    Please provide your response in HTML format. Include appropriate headings and lists where relevant.
 
     At the end of the response, add any links as a HTML link and replace the title and url with the associated title and url of the more relevant page from the context.
 

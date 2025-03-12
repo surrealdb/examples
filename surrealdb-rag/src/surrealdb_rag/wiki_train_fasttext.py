@@ -9,17 +9,12 @@ import pandas as pd
 import fasttext
 import re
 import os
+import tqdm
 
-# Preprocess the text (example - adjust as needed)
-def preprocess_text(text):
-    token = str(text).lower()
-    token = re.sub(r'[^\w\s]', '', token)  # Remove punctuation
-    token = re.sub(r'\s+', ' ', token)  # Normalize whitespace (replace multiple spaces, tabs, newlines with a single space)
-    token = token.strip() 
-    return token
+from surrealdb_rag.embeddings import WordEmbeddingModel
 
 
-def train_wiki_fastText() -> None:
+def wiki_train_fastText() -> None:
     logger = loggers.setup_logger("Train FastText Embedding Model") 
 
     usecols=[
@@ -33,7 +28,8 @@ def train_wiki_fastText() -> None:
 
     # Combine relevant columns
     wiki_records_df['combined_text'] = 'title:' + wiki_records_df['title'] + '\ntext:\n' + wiki_records_df['text']
-    all_text = wiki_records_df['combined_text'].apply(preprocess_text)
+    #all_text = wiki_records_df['combined_text'].apply(WordEmbeddingModel.process_token_text_for_txt_file)
+    all_text = wiki_records_df['combined_text']
 
     logger.info(all_text.head())
     logger.info(all_text.describe())
@@ -56,18 +52,20 @@ def train_wiki_fastText() -> None:
 
     with open(model_txt_file, "w") as f:
         words = model.words
-        for word in words:
+        for word in tqdm.tqdm(words, desc=f"Writing model to {model_txt_file}"):
+            vector = model.get_word_vector(word)
+            # Clean the token
+            word = WordEmbeddingModel.process_token_text_for_txt_file(word)
             #ensure its not an empty string
-            word = preprocess_text(word)  # Clean the token
-            if word:
-                vector = model.get_word_vector(word)
-                if(len(vector) == model_dim):
-                    vector_str = " ".join([str(v) for v in vector]) # More robust conversion to string
-                    f.write(f"{word} {vector_str}\n") 
+            if word and len(vector) == model_dim:
+                vector_str = " ".join([str(v) for v in vector]) # More robust conversion to string
+                f.write(f"{word} {vector_str}\n") 
+
+                
     os.remove(traning_data_file)
     
 
 
 
 if __name__ == "__main__":
-    train_wiki_fastText()
+    wiki_train_fastText()
