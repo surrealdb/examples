@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatSurrealDB</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}" />
+
+    <script>
+    
+        document.addEventListener('htmx:afterRequest', function(evt) {
+
+            if (evt.detail.successful) {
+                
+                if (evt.detail.elt.hasAttribute('hx-delete')) {
+                    const targetId = evt.detail.elt.getAttribute('hx-target');
+                    console.log("delete " + targetId)
+                    if (targetId) {
+                        const targetElement = document.querySelector(targetId);
+                        if (targetElement) {
+                            targetElement.remove();
+                        }
+                        const mainElement = document.querySelector('main');
+                        if (mainElement) {
+                            mainElement.innerHTML = ''; // Clear the inner HTML
+                        }
+                    }
+                } else {
+                    const messagesDiv = document.querySelector('main .messages');
+                    if (messagesDiv) {
+                        const lastMessage = messagesDiv.lastElementChild;
+                        if (lastMessage) {
+                            lastMessage.focus();
+                            lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        }
+                    }
+
+                }
+
+            }
+
+        });
+
+        function clearAllModalHTML(){
+            const messageDetail = document.getElementById('message_detail');
+            const docDetail = document.getElementById('doc_detail');
+            const promptArea = document.getElementById('promptArea');
+            if (messageDetail) {
+                messageDetail.innerHTML = '';
+            }
+            if (docDetail) {
+                docDetail.innerHTML = '';
+            }
+            if (promptArea) {
+                promptArea.style.display = 'none';
+            }
+
+        }
+        document.addEventListener("DOMContentLoaded", function() {
+            const modal = document.getElementById("myModal");
+            const closeBtn = document.querySelector(".close");
+
+            // Event delegation for dynamically created buttons
+            document.body.addEventListener("click", function(event) {
+                if (event.target.classList.contains("message")) {
+                    modal.style.display = "block";
+                }
+            });
+
+            if (modal && closeBtn) {
+                closeBtn.onclick = function() {
+                    modal.style.display = "none";
+                    clearAllModalHTML();
+                };
+
+                window.onclick = function(event) {
+                    if (event.target === modal) {
+                        modal.style.display = "none";
+                        clearAllModalHTML();
+                    }
+                };
+            } else {
+                console.error("Modal or close button not found.");
+            }
+        });
+        const available_llm_models_string = `{{ available_llm_models | safe }}`; // @ts-ignore - Ignore templating syntax
+        let available_llm_models = {};
+        try {
+            available_llm_models = JSON.parse(available_llm_models_string);
+        } catch (e) {
+            console.error("Error parsing available_llm_models:", e);
+        }
+
+
+        const available_corpus_tables_string = `{{ available_corpus_tables | safe }}`; // @ts-ignore - Ignore templating syntax
+        let available_corpus_tables = {};
+        try {
+            available_corpus_tables = JSON.parse(available_corpus_tables_string);
+        } catch (e) {
+            console.error("Error parsing available_corpus_tables:", e);
+        }
+
+        function unescapeHTML(html) {
+            var temp = document.createElement("div");
+            temp.innerHTML = html;
+            var result = temp.textContent || temp.innerText || "";
+            return result;
+        }
+       
+
+        function updateLlmModelSelect(){
+            const platformSelect = document.getElementById("platformSelect");
+            const hostSelect = document.getElementById("hostSelect");
+            const llmModelSelect = document.getElementById("llmModelSelect");
+
+            const selectedPlatform = platformSelect.value;
+            if(selectedPlatform=="OLLAMA"){
+                hostSelect.value = "OLLAMA";
+            } else {
+                if (hostSelect.value == "OLLAMA"){
+                    hostSelect.value = "API";
+                }
+            }
+            const selectedHost = hostSelect.value;
+            
+            // Clear existing options
+            llmModelSelect.innerHTML = "";
+
+
+
+            // Create a default "Select a Model" option
+            // const defaultOption = document.createElement("option");
+            // defaultOption.text = "Select a Model";
+            // defaultOption.value = ""; // You can set this to an empty string or a specific value
+            // llmModelSelect.add(defaultOption);
+
+            // Populate with matching models
+            for (const modelName in available_llm_models) {
+                const model = available_llm_models[modelName];
+                if (model.platform === selectedPlatform && model.host === selectedHost) {
+                    const option = document.createElement("option");
+                    option.text = model.model_version;
+                    option.value = modelName; // Or you can set this to a different identifier if needed
+                    llmModelSelect.add(option);
+                }
+            }
+            llmModelSelect.dispatchEvent(new Event('change'));
+        }   
+
+        function arrayToCsvString(arr) {
+            const quotedElements = arr.map(element => `"${element}"`);
+            return `[${quotedElements.join(',')}]`;
+        }
+        
+        function updateEmbedModelSelect(){
+            const embedModelSelect = document.getElementById("embedModelSelect");
+            const corpusTableSelect = document.getElementById("corpusTableSelect");
+            const selectedCorpusTable = corpusTableSelect.value;
+            const corpusTable = available_corpus_tables[selectedCorpusTable];
+            embedModelSelect.innerHTML = "";
+            for (const embedModel in corpusTable.embed_models) {
+                const modelName = corpusTable.embed_models[embedModel].model.join(' - ');
+                const modelId = arrayToCsvString(corpusTable.embed_models[embedModel].model);
+                const option = document.createElement("option");
+                console.log("updateEmbedModelSelect" + modelName );
+                option.text = modelName;
+                option.value = modelId;
+                embedModelSelect.add(option);
+            }
+        
+        
+        }
+        function populateCorpusTableSelect(){
+            const corpusTableSelect = document.getElementById("corpusTableSelect");
+            
+            console.log("populateCorpusTableSelect")
+            console.log(available_corpus_tables)
+            
+            // Clear existing options
+            corpusTableSelect.innerHTML = "";
+            for (const corpusTableID in available_corpus_tables) {
+                const option = document.createElement("option");
+                option.text = available_corpus_tables[corpusTableID].display_name;
+                option.value = corpusTableID; // Or you can set this to a different identifier if needed
+                corpusTableSelect.add(option);
+            }
+            corpusTableSelect.add(document.createElement("option"));
+                
+            
+            corpusTableSelect.dispatchEvent(new Event('change'));
+        }   
+
+        document.addEventListener("DOMContentLoaded", function() {
+            updateLlmModelSelect();
+        });
+
+
+        document.addEventListener("DOMContentLoaded", function() {
+            populateCorpusTableSelect();
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            updateEmbedModelSelect();
+            
+        });
+        document.addEventListener("DOMContentLoaded", function() {
+            const togglePrompt = document.getElementById('togglePrompt');
+            const togglePromptArea = document.getElementById('togglePromptArea');
+
+            if (togglePrompt) {
+                togglePrompt.addEventListener('click', function() {
+                    document.getElementById('myModal').style.display = 'block';
+                    document.getElementById("promptArea").style.display = "block";
+                });
+            } else {
+                console.error("togglePrompt button not found.");
+            }
+
+        });
+    </script>
+</head>
+
+<body>
+    <nav>
+        <button hx-post="/chats" hx-target="#chats" hx-swap="afterbegin">
+            <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+            New Chat
+        </button>
+        <div id="chats" hx-get="/chats" hx-trigger="load"></div>
+
+      
+        <div id="modelSelector" class="model_selector">
+            Data Set:
+            <select id="corpusTableSelect" name="corpus_table"
+                    hx-include="this"  onchange="updateEmbedModelSelect()"
+                    hx-get="/get_corpus_table_details"
+                    hx-target="#corpusTableDetails">
+            </select>
+            <div id="corpusTableDetails">
+                {% if default_corpus_table %}
+                Table: {{default_corpus_table['table_name']}}
+                {% endif %}
+
+            </div>
+            <br><br>
+            LLM:<br>
+            <select name="platformSelect" id="platformSelect" onchange="updateLlmModelSelect()">
+                <option>GOOGLE</option>
+                <option>OPENAI</option>
+                <option>OLLAMA</option>
+            </select>
+            <select name="hostSelect" id="hostSelect" onchange="updateLlmModelSelect()">
+                <option>API</option>
+                <option>SQL</option>
+                <option>OLLAMA</option>
+            </select>
+            <select id="llmModelSelect" name="llm_model" hx-get="/get_llm_model_details"
+                    hx-trigger="change"
+                    hx-target="#llmModelDetails"
+                    hx-include="this">
+            </select>
+            <br>
+            <div id="llmModelDetails">
+                
+            </div>
+            <br>
+            Embedding:<br>
+            <select id="embedModelSelect" name="embed_model" hx-get="/get_embed_model_details"
+            hx-trigger="change"
+            hx-target="#embedModelDetails"
+            hx-include="this, #corpusTableSelect">
+               
+            </select>
+            <br>
+            <div id="embedModelDetails">
+                {% if default_embed_model %}
+                    Dimensions: {{default_embed_model['dimensions']}}, Host: {{default_embed_model['host']}}<br> 
+                    Corpus: {{default_embed_model['corpus']}}<br>  
+                    Description: {{default_embed_model['description']}}
+
+                {% endif %}
+            </div>
+            <br>
+            </div>
+            <br>
+            <div class="advanced-prompt">
+                <button id="togglePrompt">Advanced Prompt Settings</button>
+            </div>
+    </nav>
+    <main>
+
+    </main>
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <message_detail id="message_detail"></message_detail>
+            <doc_detail id="doc_detail"></doc_detail>
+            <div id="promptArea" style="display: none;">
+                
+
+                
+                <textarea id="promptTemplateText" name="prompt_template" rows="30" cols="120">
+                    {{ default_prompt_text }}
+                </textarea>
+                <br>
+                <div>
+                    Content Length:
+                    <select id="numberOfChunks" name="number_of_chunks">
+                        {% for i in range(1, 100) %}
+                            <option value="{{ i }}"  {% if i == 10 %}selected{% endif %}>{{ i }} chunks</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    Chat Memory Length:
+                    <select id="numberOfChats" name="number_of_chats">
+                        {% for i in range(1, 100) %}
+                            <option value="{{ i }}"  {% if i == 10 %}selected{% endif %}>{{ i }} messages</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <br>
+                <div>
+                {% for prompt_text in prompt_text_templates %}
+                    <button onclick="document.getElementById('promptTemplateText').value = document.getElementById('promptTemplateText_{{ prompt_text }}').value">{{ prompt_text }}</button>
+                    <textarea style="display: none;" id="promptTemplateText_{{ prompt_text }}" name="prompt_template" rows="30" cols="120">
+                        {{ prompt_text_templates[prompt_text]["text"] }}
+                    </textarea>
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
