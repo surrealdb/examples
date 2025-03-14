@@ -133,7 +133,10 @@ Handles interactions with different LLM models.
 class LLMModelHander():
 
 
-    DEFAULT_PROMPT_TEXT =  """              
+
+    PROMPT_TEXT_TEMPLATES =  {
+
+        "Generic_Exclusive":{"name":"Generic Exclusive", "text":"""              
     You are an AI assistant answering questions about anything from the corpus of knowledge provided in the <context></context> tags.
     
     You may also refer to the text in the <chat_history></chat_history> tags but only for refining your understanding of what is being asked of you. Do not rely on the chat_history for answering the question!
@@ -152,7 +155,72 @@ class LLMModelHander():
     <chat_history>
         $chat_history
     </chat_history>         
-    """
+    """},
+    "Generic_Inclusive":{"name":"Generic Inclusive","text":"""              
+    You are an AI assistant answering questions about anything from the corpus of knowledge provided in the <context></context> tags.
+    
+    You may also refer to the text in the <chat_history></chat_history> tags but only for refining your understanding of what is being asked of you. Do not rely on the chat_history for answering the question!
+    
+    Please provide your response in HTML format. Include appropriate headings and lists where relevant.
+
+    At the end of the response, add any links as a HTML link and replace the title and url with the associated title and url of the more relevant page from the context.
+
+    Use the context as a guide but feel free to use any prior knowledge that you have been trained on.
+
+    <context>
+        $context
+    </context>
+    <chat_history>
+        $chat_history
+    </chat_history>         
+    """}
+    ,
+    "Finance_Exclusive":{"name":"Finance Exclusive","text":"""              
+    You are an a financial analyist helping me with my finance questions.
+     
+    I have given you some details from my database to consider as a focused corpus of knowledge provided in the <context></context> tags.
+    
+    You may also refer to the text in the <chat_history></chat_history> tags but only for refining your understanding of what is being asked of you. Do not rely on the chat_history for answering the question!
+    
+    Please provide your response in HTML format. Include appropriate headings and lists where relevant.
+
+    At the end of the response, add any links as a HTML link and replace the title and url with the associated title and url of the more relevant page from the context.
+
+    Only reply with the context provided. If the context is an empty string, reply with 'I am sorry, I do not know the answer.'.
+
+    Do not use any prior knowledge that you have been trained on.
+
+    <context>
+        $context
+    </context>
+    <chat_history>
+        $chat_history
+    </chat_history>         
+    """}
+    ,
+    "Finance_Inclusive":{"name":"Finance Inclusive","text":"""              
+    You are an a financial analyist helping me with my finance questions.
+     
+    I have given you some details from my database to consider as a focused corpus of knowledge provided in the <context></context> tags.
+    
+    You may also refer to the text in the <chat_history></chat_history> tags but only for refining your understanding of what is being asked of you. Do not rely on the chat_history for answering the question!
+    
+    Please provide your response in HTML format. Include appropriate headings and lists where relevant.
+
+    At the end of the response, add any links as a HTML link and replace the title and url with the associated title and url of the more relevant page from the context.
+
+    Use the context as a guide but feel free to use any prior knowledge that you have been trained on.
+
+    <context>
+        $context
+    </context>
+    <chat_history>
+        $chat_history
+    </chat_history>         
+    """},
+    "No_Context":{"name":"No Context","text":"""
+    """}
+    }
 
     GEMINI_CHAT_COMPLETE = """RETURN fn::gemini_chat_complete($llm,$prompt_with_context,$input,$google_token);"""
 
@@ -236,6 +304,28 @@ class LLMModelHander():
         # Uses a regular expression to find and remove <think> tags and their content.
         
         return re.sub(r"<think>.*?</think>\s*", "", text, flags=re.DOTALL).strip()
+    
+
+    """
+    Parses a string for <think> tags and returns a dictionary with 'think' and 'content' fields.
+
+    Args:
+        text (str): The input string containing or not containing <think> tags.
+
+    Returns:
+        dict: A dictionary with 'think' (content within <think> tags) and 
+            'content' (content outside <think> tags) fields.
+    """
+    def parse_llm_response_content(text):
+        
+        text = text.replace("```html","").replace("```","")
+        think_match = re.search(r"<think>(.*?)</think>", text, re.DOTALL)
+        if think_match:
+            think_content = think_match.group(1).strip()
+            content = re.sub(r"<think>.*?</think>\s*", "", text, flags=re.DOTALL).strip()
+            return {"think": think_content, "content": content}
+        else:
+            return {"think": None, "content": text.strip()}
     
     
     """

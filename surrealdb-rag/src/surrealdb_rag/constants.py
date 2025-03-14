@@ -2,20 +2,21 @@ import argparse
 import os
 
 
-WIKI_URL = "https://cdn.openai.com/API/examples/data/vector_database_wikipedia_articles_embedded.zip"
-WIKI_ZIP_PATH = "data/vector_database_wikipedia_articles_embedded.zip"
-WIKI_PATH = "data/vector_database_wikipedia_articles_embedded.csv"
+DEFAULT_WIKI_URL = "https://cdn.openai.com/API/examples/data/vector_database_wikipedia_articles_embedded.zip"
+DEFAULT_WIKI_ZIP_PATH = "data/vector_database_wikipedia_articles_embedded.zip"
+DEFAULT_WIKI_PATH = "data/vector_database_wikipedia_articles_embedded.csv"
 
-GLOVE_URL = "https://nlp.stanford.edu/data/glove.6B.zip"
-GLOVE_ZIP_PATH = "data/glove.6B.zip"
-GLOVE_PATH = "data/glove.6B.300d.txt"
+DEFAULT_GLOVE_URL = "https://nlp.stanford.edu/data/glove.6B.zip"
+DEFAULT_GLOVE_ZIP_PATH = "data/glove.6B.zip"
+DEFAULT_GLOVE_PATH = "data/glove.6B.300d.txt"
 
-FS_WIKI_PATH = "data/custom_fast_wiki_text.txt"
+DEFAULT_FS_WIKI_PATH = "data/custom_fast_wiki_text.txt"
 
 EDGAR_FOLDER = "data/edgar/"
-EDGAR_FOLDER_FILE_INDEX = "data/edgar/index.csv"
-EDGAR_PATH = "data/vector_database_edgar_data_embedded.csv"
+DEFAULT_EDGAR_FOLDER_FILE_INDEX = "data/edgar/index.csv"
+DEFAULT_EDGAR_PATH = "data/vector_database_edgar_data_embedded.csv"
 FS_EDGAR_PATH = "data/custom_fast_edgar_text.txt"
+DEFAULT_CHUNK_SIZE = 500
 
 COMMON_FUNCTIONS_DDL = "./schema/common_function_ddl.surql"
 COMMON_TABLES_DDL = "./schema/common_tables_ddl.surql"
@@ -57,13 +58,22 @@ class SurrealDML():
 
     # SurrealQL query to update corpus table information    
     def UPDATE_CORPUS_TABLE_INFO(TABLE_NAME:str,DISPLAY_NAME:str):
+        
+       
+          
         return f"""
+
+                LET $chunk_size =  IF $chunk_size = None THEN 
+                    math::ceil(math::mean( SELECT VALUE text.split(' ').len() FROM embedded_wiki))
+                ELSE 
+                    $chunk_size
+                END; 
                 DELETE FROM corpus_table_model WHERE corpus_table = corpus_table:{TABLE_NAME};
                 FOR $model IN $embed_models {{
                     LET $model_definition = type::thing("embedding_model_definition",$model.model_id);
                     UPSERT corpus_table_model:[corpus_table:{TABLE_NAME},$model_definition] SET model = $model_definition,field_name = $model.field_name, corpus_table=corpus_table:{TABLE_NAME};
                 }};
-                UPSERT corpus_table:{TABLE_NAME} SET table_name = '{TABLE_NAME}', display_name = '{DISPLAY_NAME}', 
+                UPSERT corpus_table:{TABLE_NAME} SET table_name = '{TABLE_NAME}', display_name = '{DISPLAY_NAME}', chunk_size = $chunk_size,
                     embed_models = (SELECT value id FROM corpus_table_model WHERE corpus_table = corpus_table:{TABLE_NAME}) RETURN NONE;
                     
             """

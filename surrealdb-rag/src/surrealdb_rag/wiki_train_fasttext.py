@@ -23,8 +23,8 @@ def wiki_train_fastText() -> None:
     ]
 
 
-    logger.info(f"Loading Wiki data {constants.WIKI_PATH} to data frame")
-    wiki_records_df = pd.read_csv(constants.WIKI_PATH,usecols=usecols)
+    logger.info(f"Loading Wiki data {constants.DEFAULT_WIKI_PATH} to data frame")
+    wiki_records_df = pd.read_csv(constants.DEFAULT_WIKI_PATH,usecols=usecols)
 
     # Combine relevant columns
     wiki_records_df['combined_text'] = 'title:' + wiki_records_df['title'] + '\ntext:\n' + wiki_records_df['text']
@@ -35,9 +35,9 @@ def wiki_train_fastText() -> None:
     logger.info(all_text.describe())
     logger.info(len(all_text))
 
-    traning_data_file = constants.FS_WIKI_PATH + "_train.txt"
-    model_bin_file = constants.FS_WIKI_PATH + ".bin"
-    model_txt_file = constants.FS_WIKI_PATH
+    traning_data_file = constants.DEFAULT_FS_WIKI_PATH + "_train.txt"
+    model_bin_file = constants.DEFAULT_FS_WIKI_PATH + ".bin"
+    model_txt_file = constants.DEFAULT_FS_WIKI_PATH
     # Save the combined text to a file
     with open(traning_data_file, "w") as f:
         for text in all_text:

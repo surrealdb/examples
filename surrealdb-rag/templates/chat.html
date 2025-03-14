@@ -9,7 +9,7 @@
 </div>
 
 <form id="messageform" hx-post="/chats/{{ chat.id }}/send-user-message" hx-target=".messages" hx-swap="beforeend" 
-hx-include="#llmModelSelect, #embedModelSelect, #corpusTableSelect">
+hx-include="#llmModelSelect, #embedModelSelect, #corpusTableSelect, #numberOfChunks">
    
     <input type="text" name="content" required />
     <button>Send</button>

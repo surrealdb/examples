@@ -109,13 +109,7 @@
             var result = temp.textContent || temp.innerText || "";
             return result;
         }
-        const default_prompt_text = unescapeHTML(`{{default_prompt_text}}`);
-
-        function resetPrompt(){
-
-            const promptTemplateText = document.getElementById("promptTemplateText");
-            promptTemplateText.value = default_prompt_text;
-        }
+       
 
         function updateLlmModelSelect(){
             const platformSelect = document.getElementById("platformSelect");
@@ -306,11 +300,38 @@
             <doc_detail id="doc_detail"></doc_detail>
             <div id="promptArea" style="display: none;">
                 
+
+                
                 <textarea id="promptTemplateText" name="prompt_template" rows="30" cols="120">
-                    {{default_prompt_text}}
+                    {{ default_prompt_text }}
                 </textarea>
                 <br>
-                <button id="resetPrompt" onclick="resetPrompt()">reset</button>
+                <div>
+                    Content Length:
+                    <select id="numberOfChunks" name="number_of_chunks">
+                        {% for i in range(1, 100) %}
+                            <option value="{{ i }}"  {% if i == 10 %}selected{% endif %}>{{ i }} chunks</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    Chat Memory Length:
+                    <select id="numberOfChats" name="number_of_chats">
+                        {% for i in range(1, 100) %}
+                            <option value="{{ i }}"  {% if i == 10 %}selected{% endif %}>{{ i }} messages</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <br>
+                <div>
+                {% for prompt_text in prompt_text_templates %}
+                    <button onclick="document.getElementById('promptTemplateText').value = document.getElementById('promptTemplateText_{{ prompt_text }}').value">{{ prompt_text }}</button>
+                    <textarea style="display: none;" id="promptTemplateText_{{ prompt_text }}" name="prompt_template" rows="30" cols="120">
+                        {{ prompt_text_templates[prompt_text]["text"] }}
+                    </textarea>
+                {% endfor %}
+                </div>
             </div>
         </div>
     </div>

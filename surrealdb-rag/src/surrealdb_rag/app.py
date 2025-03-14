@@ -88,6 +88,9 @@ def convert_timestamp_to_date(timestamp: str) -> str:
     # return parsed_timestamp.strftime("%B %d %Y, %H:%M")
     return timestamp
 
+
+
+
 templates = templating.Jinja2Templates(directory="templates")
 templates.env.filters["extract_id"] = extract_id
 templates.env.filters["format_url_id"] = format_url_id
@@ -130,10 +133,14 @@ async def index(request: fastapi.Request) -> responses.HTMLResponse:
 
     available_llm_models_json = json.dumps(life_span["llm_models"])
     available_corpus_tables_json = json.dumps(life_span["corpus_tables"])
+    #default_prompt_text_json = json.dumps(LLMModelHander.DEFAULT_PROMPT_TEXT, ensure_ascii=False)
 
     default_llm_model = life_span["llm_models"][next(iter(life_span["llm_models"]))]
     default_corpus_table = life_span["corpus_tables"][next(iter(life_span["corpus_tables"]))]
     default_embed_model = default_corpus_table["embed_models"][0]
+
+    default_prompt_text = LLMModelHander.PROMPT_TEXT_TEMPLATES[next(iter(LLMModelHander.PROMPT_TEXT_TEMPLATES))]["text"]
+   
 
     return templates.TemplateResponse("index.html", {
             "request": request, 
@@ -142,7 +149,8 @@ async def index(request: fastapi.Request) -> responses.HTMLResponse:
                                                      "default_llm_model": default_llm_model,
                                                      "default_corpus_table": default_corpus_table,
                                                      "default_embed_model":default_embed_model,
-                                                     "default_prompt_text":LLMModelHander.DEFAULT_PROMPT_TEXT
+                                                     "default_prompt_text":default_prompt_text,
+                                                     "prompt_text_templates":LLMModelHander.PROMPT_TEXT_TEMPLATES
                                                      })
 
 @app.get("/get_corpus_table_details")
@@ -231,6 +239,12 @@ async def load_chat(
         """RETURN fn::get_chat_title($chat_id);""",params = {"chat_id":chat_id}
     )
 
+    for i, message in enumerate(message_records):
+        message_think = LLMModelHander.parse_llm_response_content(message["content"])
+        message_records[i]["content"] = message_think["content"]
+        if message_think["think"]:
+            message_records[i]["think"] = message_think["think"]
+
     return templates.TemplateResponse(
         "chat.html",
         {
@@ -249,6 +263,11 @@ async def load_message(
     message = await life_span["surrealdb"].query(
         """RETURN fn::load_message_detail($message_id)""",params = {"message_id":message_id}    
     )
+    message_think = LLMModelHander.parse_llm_response_content(message["content"])
+    message["content"] = message_think["content"]
+    if message_think["think"]:
+        message["think"] = message_think["think"]
+    
     return templates.TemplateResponse(
         "message_detail.html",
         {
@@ -300,20 +319,36 @@ async def send_user_message(
     chat_id: str,
     content: str = fastapi.Form(...),
     embed_model: str = fastapi.Form(...),
-    corpus_table: str = fastapi.Form(...)
+    corpus_table: str = fastapi.Form(...),
+    number_of_chunks: int = fastapi.Form(...)
 ) -> responses.HTMLResponse:
     """Send user message."""
 
     embed_model = ast.literal_eval(embed_model)
-    # need to fix for model_trainer
-    if embed_model[0] == "OPENAI":
-         outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
-            """RETURN fn::create_user_message($chat_id,$corpus_table, $content,type::thing('embedding_model_definition',$embedding_model),$openaitoken);""",params = {"chat_id":chat_id,"corpus_table":corpus_table,"content":content,"embedding_model":embed_model,"openaitoken":model_params.openai_token}    
+    # # need to fix for model_trainer
+    # if embed_model[0] == "OPENAI":
+    #      outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
+    #         """RETURN fn::create_user_message($chat_id,$corpus_table, $content,type::thing('embedding_model_definition',$embedding_model),$openaitoken,$number_of_chunks);""",params = {"chat_id":chat_id,"corpus_table":corpus_table,"content":content,"embedding_model":embed_model,"openaitoken":model_params.openai_token,"number_of_chunks":number_of_chunks}    
+    #     ))
+    # else:
+    #     outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
+    #         """RETURN fn::create_user_message($chat_id,$corpus_table, $content,type::thing('embedding_model_definition',$embedding_model));""",
+    #         params = {"chat_id":chat_id,"corpus_table":corpus_table,"content":content,"embedding_model":embed_model}    
+    #     ))
+
+
+    outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
+            """RETURN fn::create_user_message($chat_id,$corpus_table, $content,type::thing('embedding_model_definition',$embedding_model),$openaitoken,$number_of_chunks);""",
+            params = {
+                "chat_id":chat_id,
+                "corpus_table":corpus_table,
+                "content":content,
+                "embedding_model":embed_model,
+                "openaitoken":model_params.openai_token,
+                "number_of_chunks":number_of_chunks
+                }    
         ))
-    else:
-        outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
-            """RETURN fn::create_user_message($chat_id,$corpus_table, $content,type::thing('embedding_model_definition',$embedding_model));""",params = {"chat_id":chat_id,"corpus_table":corpus_table,"content":content,"embedding_model":embed_model}    
-        ))
+    
 
     message = outcome["result"][0]["result"]
     return templates.TemplateResponse(
@@ -334,7 +369,8 @@ async def send_user_message(
 async def send_system_message(
     request: fastapi.Request, chat_id: str,
     llm_model: str = fastapi.Form(...),
-    prompt_template: str = fastapi.Form(...)
+    prompt_template: str = fastapi.Form(...),
+    number_of_chats: int = fastapi.Form(...)
 ) -> responses.HTMLResponse:
     """Send system message."""
 
@@ -345,7 +381,7 @@ async def send_system_message(
     #     """RETURN fn::get_last_user_message_input_and_prompt($chat_id,$prompt,$message_memory_length);""",params = {"chat_id":chat_id,"prompt":LLMModelHander.DEFAULT_PROMPT_TEXT,"message_memory_length":5}
     # ))
     outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
-        """RETURN fn::get_last_user_message_input_and_prompt($chat_id,$prompt,$message_memory_length);""",params = {"chat_id":chat_id,"prompt":prompt_template,"message_memory_length":5}
+        """RETURN fn::get_last_user_message_input_and_prompt($chat_id,$prompt,$message_memory_length);""",params = {"chat_id":chat_id,"prompt":prompt_template,"message_memory_length":number_of_chats}
     ))
     result =  outcome["result"][0]["result"]
     prompt_text = result["prompt_text"]
@@ -384,6 +420,10 @@ async def send_system_message(
     message = outcome["result"][0]["result"]
 
     
+    message_think = LLMModelHander.parse_llm_response_content(message["content"])
+    message["content"] = message_think["content"]
+    if message_think["think"]:
+        message["think"] = message_think["think"]
     return templates.TemplateResponse(
         "message.html",
         {

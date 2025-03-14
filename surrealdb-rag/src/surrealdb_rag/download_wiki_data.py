@@ -18,20 +18,20 @@ def download_wiki_data() -> None:
     """Extract `vector_database_wikipedia_articles_embedded.csv` to `/data`."""
     logger = loggers.setup_logger("DownloadData")
 
-    logger.info(f"Downloading Wikipedia from {constants.WIKI_URL} to {constants.WIKI_ZIP_PATH}")
+    logger.info(f"Downloading Wikipedia from {constants.DEFAULT_WIKI_URL} to {constants.DEFAULT_WIKI_ZIP_PATH}")
     wget.download(
-        url=constants.WIKI_URL,
-        out=constants.WIKI_ZIP_PATH,
+        url=constants.DEFAULT_WIKI_URL,
+        out=constants.DEFAULT_WIKI_ZIP_PATH,
     )
 
-    logger.info(f"Extracting data to {constants.WIKI_ZIP_PATH}")
+    logger.info(f"Extracting data to {constants.DEFAULT_WIKI_ZIP_PATH}")
     with zipfile.ZipFile(
-        constants.WIKI_ZIP_PATH, "r"
+        constants.DEFAULT_WIKI_ZIP_PATH, "r"
     ) as zip_ref:
         zip_ref.extractall("data")
 
-    if not os.path.exists(constants.WIKI_PATH):
-        raise FileNotFoundError(f"File not found: {constants.WIKI_PATH}")
+    if not os.path.exists(constants.DEFAULT_WIKI_PATH):
+        raise FileNotFoundError(f"File not found: {constants.DEFAULT_WIKI_PATH}")
 
     logger.info("Extracted file successfully. Please check the data directory")
 

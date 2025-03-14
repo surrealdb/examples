@@ -5,7 +5,7 @@
 from surrealdb_rag import loggers
 import surrealdb_rag.constants as constants
 import pandas as pd
-import fasttext
+import datetime
 import re
 import os
 import tqdm
@@ -18,7 +18,22 @@ db_params = DatabaseParams()
 model_params = ModelParams()
 args_loader = ArgsLoader("Input wiki data",db_params,model_params)
 
-TARGET_TOKEN_COUNT = 5000
+
+def has_array_overlap(row, array_field_name, filter_array):
+    """Checks if there's any overlap between the two arrays."""
+    cell = row[array_field_name]
+    if not cell:
+        return False
+    
+    # Convert row tickers to a set for efficient intersection
+    try:
+        cell_set = set(cell)
+        # Check for intersection between row tickers and filter tickers
+        return bool(cell_set.intersection(filter_array))
+    except Exception as e:
+        return False
+
+
 
 # Preprocess the text (example - adjust as needed)
 def preprocess_text(text):
@@ -67,16 +82,16 @@ def generate_chunks(input_text:str, chunk_size:int)-> list[str]:
     return chunks
 
 
-def create_csv_from_folder(logger,file_index_df: pd.DataFrame , output_file_path):
+def create_csv_from_folder(logger,file_index_df: pd.DataFrame , output_file_path, chunk_size:int) -> None:
     
 
     if os.path.exists(output_file_path):
         logger.info(f"File already exists... skipping (delete it if you want to regenerate): '{output_file_path}'.")
         return
 
-    logger.info(f"Loading Glove embedding model {constants.GLOVE_PATH}")
+    logger.info(f"Loading Glove embedding model {constants.DEFAULT_GLOVE_PATH}")
     try:
-        gloveEmbeddingModel = WordEmbeddingModel(constants.GLOVE_PATH,False)
+        gloveEmbeddingModel = WordEmbeddingModel(constants.DEFAULT_GLOVE_PATH,False)
     except Exception as e:
         logger.error(f"Error opening embedding model. please check the model file was downloaded using download_glove_model {e}")
 
@@ -87,7 +102,6 @@ def create_csv_from_folder(logger,file_index_df: pd.DataFrame , output_file_path
         logger.error(f"Error opening embedding model. train the model using train_fastText {e}")
 
 
-    
     file_keys = {
         "url":"",
         "company_name":"",
@@ -95,9 +109,12 @@ def create_csv_from_folder(logger,file_index_df: pd.DataFrame , output_file_path
         "form":"",
         "accession_no":"",
         "company.ticker_display":"",
+        "company.tickers":"",
+        "company.exchanges":"",
         "company.description":"",
         "company.category":"",
         "company.industry":"",
+        "company.sic":"",
         "company.website":"",
         "filing_date":"",
         "file_path":"",
@@ -116,14 +133,14 @@ def create_csv_from_folder(logger,file_index_df: pd.DataFrame , output_file_path
             if file["url"] != "error" and os.path.exists(file["file_path"]):
                 with open(file["file_path"]) as source:
                     file_contents = source.read()
-                    chunks = generate_chunks(file_contents,TARGET_TOKEN_COUNT)
+                    chunks = generate_chunks(file_contents,chunk_size)
                     chunk_number = 0
                     
                     for chunk in chunks:
                         content = f"""
-company_name:{file["company_name"]}
-ticker:{file["company.ticker_display"]}
-form:{file["form"]}
+{file["company.tickers"]}
+{file["company.exchanges"]}
+{file["company_name"]}
 -------------
 {chunk}
 """
@@ -136,8 +153,11 @@ form:{file["form"]}
                             "form":file["form"],
                             "accession_no":file["accession_no"],
                             "company.ticker_display":file["company.ticker_display"],
+                            "company.tickers":file["company.tickers"],
+                            "company.exchanges":file["company.exchanges"],
                             "company.description":file["company.description"],
                             "company.industry":file["company.industry"],
+                            "company.sic":file["company.sic"],
                             "company.category":file["company.category"],
                             "company.website":file["company.website"],
                             "filing_date":file["filing_date"],
@@ -156,25 +176,130 @@ form:{file["form"]}
 
 def generate_edgar_csv() -> None:
     # Add command-line argument for embedding models
+    
+    ticker_str = ""
+    exchange_str = ""
+    sic_str = ""
+    form_str = ""
+    index_file = constants.DEFAULT_EDGAR_FOLDER_FILE_INDEX
+    output_file = constants.DEFAULT_EDGAR_PATH
+
+    chunk_size = constants.DEFAULT_CHUNK_SIZE
+
+    start_date_str = ""
+    end_date_str = ""
+    
+    
+
+    args_loader.AddArg("start_date","edsd","start_date","Start filing date in format '%Y-%m-%d' for filtering. (default{0} blank string doesn't filter)",start_date_str)
+    args_loader.AddArg("end_date","eded","end_date","End filing date in format '%Y-%m-%d' for filtering. (default{0} blank string doesn't filter)",end_date_str)
+    args_loader.AddArg("index_file","if","index_file","The path to the file that stores the file list and meta data. (default{0})",index_file)
+    args_loader.AddArg("chunk_size","cs","chunk_size","The size of chunks to break each file into. (default{0})",chunk_size)
+    args_loader.AddArg("output_file","of","output_file","The path to the csv output. (default{0})",output_file)
+    args_loader.AddArg("ticker","tic","ticker","Tickers to filter by can be an array in format 'AAPL,MSFT,AMZN' leave blank for all tickers. (default{0})",ticker_str)
+    args_loader.AddArg("exchange","ex","exchange","Exchanges to filter by can be an array in format 'Nasdaq,NYSE,OTC' leave blank for all exchanges. (default{0})",ticker_str)
+    args_loader.AddArg("sic","sic","sic","Industries to filter by can be an array in format '3674,1234,5432' (refer to https://www.sec.gov/search-filings/standard-industrial-classification-sic-code-list) leave blank for all industries. (default{0})",sic_str)
+    args_loader.AddArg("form","edf","form","Form type to filter can be an array in format '10-K,10-Q,SC 13D,SC 13G,S-1,S-4'. (default{0})",form_str)
+    
     args_loader.LoadArgs()
-    logger = loggers.setup_logger("SurrealWikiInsert")
+
+
+    if args_loader.AdditionalArgs["form"]["value"]:
+        form_str = args_loader.AdditionalArgs["form"]["value"]
+        form = form_str.split(",")
+    else:
+        form = []
+
+    if args_loader.AdditionalArgs["ticker"]["value"]:
+        ticker_str = args_loader.AdditionalArgs["ticker"]["value"]
+        ticker = ticker_str.split(",")
+    else:
+        ticker = []
+
+    if args_loader.AdditionalArgs["exchange"]["value"]:
+        exchange_str = args_loader.AdditionalArgs["exchange"]["value"]
+        exchange = exchange_str.split(",")
+    else:
+        exchange = []
+
+
+    if args_loader.AdditionalArgs["sic"]["value"]:
+        sic_str = args_loader.AdditionalArgs["sic"]["value"]
+        sic = sic_str.split(",")
+    else:
+        sic = []
+
+    if args_loader.AdditionalArgs["index_file"]["value"]:
+        index_file = args_loader.AdditionalArgs["index_file"]["value"]
+
+    if args_loader.AdditionalArgs["output_file"]["value"]:
+        output_file = args_loader.AdditionalArgs["output_file"]["value"]
+
+    if args_loader.AdditionalArgs["chunk_size"]["value"]:
+        chunk_size = args_loader.AdditionalArgs["chunk_size"]["value"]
+
+
+    logger = loggers.setup_logger("SurreaEdgarBuildCSV")
 
     logger.info(args_loader.string_to_print())
 
 
-    logger.info(f"Loading EDGAR file index data to data frame '{constants.EDGAR_FOLDER_FILE_INDEX}'")
-    file_index_df = pd.read_csv(constants.EDGAR_FOLDER_FILE_INDEX)
+    logger.info(f"Loading EDGAR file index data to data frame '{index_file}'")
 
-    create_csv_from_folder(logger,file_index_df,constants.EDGAR_PATH)
+# row = {
+#             "url":filing.filing_url,
+#             "company_name":filing.company,
+#             "cik":filing.cik,
+#             "form":filing.form,
+#             "accession_no":filing.accession_no,
+#             "company.ticker_display":company.ticker_display,
+#             "company.tickers":company.tickers,
+#             "company.exchanges":company.exchanges,
+#             "company.description":company.description,
+#             "company.category":company.category,
+#             "company.industry":company.industry,
+#             "company.sic":company.sic,
+#             "company.website":company.website,
+#             "filing_date":filing.filing_date,
+#             "file_path":file_path,
+#         }
+
+    file_index_df = pd.read_csv(index_file)
+
+    if len(ticker) > 0:
+        # Convert filter_tickers to a set for efficient lookup in the function
+        filter_ticker_set = set(ticker)
+        # 3. Apply the filtering function to each row
+        file_index_df = file_index_df[file_index_df.apply(has_array_overlap, axis=1, args=("company.tickers",filter_ticker_set,))]
+
+    if len(exchange) > 0:
+        # Convert filter_tickers to a set for efficient lookup in the function
+        filter_exchange_set = set(exchange)
+        # 3. Apply the filtering function to each row
+        file_index_df = file_index_df[file_index_df.apply(has_array_overlap, axis=1, args=("company.exchanges",filter_exchange_set,))]
+
+    if len(form) > 0:
+        file_index_df = file_index_df[file_index_df['form'].isin(form)]
 
 
-    # traning_data_file = constants.FS_EDGAR_PATH + "_train.txt"
-    # model_bin_file = constants.FS_EDGAR_PATH + ".bin"
-    # model_txt_file = constants.FS_EDGAR_PATH
-    # logger.info(f"Concatenating corpus '{traning_data_file}'.")
-    # concatenate_text_files_in_folder(logger,constants.EDGAR_FOLDER,traning_data_file)
-    # logger.info(f"Training model.")
-    # train_model(logger,traning_data_file,model_bin_file,model_txt_file)
+    if len(sic) > 0:
+        file_index_df = file_index_df[file_index_df['company.sic'].isin(sic)]
+
+    file_index_df['filing_datetime'] = pd.to_datetime(file_index_df['filing_date'], errors='coerce')
+
+
+    if args_loader.AdditionalArgs["start_date"]["value"]:
+        start_date = datetime.datetime.strptime(args_loader.AdditionalArgs["start_date"]["value"], '%Y-%m-%d')
+        file_index_df = file_index_df[file_index_df["filing_datetime"] >= start_date]
+    
+    if args_loader.AdditionalArgs["end_date"]["value"]:
+        end_date = datetime.datetime.strptime(args_loader.AdditionalArgs["end_date"]["value"], '%Y-%m-%d')
+        file_index_df = file_index_df[file_index_df["filing_datetime"] >= end_date]
+
+
+
+    create_csv_from_folder(logger,file_index_df,output_file,chunk_size)
+
 
 
 

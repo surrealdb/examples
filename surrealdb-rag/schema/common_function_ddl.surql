@@ -58,9 +58,7 @@ Args:
 Returns:
     array<{score: float, doc: any}>: An array of documents with their similarity scores.
 */
-DEFINE FUNCTION OVERWRITE fn::search_for_documents($corpus_table: string, $input_vector: array<float>, $threshold: float, $model: Record<embedding_model_definition>) {
-
-    
+DEFINE FUNCTION OVERWRITE fn::search_for_documents($corpus_table: string, $input_vector: array<float>, $threshold: float, $model: Record<embedding_model_definition>, $record_count: option<int>) {
     LET $first_pass = 
         (IF $model.model_trainer = "GLOVE" THEN
             (
@@ -68,7 +66,7 @@ DEFINE FUNCTION OVERWRITE fn::search_for_documents($corpus_table: string, $input
                 id,
                 vector::similarity::cosine(content_glove_vector, $input_vector) AS similarity_score
             FROM type::table($corpus_table)
-            WHERE content_glove_vector <|5,40|> $input_vector
+            WHERE content_glove_vector <|100,100|> $input_vector
             );
         ELSE IF $model.model_trainer = "FASTTEXT" THEN
             (
@@ -76,7 +74,7 @@ DEFINE FUNCTION OVERWRITE fn::search_for_documents($corpus_table: string, $input
                 id,
                 vector::similarity::cosine(content_fasttext_vector, $input_vector) AS similarity_score
             FROM type::table($corpus_table)
-            WHERE content_fasttext_vector <|5,40|> $input_vector
+            WHERE content_fasttext_vector <|100,100|> $input_vector
             );
         ELSE IF $model.model_trainer = "OPENAI" THEN
             (
@@ -84,15 +82,14 @@ DEFINE FUNCTION OVERWRITE fn::search_for_documents($corpus_table: string, $input
                 id,
                 vector::similarity::cosine(content_openai_vector, $input_vector) AS similarity_score
             FROM type::table($corpus_table)
-            WHERE content_openai_vector <|5,40|> $input_vector
+            WHERE content_openai_vector <|100,100|> $input_vector
             ) ;
         END);
     
+    LET $record_count = IF $record_count = None THEN 5 ELSE $record_count END;
     
-    RETURN SELECT similarity_score as score,id as doc FROM $first_pass WHERE similarity_score > $threshold;
+    RETURN  SELECT * FROM (  SELECT similarity_score as score,id as doc FROM $first_pass WHERE similarity_score > $threshold ) ORDER BY similarity_score DESC LIMIT $record_count;
 };
-
-
 
 /*
 Generates a prompt with context and chat history.
@@ -236,7 +233,7 @@ Args:
 Returns:
     object: The created user message details.
 */
-DEFINE FUNCTION OVERWRITE fn::create_user_message($chat_id: string, $corpus_table: string, $content: string, $embedding_model: option<Record<embedding_model_definition>>,$openai_token: option<string>) {
+DEFINE FUNCTION OVERWRITE fn::create_user_message($chat_id: string, $corpus_table: string, $content: string, $embedding_model: option<Record<embedding_model_definition>>,$openai_token: option<string>, $record_count: option<int>) {
 
     LET $threshold = 0.7;
     
@@ -246,7 +243,7 @@ DEFINE FUNCTION OVERWRITE fn::create_user_message($chat_id: string, $corpus_tabl
         fn::sentence_to_vector($content,$embedding_model)
     END;
 
-    LET $documents = fn::search_for_documents($corpus_table,$vector, $threshold ,$embedding_model);
+    LET $documents = fn::search_for_documents($corpus_table,$vector, $threshold ,$embedding_model,$record_count);
     
     RETURN fn::create_message($chat_id, "user", $content, $documents,$embedding_model);
 };

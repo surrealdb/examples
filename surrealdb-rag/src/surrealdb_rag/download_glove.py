@@ -18,18 +18,18 @@ def download_glove_model() -> None:
     if not os.path.exists("data"):
         os.makedirs("data")
     wget.download(
-        url=constants.GLOVE_URL,
-        out=constants.GLOVE_ZIP_PATH,
+        url=constants.DEFAULT_GLOVE_URL,
+        out=constants.DEFAULT_GLOVE_ZIP_PATH,
     )
 
     logger.info("Extracting to data directory")
     with zipfile.ZipFile(
-        constants.GLOVE_ZIP_PATH, "r"
+        constants.DEFAULT_GLOVE_ZIP_PATH, "r"
     ) as zip_ref:
         zip_ref.extractall("data")
 
-    if not os.path.exists(constants.GLOVE_PATH):
-        raise FileNotFoundError(f"File not found: {constants.GLOVE_PATH}")
+    if not os.path.exists(constants.DEFAULT_GLOVE_PATH):
+        raise FileNotFoundError(f"File not found: {constants.DEFAULT_GLOVE_PATH}")
 
     logger.info("Extracted file successfully. Please check the data directory")
 

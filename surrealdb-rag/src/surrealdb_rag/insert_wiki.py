@@ -93,7 +93,7 @@ def surreal_wiki_insert() -> None:
                 model_definition[1] = fs_version
             embed_model_mappings.append({"model_id": model_definition, "field_name": field_name})
 
-    logger.info(f"Loading file {constants.WIKI_PATH}")
+    logger.info(f"Loading file {constants.DEFAULT_WIKI_PATH}")
 
     # Define columns to read from CSV
     usecols=[
@@ -106,7 +106,7 @@ def surreal_wiki_insert() -> None:
                     ]
 
     # Read Wikipedia records from CSV
-    wiki_records_df = pd.read_csv(constants.WIKI_PATH,usecols=usecols)
+    wiki_records_df = pd.read_csv(constants.DEFAULT_WIKI_PATH,usecols=usecols)
     
     
     # Calculate total rows and chunks

@@ -94,9 +94,12 @@ def process_filing(filing:edgar.Filing,dict_writer:csv.DictWriter):
             "form":filing.form,
             "accession_no":filing.accession_no,
             "company.ticker_display":company.ticker_display,
+            "company.tickers":company.tickers,
+            "company.exchanges":company.exchanges,
             "company.description":company.description,
             "company.category":company.category,
             "company.industry":company.industry,
+            "company.sic":company.sic,
             "company.website":company.website,
             "filing_date":filing.filing_date,
             "file_path":file_path,
@@ -111,9 +114,12 @@ def process_filing(filing:edgar.Filing,dict_writer:csv.DictWriter):
             "form":"",
             "accession_no":"",
             "company.ticker_display":"",
+            "company.tickers":"",
+            "company.exchanges":"",
             "company.description":"",
             "company.category":"",
             "company.industry":"",
+            "company.sic":"",
             "company.website":"",
             "filing_date":"",
             "file_path":""}
@@ -228,19 +234,22 @@ def download_edgar_data() -> None:
 
 
     end_date = datetime.date.today()
-    start_date = end_date - datetime.timedelta(days=30) # Roughly one year ago, can be more precise if needed
+    start_date = end_date - datetime.timedelta(days=90) # Roughly one year ago, can be more precise if needed
 
     start_date_str = start_date.strftime('%Y-%m-%d')
     end_date_str = end_date.strftime('%Y-%m-%d')
-    form_str = "10-K,13F-HR,SC 13D,SC 13G,S-1,S-4"
+    form_str = "10-K,10-Q,SC 13D,SC 13G,S-1,S-4"
     ticker_str = ""
+    index_file = constants.DEFAULT_EDGAR_FOLDER_FILE_INDEX
 
 
     args_loader.AddArg("start_date","edsd","start_date","Start filing date in format '%Y-%m-%d'. (default{0})",start_date_str)
     args_loader.AddArg("end_date","eded","end_date","End filing date in format '%Y-%m-%d'. (default{0})",end_date_str)
-    args_loader.AddArg("form","edf","form","Form type to download can be an array in format '10-K,13F-HR,SC 13D,SC 13G,S-1,S-4'. (default{0})",form_str)
+    args_loader.AddArg("form","edf","form","Form type to download can be an array in format '10-K,10-Q,SC 13D,SC 13G,S-1,S-4'. (default{0})",form_str)
     args_loader.AddArg("ticker","tic","ticker","Tickers to download can be an array in format 'AAPL,MSFT,AMZN' leave blank for all tickers. (default{0})",ticker_str)
+    args_loader.AddArg("index_file","if","index_file","The path to the file that stores the file list and meta data. (default{0})",index_file)
     
+    args_loader.LoadArgs()
 
 
     start_date = datetime.datetime.strptime(args_loader.AdditionalArgs["start_date"]["value"], '%Y-%m-%d')
@@ -250,17 +259,16 @@ def download_edgar_data() -> None:
 
     if args_loader.AdditionalArgs["form"]["value"]:
         form_str = args_loader.AdditionalArgs["form"]["value"]
-   
     if args_loader.AdditionalArgs["ticker"]["value"]:
-        ticker_str = args_loader.AdditionalArgs["form"]["value"]
-
-    if ticker_str: 
+        ticker_str = args_loader.AdditionalArgs["ticker"]["value"]
         ticker = ticker_str.split(",")
     else:
         ticker = []
+    if args_loader.AdditionalArgs["index_file"]["value"]:
+        index_file = args_loader.AdditionalArgs["index_file"]["value"]
+
     form = form_str.split(",")
     
-    args_loader.LoadArgs()
     logger.info(args_loader.string_to_print())
 
     # make sure to add env var to ensure SEC doesn't block you
@@ -284,13 +292,16 @@ def download_edgar_data() -> None:
         "form":"",
         "accession_no":"",
         "company.ticker_display":"",
+        "company.tickers":"",
+        "company.exchanges":"",
         "company.description":"",
         "company.category":"",
         "company.industry":"",
+        "company.sic":"",
         "company.website":"",
         "filing_date":"",
         "file_path":""}.keys()
-    with open(constants.EDGAR_FOLDER_FILE_INDEX,"w", newline='') as f:
+    with open(index_file,"w", newline='') as f:
         dict_writer = csv.DictWriter(f, file_keys)
         dict_writer.writeheader()
         for filing in tqdm.tqdm(filings, desc="Processing filings"):

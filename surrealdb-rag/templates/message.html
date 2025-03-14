@@ -5,7 +5,7 @@
     {% if message.role=="user" %}
         hx-trigger="load" hx-post="chats/{{ chat_id }}/send-system-message" hx-target=".messages"
     {% endif %}
-    hx-swap="beforeend"  hx-include="#promptTemplateText, #llmModelSelect, #embedModelSelect, #corpusTableSelect">
+    hx-swap="beforeend"  hx-include="#promptTemplateText, #llmModelSelect, #embedModelSelect, #corpusTableSelect, #numberOfChats">
 {% else %}
    >
 {% endif %}
@@ -57,6 +57,9 @@
                 </script>
         
             {% endif %}
+        {% endif %}
+        {% if message.think %}
+            <pre style='white-space: pre-wrap;'>{{ message.think }}</pre>
         {% endif %}
         <p class="message-content">{{ message.content | safe }}</p>
     </div>

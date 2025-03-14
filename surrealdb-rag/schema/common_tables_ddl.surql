@@ -60,6 +60,7 @@ DEFINE TABLE IF NOT EXISTS corpus_table SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS table_name ON TABLE corpus_table TYPE string;
 DEFINE FIELD IF NOT EXISTS display_name ON TABLE corpus_table TYPE string;
 DEFINE FIELD IF NOT EXISTS embed_models ON TABLE corpus_table TYPE Array<Record<corpus_table_model>>;
+DEFINE FIELD IF NOT EXISTS chunk_size ON TABLE corpus_table TYPE option<int>;
 
 
 DEFINE TABLE IF NOT EXISTS embedding_model_definition SCHEMAFULL;
