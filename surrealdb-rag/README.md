@@ -1,134 +1,125 @@
-# SurrealDB x OpenAI: A Chat Playground
+# SurrealDB RAG Exploration: Wikipedia, SEC Filings, and Beyond!
 
-Hey there! You've just stumbled upon a cool little project that's all about mashing up the brilliance of OpenAI with the database wizardry of SurrealDB. Think of this as a sandbox where we're diving deep into the realms of Retrival Augmented Generation (RAG) by mixing up a large dataset of Wikipedia articles with some fancy vector storage and search capabilities.
+Welcome to a hands-on exploration of Retrieval Augmented Generation (RAG) using SurrealDB! This project is designed to be a playground where you can experiment with different aspects of RAG, combining the power of large language models (LLMs) with the flexibility and speed of SurrealDB's vector database capabilities. We'll start with a foundation of Wikipedia articles and SEC Edgar filings, and show you how to customize everything from the corpus to the LLM.
 
-https://github.com/Ce11an/surrealdb-openai/assets/60790416/a4e6a967-321a-4ca0-8f64-1687512aab38
+## What's the Big Idea?
 
-## So, What's the Big Idea?
+This project is all about understanding and experimenting with RAG. We'll import datasets (Wikipedia articles and SEC filings), create vector embeddings using various models, and then build a simple RAG-powered question-answering system. You'll be able to see firsthand how different choices affect the quality and relevance of the results.
 
-We're on a mission to explore the frontiers of what's possible when you pair up SurrealDB with OpenAI. We're talking about importing a whopping 25k Wikipedia articles, complete with their vectors (thanks to OpenAI's smarts), and then whipping up a RAG question-answering system that's as cool as it sounds.
+We use a FastAPI server for the backend, Jinja2 for templating, and htmx to create a dynamic chat interface.
 
-We've got a cozy little FastAPI server acting as our backstage crew, Jinja2 spinning up the templates, and htmx making our frontend chat application as lively as a chat at your favorite coffee shop.
+Also, this project shows how you can completely eliminate *external* API calls by hosting everything locally and in-database, while still having the flexibility to call external APIs when desired.
 
-## Gear Up
+## Key Features & Experimentation
 
-Before diving in, here's what we're playing with:
+This project isn't just a demo; it's a toolkit for RAG experimentation. Here's what you can tweak and explore:
 
-- A shiny Apple M2 Pro running MacOS Sonoma 14.4
-- SurrealDB 1.3.0, cozied up on disk
-- Python 3.11, because we like to keep things fresh
+*   **Different Corpuses:** We've included examples for:
+    *   **Wikipedia (Simple English):** A broad knowledge base, great for general questions.
+    *   **SEC Edgar Filings (10-K, 10-Q, etc.):** Focus on financial and business information.
+        *   Download filings using the `download_edgar` command, with optional arguments to specify the types of forms (e.g., 10-K, 10-Q), ticker symbols, and date ranges. See the `scripts.py` file and the `surrealdb_rag.edgar.download_edgar_data` function for details on the arguments you can use. We use the `edgartools` library ([https://github.com/dgunning/edgartools/tree/ffe18c511c9e29616fc6a000699e01c06d48586a](https://github.com/dgunning/edgartools/tree/ffe18c511c9e29616fc6a000699e01c06d48586a)) to interact with the SEC EDGAR database.
 
-Hit a snag? Just holler, and we'll sort it out together.
+*   **Embedding Models:** Experiment with:
+    *   **OpenAI's `text-embedding-ada-002`:** A powerful, general-purpose embedding model. [OpenAI Embeddings Documentation](https://platform.openai.com/docs/guides/embeddings)
+    *   **GloVe (Global Vectors for Word Representation):** A classic word embedding model. See how it compares to a more modern approach. (Note: GloVe is primarily for word embeddings; sentence embeddings are created by averaging word vectors). [GloVe Project Page](https://nlp.stanford.edu/projects/glove/)
+    *   Any other embedding model that can take in some text and return a vector. You can modify the `surrealdb_rag/embeddings.py` file to integrate other embedding models.
 
-## Getting the Party Started
+*   **LLM Models:**
+    *   **API-hosted models like ChatGPT and Gemini:** Easily call these models via API requests. You'll need API keys (see Setup). For ChatGPT, see [OpenAI Developer Quickstart](https://platform.openai.com/docs/quickstart). For Gemini, see [Google AI Studio](https://ai.google.dev/).
+    *   **Locally hosted LLMs via Ollama:** Any LLM you install with `ollama pull` should work. See [Ollama](https://ollama.ai/) for installation and [Ollama Model Library](https://ollama.ai/library) for a list of available models and instructions on how to pull them. This allows for completely offline operation.
+    *   **Call API LLMs via API calls or via HTTP calls within the database:** 
+    *   **(Future - Currently in Development)** Call locally hosted LLM models directly within the database (without external network requests).
 
-First off, make sure SurrealDB is ready to rock on your machine (check out [how to get it up and running](https://surrealdb.com/install)). For Python 3.11, [pyenv](https://github.com/pyenv/pyenv) is your best buddy.
+*   **RAG Parameters:**
+    *   **Chat History:** Control the number of included previous conversation to see how it affects the context and coherence of responses.
+    *   **Number of Chunks:** Adjust how many relevant text chunks are included in the prompt sent to the LLM. More chunks provide more context but can also introduce noise.
 
-Grab this repo with:
+*   **Prompt Engineering:** Modify the prompt sent to the LLM to fine-tune the style and content of the responses. Experiment with different instructions and see how the LLM's behavior changes.  The prompt can be adjusted in the web UI, and there are a few pre-canned prompts to choose from.
+## Setup and Requirements
 
-```bash
-git clone https://github.com/Ce11an/surrealdb-openai.git
-```
+*   **Hardware:** While an Apple M2 Pro was used for initial development, the project should run on any reasonably modern machine with sufficient RAM (especially for loading embeddings).
+*   **SurrealDB:** Running on the SurrealDB Cloud will limit you to Local and API-only LLM calls without an enterprise license. Version 2.2.x or later is required for local runs. [SurrealDB Installation](https://surrealdb.com/install).
+*   **Python:** Version 3.11 is used. `pyenv` is recommended for managing Python versions. [pyenv GitHub](https://github.com/pyenv/pyenv)
+*   **OpenAI API Key:** Required for using OpenAI's embedding and LLM models. Obtain one from the [OpenAI Developer Quickstart](https://platform.openai.com/docs/quickstart).
+*   **Google Gemini API Key:** Required if using Gemini. Obtain from [Google AI Studio](https://ai.google.dev/).
 
-You're gonna need an OpenAI API key for this shindig. Not sure where to snag one? Peek at the [OpenAI Developer Quickstart](https://platform.openai.com/docs/quickstart). Now, because SurrealDB and environment variables are currently in a complicated relationship, we've got a nifty workaround in [chats.surql](https://github.com/Ce11an/surrealdb-openai/blob/main/schema/chats.surql) for you to slip your OpenAI API key into:
+## Getting Started
 
-```sql
-DEFINE FUNCTION IF NOT EXISTS fn::get_openai_token() {
-    RETURN "Bearer <your-secret-key-here>"
-};
-```
+1.  **Clone the Repository:**
 
-*Heads up:* This is all for kicks and not meant for the production grind. Keep your OpenAI API key under wraps!
+    ```bash
+    git clone [https://github.com/apireno/examples.git](https://github.com/apireno/examples.git)
+    cd examples/surrealdb-rag
+    ```
 
-### Setting Up SurrealDB
+2.  **Install Dependencies:**
 
-With your setup ready, hit up some `make` commands to get SurrealDB into gear:
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
+    ```
 
-Fire up SurrealDB for some on-disk action:
+3.  **Set up your Environment Variables:**
 
-```bash
-make surreal-start
-```
+    The following environment variables are used:
 
-To lay down the database blueprint with table and function definitions:
+    ```
+    SURREAL_RAG_USER  # SurrealDB username
+    SURREAL_RAG_PASS  # SurrealDB password
+    SURREAL_RAG_DB_URL # SurrealDB connection URL (e.g., http://localhost:8000)
+    SURREAL_RAG_DB_NS  # SurrealDB namespace
+    SURREAL_RAG_DB_DB  # SurrealDB database
 
-```bash
-make surreal-init
-```
+    OPENAI_API_KEY     # Your OpenAI API Key
+    GOOGLE_GENAI_API_KEY # Your Google Gemini API Key (if using Gemini)
+    ```
+    You can set these in your shell's configuration file (e.g., `.bashrc`, `.zshrc`), or you can create a `.env` file in the project root and use a library like `python-dotenv` (though this is not explicitly included in this project to keep dependencies minimal). *Crucially, ensure your OpenAI and Gemini keys are also added to `surrealdb_rag/db/queries/chats.surql` as described in the original README, for use within SurrealQL functions.*
 
-Need a clean slate? Here's how to clear your database:
+4.  **Running the Scripts**
 
-```bash
-make surreal-remove
-```
+    The `scripts.py` file contains all the commands to manage data, the database, and the application. Run them using:
 
-### Python Time
+    ```bash
+    python3 surrealdb_rag/scripts.py <command_name>
+    ```
 
-Jump into the Python virtual environment:
+    Here's a breakdown of the available commands, in a recommended order of execution for different scenarios:
 
-```bash
-source venv/bin/activate
-```
+    **Database Setup (Run these first):**
 
-Get all the project goodies installed:
+    *   `create_db`: Starts SurrealDB and sets up the necessary tables, indexes, and functions. This *must* be run before inserting any data.
 
-```bash
-pip install -e .
-```
+    **Wikipedia Data:**
 
-### Grabbing the Dataset
+    *   `download_glove`: Downloads the GloVe word embeddings.
+    *   `insert_glove`: Inserts the GloVe embeddings into SurrealDB.
+    *   `download_wiki`: Downloads the Simple English Wikipedia dataset.
+    *   `train_wiki`: Processes the Wikipedia dataset and generates OpenAI embeddings.
+    *   `insert_wiki_fs`: **(Deprecated)** Inserts the raw Wikipedia data (without vectors) using the filesystem loader. Less efficient than `insert_wiki`.
+    *   `add_wiki_vectors`: Adds OpenAI vector embeddings to existing Wikipedia data (if you used `insert_wiki_fs`).
+    *   `insert_wiki`: Inserts the Wikipedia data *with* OpenAI embeddings directly into SurrealDB.
+    *   `setup_wiki`: A convenience command that runs `download_glove`, `insert_glove`, `download_wiki`, `train_wiki`, and `insert_wiki` in the correct order. This is the easiest way to get started with the Wikipedia data.
 
-We're going for the Simple English Wikipedia dataset by OpenAI (it's a biggie — ~700MB zipped, sprawling into a 1.7GB CSV file) that includes those nifty vector embeddings. Ready to download it?
+    **SEC Edgar Filings Data:**
 
-```bash
-get-data
-```
+    *   `download_edgar`: Downloads SEC Edgar filings. You can specify form types, tickers, and dates.
+    *   `train_edgar`: Processes the Edgar filings and generates OpenAI embeddings.
+    *   `insert_edgar_fs`: **(Deprecated)** Inserts the raw Edgar data (without vectors).
+    *   `add_edgar_vectors`: Adds OpenAI vector embeddings to existing Edgar data.
+    *   `insert_edgar`: Inserts the Edgar data *with* OpenAI embeddings.
+    *   `setup_edgar`: A convenience command that runs `download_edgar`, `train_edgar`, and `insert_edgar`.
+    *   `add_ai_edgar`: Downloads, processes, and inserts a smaller dataset of AI-related Edgar filings (faster for initial experimentation).
+    *   `add_ai_edgar_vectors`: Adds vectors to the AI industry Edgar data.
+    *   `insert_ai_edgar`: Inserts the AI industry Edgar filings *with* embeddings.
+    *   `add_large_edgar`: Processes a larger Edgar dataset with *larger* chunk sizes.
+    *   `add_large_edgar_vectors`: Adds vectors to the large-chunk Edgar data.
+    *   `insert_large_edgar`: Inserts the large-chunk Edgar filings *with* embeddings.
 
-### Populating SurrealDB
+    **Running the Application:**
 
-Time to move that dataset into SurrealDB:
+    *   `app`: Starts the FastAPI application, which provides the chat interface.
 
-```bash
-surreal-insert
-```
+## Shout-outs
 
-### Let's Do Some RAG!
-
-Dive into SurrealDB with SurrealQL:
-
-```bash
-make surreal-sql
-```
-
-And here's a taste of what you can do with a RAG operation:
-
-```sql
-RETURN fn::surreal_rag("gpt-3.5-turbo", "Who is the greatest basketball player of all time?", 0.85, 0.5);
-```
-
-### Let's chat?
-
-To start chatting with the RAG:
-
-```
-make server-start
-```
-
-## Extra Bits
-
-Beyond the RAG adventure, feel free to query, explore, and play with the data in any way you fancy. And if you're looking to amp up your game, tools like LangChain are there to spice things up.
-
-## Features! More features!
-
-- [ ] Handle them darn errors! Reply with a system message that informs the user there has been an oopsie.
-- [ ] Add user chat history as context.
-- [ ] There are way too many steps to get started - docker-compose?
-- [ ] Perform RAG to generate SurrealQL QA - this I will need help with.
-- [ ] Ummm where are the tests? You, the user, are the test! (seriously, I need to add some...).
-
-## Coffee, Anyone?
-
-If this little project made your day or saved you a coffee break's worth of time, consider fueling my caffeine love:
-
-<a href="https://www.buymeacoffee.com/ce11an" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
-
+This project builds upon and extends the original work by [Ce11an](https://github.com/Ce11an). Thanks for the initial inspiration and codebase!
