@@ -8,9 +8,11 @@
     <title>ChatSurrealDB</title>
     <script src="https://unpkg.com/htmx.org@1.9.2"></script>
     <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}" />
-
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script>
-    
+            
         document.addEventListener('htmx:afterRequest', function(evt) {
 
             if (evt.detail.successful) {
@@ -155,23 +157,41 @@
             return `[${quotedElements.join(',')}]`;
         }
         
-        function updateEmbedModelSelect(){
+        function updateCorpusDataTableOptions(){
             const embedModelSelect = document.getElementById("embedModelSelect");
+            const additionalDataFieldSelect = document.getElementById("additionalDataFieldSelect");
+
+            
             const corpusTableSelect = document.getElementById("corpusTableSelect");
             const selectedCorpusTable = corpusTableSelect.value;
+
             const corpusTable = available_corpus_tables[selectedCorpusTable];
+
             embedModelSelect.innerHTML = "";
             for (const embedModel in corpusTable.embed_models) {
                 const modelName = corpusTable.embed_models[embedModel].model.join(' - ');
                 const modelId = arrayToCsvString(corpusTable.embed_models[embedModel].model);
                 const option = document.createElement("option");
-                console.log("updateEmbedModelSelect" + modelName );
                 option.text = modelName;
                 option.value = modelId;
                 embedModelSelect.add(option);
             }
-        
-        
+
+            additionalDataFieldSelect.innerHTML = "";
+            const first_option = document.createElement("option");
+            first_option.text = "total count";
+            first_option.value = "";
+            additionalDataFieldSelect.add(first_option);
+            for (const data_key of corpusTable.addional_data_keys) { // Use 'of' instead of 'in'
+                const option = document.createElement("option");
+                option.text = data_key;
+                option.value = data_key;
+                additionalDataFieldSelect.add(option);
+            }
+
+
+
+
         }
         function populateCorpusTableSelect(){
             const corpusTableSelect = document.getElementById("corpusTableSelect");
@@ -203,7 +223,7 @@
         });
 
         document.addEventListener("DOMContentLoaded", function() {
-            updateEmbedModelSelect();
+            updateCorpusDataTableOptions();
             
         });
         document.addEventListener("DOMContentLoaded", function() {
@@ -220,6 +240,24 @@
             }
 
         });
+
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const toggleQuery = document.getElementById('toggleQuery');
+            const toggleQueryArea = document.getElementById('toggleQueryArea');
+
+            if (toggleQuery) {
+                toggleQuery.addEventListener('click', function() {
+                    document.getElementById('myModal').style.display = 'block';
+                    document.getElementById("queryArea").style.display = "block";
+                });
+            } else {
+                console.error("toggleQuery button not found.");
+            }
+
+        });
+
+
     </script>
 </head>
 
@@ -235,7 +273,7 @@
         <div id="modelSelector" class="model_selector">
             Data Set:
             <select id="corpusTableSelect" name="corpus_table"
-                    hx-include="this"  onchange="updateEmbedModelSelect()"
+                    hx-include="this"  onchange="updateCorpusDataTableOptions()"
                     hx-get="/get_corpus_table_details"
                     hx-target="#corpusTableDetails">
             </select>
@@ -289,6 +327,10 @@
             <div class="advanced-prompt">
                 <button id="togglePrompt">Advanced Prompt Settings</button>
             </div>
+
+            <div class="query-prompt">
+                <button id="toggleQuery">Query additional Data</button>
+            </div>
     </nav>
     <main>
 
@@ -299,9 +341,6 @@
             <message_detail id="message_detail"></message_detail>
             <doc_detail id="doc_detail"></doc_detail>
             <div id="promptArea" style="display: none;">
-                
-
-                
                 <textarea id="promptTemplateText" name="prompt_template" rows="30" cols="120">
                     {{ default_prompt_text }}
                 </textarea>
@@ -331,6 +370,19 @@
                         {{ prompt_text_templates[prompt_text]["text"] }}
                     </textarea>
                 {% endfor %}
+                </div>
+            </div>
+
+            <div id="queryArea" style="display: none;">
+                                
+                <select id="additionalDataFieldSelect" name="additional_data_field"
+                        hx-include="this, #corpusTableSelect">
+                </select>
+                <button id="query" hx-get="/get_additional_data_query" hx-target="#additionalDataQueryResults" 
+                hx-include="#corpusTableSelect,#additionalDataFieldSelect">Go</button>
+                
+                <div id="additionalDataQueryResults">
+                    
                 </div>
             </div>
         </div>

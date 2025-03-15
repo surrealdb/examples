@@ -44,6 +44,39 @@ DEFINE FUNCTION OVERWRITE fn::sentence_to_vector($sentence: string,$model: Recor
         END;
 };
 
+DEFINE FUNCTION OVERWRITE fn::additional_data_keys($corpus_table: string){
+    -- This function retrieves the keys of the 'additional_data' field from the first record of a specified table.
+    -- If 'additional_data' is null or missing, it returns an empty array.
+    --
+    -- Parameters:
+    --   $corpus_table: The name of the table to query (as a string).
+    --
+    -- Returns:
+    --   An array containing the keys of the 'additional_data' field, or an empty array if 'additional_data' is null or missing.
+    --
+    -- Example:
+    --   SELECT fn::additional_data_keys("my_corpus_table");
+   
+    RETURN (SELECT VALUE IF additional_data = NONE THEN [] ELSE additional_data.keys() END FROM type::table($corpus_table) LIMIT 1)[0];
+    
+};
+DEFINE FUNCTION OVERWRITE fn::select_additional_data($corpus_table: string,$key:string){
+    -- This function selects the values associated with a specified key within the 'additional_data' field of a table,
+    -- and counts the occurrences of each unique value.
+    --
+    -- Parameters:
+    --   $corpus_table: The name of the table to query (as a string).
+    --   $key: The key within the 'additional_data' field to retrieve values from (as a string).
+    --
+    -- Returns:
+    --   A result set containing the unique values and their counts, grouped by value.
+    --
+    -- Example:
+    --   SELECT fn::select_additional_data("my_corpus_table", "category");
+    --
+    RETURN SELECT val,count() FROM (
+        SELECT additional_data[$key] AS val,title FROM type::table($corpus_table) GROUP BY val,title ) GROUP BY val;
+};
 
 
 /*

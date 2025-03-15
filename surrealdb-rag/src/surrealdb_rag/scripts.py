@@ -154,8 +154,7 @@ def insert_edgar_fs(): # Alias definition IN this file
 # python ./src/surrealdb_rag/edgar_build_csv_append_vectors.py
 def add_vectors_to_edgar():
     end_date = datetime.date.today()
-    start_date = end_date - datetime.timedelta(days=7) # Roughly one year ago, can be more precise if needed
-
+    start_date = end_date - datetime.timedelta(days=7) 
     start_date_str = start_date.strftime('%Y-%m-%d')
     run_process(["python", "./src/surrealdb_rag/edgar_build_csv_append_vectors.py",
                  "-edsd",start_date_str,

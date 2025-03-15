@@ -1,0 +1,21 @@
+
+<table id="query_results_table">
+    <thead>
+        <tr>
+            <th>Value</th>
+            <th>Count</th>
+        </tr>
+    </thead>
+    <tbody>
+        
+        {% for row in query_results %}
+            <tr>
+                <td>{{ row.val }}</td>
+                <td>{{ row.count }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>    
+<script>
+$('#query_results_table').DataTable();
+</script>

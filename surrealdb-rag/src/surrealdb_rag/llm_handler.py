@@ -91,9 +91,9 @@ class ModelListHandler():
         else:
             self.CORPUS_TABLES = {}
             corpus_tables = await self.connection.query("""
-                SELECT display_name,table_name,embed_models FROM corpus_table FETCH embed_models,embed_models.model;
+                SELECT display_name,table_name,embed_models,fn::additional_data_keys(table_name) as addional_data_keys FROM corpus_table FETCH embed_models,embed_models.model;
             """)
-
+           
             # Filter out OpenAI models if API key is absent
             for corpus_table in corpus_tables:
                
@@ -102,6 +102,7 @@ class ModelListHandler():
                 self.CORPUS_TABLES[table_name] = {}
                 self.CORPUS_TABLES[table_name]["display_name"] = corpus_table["display_name"]
                 self.CORPUS_TABLES[table_name]["table_name"] = corpus_table["table_name"]
+                self.CORPUS_TABLES[table_name]["addional_data_keys"] = corpus_table["addional_data_keys"]
                 self.CORPUS_TABLES[table_name]["embed_models"] = []
                 for model in corpus_table["embed_models"]:
                     model_def =  model["model"]

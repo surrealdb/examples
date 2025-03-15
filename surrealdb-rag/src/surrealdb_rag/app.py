@@ -165,6 +165,22 @@ async def get_corpus_table_details(corpus_table: str = fastapi.Query(...)):
     
 
 
+@app.get("/get_additional_data_query", response_class=responses.HTMLResponse)
+async def get_additional_data_query(
+    request: fastapi.Request,corpus_table: str = fastapi.Query(...),additional_data_field: str = fastapi.Query(...)):
+    query_results = await life_span["surrealdb"].query(
+        """RETURN fn::select_additional_data($corpus_table,$key)""",params = {"corpus_table":corpus_table,"key":additional_data_field}    
+    )
+    return templates.TemplateResponse(
+        "query_results.html",
+        {
+            "request": request,
+            "query_results": query_results,
+        },
+    )
+
+
+
 @app.get("/get_llm_model_details")
 async def get_llm_model_details(llm_model: str = fastapi.Query(...)):
     """Retrieve and return details of an LLM model."""
