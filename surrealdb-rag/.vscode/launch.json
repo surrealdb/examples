@@ -22,7 +22,7 @@
             "python": "/Users/sandro/git_repos/examples-1/surrealdb-rag/.venv/bin/python", // Explicitly set your venv Python interpreter
             "args": [ // Array of command-line arguments
                 "-fsv",
-                "EDGAR 10ks",
+                "EDGAR Data",
                 "-ems",
                 "GLOVE,FASTTEXT",
                 "-tn","embedded_edgar",
@@ -41,8 +41,6 @@
                 "-edsd", "2025-02-27", "-edf", "10-K,10-Q"
             ]
         }
-
-
 
     ]
 }

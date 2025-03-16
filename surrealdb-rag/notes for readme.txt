@@ -54,8 +54,8 @@ python ./src/surrealdb_rag/download_edgar_data.py
 
 python ./src/surrealdb_rag/edgar_train_fasttext.py
 
-python ./src/surrealdb_rag/insert_embedding_model.py -emtr FASTTEXT -emv "EDGAR 10ks" -emp data/custom_fast_edgar_text.txt -des "Model trained on 10-K filings for 30 days prior to March 11 2025" -cor "10k filing data from https://www.sec.gov/edgar/search/"
+python ./src/surrealdb_rag/insert_embedding_model.py -emtr FASTTEXT -emv "EDGAR Data" -emp data/custom_fast_edgar_text.txt -des "Model trained on 10-K filings for 30 days prior to March 11 2025" -cor "10k filing data from https://www.sec.gov/edgar/search/"
 
 python ./src/surrealdb_rag/edgar_build_csv_append_vectors.py
 
-python ./src/surrealdb_rag/insert_edgar.py -fsv "EDGAR 10ks" -ems GLOVE,FASTTEXT
+python ./src/surrealdb_rag/insert_edgar.py -fsv "EDGAR Data" -ems GLOVE,FASTTEXT

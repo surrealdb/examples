@@ -25,7 +25,10 @@ dependencies = [
     "openai",
     "fasttext",
     "edgartools",
-    "bs4"
+    "bs4",
+    "spacy",
+    "transformers",
+    "torch"
 ]
 
 [project.scripts]

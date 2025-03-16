@@ -211,6 +211,7 @@ def surreal_edgar_insert() -> None:
             embed_model_mappings.append({"model_id": model_definition, "field_name": field_name})
 
 
+
     logger.info(f"Calculating rows in file {input_file}")
     # num_rows_csv = sum(1 for row in open(input_file, 'r', encoding='utf-8')) - 1 # Subtract header row 
     num_rows_csv = count_csv_rows_pandas_chunked(input_file)

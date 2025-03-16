@@ -130,7 +130,7 @@ def create_csv_from_folder(logger,file_index_df: pd.DataFrame , output_file_path
         dict_writer.writeheader()
 
         for index, file in tqdm.tqdm(file_index_df.iterrows(), total=len(file_index_df), desc=f"Processing files"): 
-            if file["url"] != "error" and os.path.exists(file["file_path"]):
+            if file["file_path"] and os.path.exists(file["file_path"]):
                 with open(file["file_path"]) as source:
                     file_contents = source.read()
                     chunks = generate_chunks(file_contents,chunk_size)
@@ -169,6 +169,9 @@ def create_csv_from_folder(logger,file_index_df: pd.DataFrame , output_file_path
                             }
                         chunk_number += 1
                         dict_writer.writerow(row)
+            else:
+                logger.error(f"File not found: '{file["file_path"]}'")
+    
 
     logger.info(f"CSV generation complete. Corpus saved to '{output_file_path}'.")
 

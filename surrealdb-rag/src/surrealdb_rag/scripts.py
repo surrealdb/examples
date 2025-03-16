@@ -127,9 +127,9 @@ def download_edgar():
 
 # python ./src/surrealdb_rag/edgar_train_fasttext.py
 def train_edgar():
-    run_process(["python", "./src/surrealdb_rag/download_edgar_data.py"])
+    run_process(["python", "./src/surrealdb_rag/edgar_train_fasttext.py"])
 
-# python ./src/surrealdb_rag/insert_embedding_model.py -emtr FASTTEXT -emv "EDGAR 10ks" -emp data/custom_fast_edgar_text.txt -des "Model trained on 10-K filings for 30 days prior to March 11 2025" -cor "10k filing data from https://www.sec.gov/edgar/search/"
+# python ./src/surrealdb_rag/insert_embedding_model.py -emtr FASTTEXT -emv "EDGAR Data" -emp data/custom_fast_edgar_text.txt -des "Model trained on 10-K filings for 30 days prior to March 11 2025" -cor "10k filing data from https://www.sec.gov/edgar/search/"
 def insert_edgar_fs(): # Alias definition IN this file
     """Runs the embedding model insertion for GLOVE."""
     command = [
@@ -138,7 +138,7 @@ def insert_edgar_fs(): # Alias definition IN this file
         "-emtr",
         "FASTTEXT",
         "-emv",
-        "EDGAR 10ks",
+        "EDGAR Data",
         "-emp",
         "data/custom_fast_edgar_text.txt",
         "-des",
@@ -161,14 +161,14 @@ def add_vectors_to_edgar():
                  "-edf","10-K,10-Q",])
 
 
-# python ./src/surrealdb_rag/insert_edgar.py -fsv "EDGAR 10ks" -ems GLOVE,FASTTEXT
+# python ./src/surrealdb_rag/insert_edgar.py -fsv "EDGAR Data" -ems GLOVE,FASTTEXT
 def insert_edgar(): # Alias definition IN this file
     """Runs the embedding model insertion for EDGAR data."""
     command = [
         "python",
         "./src/surrealdb_rag/insert_edgar.py",  # Path to the script
         "-fsv",  # Flag for fast_text_version
-        "EDGAR 10ks", # Value for fast_text_version (NO quotes needed)
+        "EDGAR Data", # Value for fast_text_version (NO quotes needed)
         "-ems",  # Flag for embed_models
         "GLOVE,FASTTEXT", # Value for embed_models (NO quotes needed),
         "-tn","embedded_edgar",
@@ -196,7 +196,7 @@ def insert_ai_industry_edgar():
         "python",
         "./src/surrealdb_rag/insert_edgar.py",  # Path to the script
         "-fsv",  # Flag for fast_text_version
-        "EDGAR 10ks", # Value for fast_text_version (NO quotes needed)
+        "EDGAR Data", # Value for fast_text_version (NO quotes needed)
         "-ems",  # Flag for embed_models
         "GLOVE,FASTTEXT", # Value for embed_models (NO quotes needed),
         "-tn","embedded_edgar_ai",
@@ -226,7 +226,7 @@ def insert_large_chunk_edgar():
         "python",
         "./src/surrealdb_rag/insert_edgar.py",  # Path to the script
         "-fsv",  # Flag for fast_text_version
-        "EDGAR 10ks", # Value for fast_text_version (NO quotes needed)
+        "EDGAR Data", # Value for fast_text_version (NO quotes needed)
         "-ems",  # Flag for embed_models
         "GLOVE,FASTTEXT", # Value for embed_models (NO quotes needed),
         "-tn","embedded_edgar_lc",
@@ -252,7 +252,7 @@ def add_large_chunk_edgar_data():
     
 
 
-# python ./src/surrealdb_rag/insert_edgar.py -fsv "EDGAR 10ks" -ems GLOVE,FASTTEXT
+# python ./src/surrealdb_rag/insert_edgar.py -fsv "EDGAR Data" -ems GLOVE,FASTTEXT
 def app(): # Alias definition IN this file
     """Runs UX for the app."""
     command = [

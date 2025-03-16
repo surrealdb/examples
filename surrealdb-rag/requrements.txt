@@ -15,3 +15,6 @@ openai
 fasttext
 edgartools
 bs4
+spacy
+transformers
+torch

@@ -1,8 +1,5 @@
 """Download OpenAI Wikipedia data."""
 
-import zipfile
-
-import wget
 import os
 
 from surrealdb_rag import loggers
@@ -11,17 +8,16 @@ import surrealdb_rag.constants as constants
 
 from surrealdb_rag.embeddings import WordEmbeddingModel
 
-import pandas as pd
 import tqdm
 import datetime
 
-from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
+from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader
 
 import csv
-from bs4 import BeautifulSoup
-import ast
-
 import edgar
+
+from surrealdb_rag.fin_data_extractor import extract_text_from_edgar_html
+
 
 # Initialize database and model parameters, and argument loader
 db_params = DatabaseParams()
@@ -31,46 +27,6 @@ args_loader = ArgsLoader("Download SEC data with edgar",db_params,model_params)
 #https://pypi.org/project/sec-api/
 # gen an api key here https://sec-api.io/profile
 
-def extract_text_from_html(html_content):
-    """
-    Extracts text content from an HTML 10-K filing, mimicking browser rendering.
-
-    Args:
-        html_content (str): The HTML content of the 10-K filing.
-
-    Returns:
-        str: The extracted text content, with HTML tags removed and basic formatting preserved.
-    """
-    soup = BeautifulSoup(html_content, 'html.parser')  # Parse the HTML
-
-    # 1. Extract text from the <body> tag (most content is here)
-    body_text = soup.body.get_text(separator='\n', strip=True)
-    # separator='\n' puts a newline between different block-level elements, improving readability
-    # strip=True removes leading/trailing whitespace
-
-    # 2. (Optional but Recommended) Further refine by focusing on main content areas
-    # 10-Ks often have header/footer and navigation that you might want to exclude.
-    # You might need to inspect the HTML of a few 10-Ks to identify consistent
-    # container divs or sections that hold the main content.
-    # For example, if you find a main content div with a specific ID or class, you could do:
-    # main_content_div = soup.find('div', {'id': 'document'}) # Example ID, inspect your HTML
-    # if main_content_div:
-    #     body_text = main_content_div.get_text(separator='\n', strip=True)
-    # else:
-    #     body_text = soup.body.get_text(separator='\n', strip=True) # Fallback to body if main content not found
-
-    # 3. (Optional) Handle Tables more explicitly (if needed for your NLP tasks)
-    # If tables are important and you want to preserve their structure somewhat, you could:
-    table_texts = []
-    for table in soup.find_all('table'):
-        table_text = ""
-        for row in table.find_all('tr'):
-            row_text = " | ".join([cell.get_text(strip=True) for cell in row.find_all(['td', 'th'])])
-            table_text += row_text + "\n"
-        table_texts.append(table_text)
-    body_text += "\n\n" + "\n\n".join(table_texts) # Add table text back in, separated
-
-    return body_text
 
 def file_name_from_url(url:str):
     return url.replace("https://","").replace("http://","").replace(".","_").replace("/","_")
@@ -83,7 +39,7 @@ def process_filing(filing:edgar.Filing,dict_writer:csv.DictWriter):
         file_path = f"{constants.EDGAR_FOLDER}{file_name_from_url(filing.filing_url)}.txt"
         if not os.path.exists(file_path):
             html_file = filing.html()
-            text_content = extract_text_from_html(html_file)
+            text_content = extract_text_from_edgar_html(html_file,filing.form)
             with open(file_path, "w") as f:
                 f.write(text_content)
 
@@ -106,9 +62,14 @@ def process_filing(filing:edgar.Filing,dict_writer:csv.DictWriter):
         }
         dict_writer.writerow(row)
         return row
-    except:
+    except Exception as e:
+        try:
+            url = filing.filing_url
+        except Exception as e:
+            url = "Undeterminable"
+        
         row = {
-            "url":"error",
+            "url":url,
             "company_name":"",
             "cik":"",
             "form":"",
@@ -122,7 +83,8 @@ def process_filing(filing:edgar.Filing,dict_writer:csv.DictWriter):
             "company.sic":"",
             "company.website":"",
             "filing_date":"",
-            "file_path":""}
+            "file_path":"",
+            "error":str(e)}
         dict_writer.writerow(row)
         return row
 
@@ -300,7 +262,8 @@ def download_edgar_data() -> None:
         "company.sic":"",
         "company.website":"",
         "filing_date":"",
-        "file_path":""}.keys()
+        "file_path":"",
+        "error":""}.keys()
     with open(index_file,"w", newline='') as f:
         dict_writer = csv.DictWriter(f, file_keys)
         dict_writer.writeheader()
