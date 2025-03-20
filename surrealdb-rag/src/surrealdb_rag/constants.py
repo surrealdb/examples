@@ -122,15 +122,15 @@ class SurrealDML():
     def INSERT_GRAPH_ENTITY_RECORDS(TABLE_NAME:str):
         return f"""
         FOR $row IN $records {{
-            CREATE type::thing("{TABLE_NAME}",[$row.source_document,$row.entity_type,$row.identifier])  CONTENT {{
+            CREATE type::thing("{TABLE_NAME}",$row.full_id)  CONTENT {{
                 source_document : $row.source_document,
                 entity_type: $row.entity_type,
                 identifier: $row.identifier,
                 name: $row.name,
                 contexts: $row.contexts,
-                content_glove_vector: IF $row.content_glove_vector= NULL THEN None ELSE $row.content_glove_vector END,
-                content_openai_vector: IF $row.content_openai_vector= NULL THEN None ELSE $row.content_openai_vector END,
-                content_fasttext_vector: IF $row.content_fasttext_vector= NULL THEN None ELSE $row.content_fasttext_vector END,
+                context_glove_vector: IF $row.content_glove_vector= NULL THEN None ELSE $row.content_glove_vector END,
+                context_openai_vector: IF $row.content_openai_vector= NULL THEN None ELSE $row.content_openai_vector END,
+                context_fasttext_vector: IF $row.content_fasttext_vector= NULL THEN None ELSE $row.content_fasttext_vector END,
                 additional_data: IF $row.additional_data = NULL THEN None ELSE $row.additional_data END
             }} RETURN NONE;
         }};
@@ -142,18 +142,20 @@ class SurrealDML():
         return f"""
         # entity1 and entity2 are arrays in format [source_document,entity_type,identifier] that are the ids
         FOR $row IN $records {{
+            LET $ent1 = type::thing("{ENTITY_TABLE_NAME}",$row.entity1);
+            LET $ent2 = type::thing("{ENTITY_TABLE_NAME}",$row.entity2);
             RELATE 
-            type::thing("{ENTITY_TABLE_NAME}",$row.entity1)
+            $ent1
                 -> {RELATE_TABLE_NAME} -> 
-            type::thing("{ENTITY_TABLE_NAME}",$row.entity2)
+            $ent2
                   CONTENT {{
                 source_document : $row.source_document,
                 confidence: $row.confidence,
                 relationship: $row.relationship,
                 contexts: $row.contexts,
-                content_glove_vector: IF $row.content_glove_vector= NULL THEN None ELSE $row.content_glove_vector END,
-                content_openai_vector: IF $row.content_openai_vector= NULL THEN None ELSE $row.content_openai_vector END,
-                content_fasttext_vector: IF $row.content_fasttext_vector= NULL THEN None ELSE $row.content_fasttext_vector END
+                context_glove_vector: IF $row.content_glove_vector= NULL THEN None ELSE $row.content_glove_vector END,
+                context_openai_vector: IF $row.content_openai_vector= NULL THEN None ELSE $row.content_openai_vector END,
+                context_fasttext_vector: IF $row.content_fasttext_vector= NULL THEN None ELSE $row.content_fasttext_vector END
             }} RETURN NONE;
         }};
     """

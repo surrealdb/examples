@@ -8,6 +8,8 @@ import tqdm
 
 from surrealdb_rag import loggers
 import surrealdb_rag.constants as constants
+import datetime
+from surrealdb_rag.llm_handler import LLMModelHander,ModelListHandler
 
 
 from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams, SurrealDML
@@ -20,18 +22,11 @@ args_loader = ArgsLoader("Input EDGAR Graph data",db_params,model_params)
 
 
 # Chunk size for batch processing
-BATCH_SIZE = 100
-
-
-def count_csv_rows_pandas_chunked(csv_filepath, chunk_size=1000): # Adjust chunk_size as needed
-    """Counts CSV rows accurately using pandas chunking, handling embedded newlines."""
-    total_rows = 0
-    csv_chunk_iterator = pd.read_csv(csv_filepath, chunksize=chunk_size)
-    for chunk_df in csv_chunk_iterator:
-        total_rows += len(chunk_df) # Add the number of rows in each chunk
-    return total_rows
+CHUNK_SIZE = 100
 
 MAX_RETRY_COUNT = 3
+
+
 def insert_chunk_of_rows(insert_record_surql: str, batch_rows: list, retry_count = 0) -> None:
     try:
         with Surreal(db_params.DB_PARAMS.url) as connection:
@@ -48,7 +43,7 @@ def insert_chunk_of_rows(insert_record_surql: str, batch_rows: list, retry_count
             
 
 
-def insert_rows(entity_table_name, replation_table_name, input_file, total_chunks, using_glove, using_fasttext):
+def insert_rows(entity_table_name,relation_table_name, graph_data_df, using_glove, using_fasttext):
    # Iterate through chunks and insert records
     #schema of the csv
 
@@ -70,75 +65,81 @@ def insert_rows(entity_table_name, replation_table_name, input_file, total_chunk
     
 
     insert_entity_record_surql = SurrealDML.INSERT_GRAPH_ENTITY_RECORDS(entity_table_name)
-    insert_relation_record_surql = SurrealDML.INSERT_GRAPH_RELATION_RECORDS(entity_table_name,replation_table_name)
-    #with tqdm.tqdm(total=total_chunks, desc="Inserting Batches") as pbar: # Progress bar for batches
-    with tqdm.tqdm(total=total_chunks,desc="Inserting Batches") as pbar: # Progress bar for batches
-        row_counter = 0 # Track row number for batching
-        batch_entity_rows = [] # List to accumulate rows for a batch
-        batch_relation_rows = [] # List to accumulate rows for a batch
-        with pd.read_csv(input_file, chunksize=BATCH_SIZE) as csv_chunk_iterator: # Iterate through CSV chunks
-            for chunk_df in csv_chunk_iterator: # chunk_df is a DataFrame chunk
+    insert_relation_record_surql = SurrealDML.INSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name)
 
-                for index, row in chunk_df.iterrows(): # Iterate over rows in the chunk DataFrame
-                    row_counter += 1
+    total_rows=len(graph_data_df)
+    total_chunks = total_rows // CHUNK_SIZE + (
+        1 if total_rows % CHUNK_SIZE else 0
+    )   
 
-                    if str(row["entity_type"]) == "relation": 
-      
-                        if row["entity_cik"]:
-                            entity1 = [row["url"],"company",row["entity_cik"]]
-                        else:
+    with tqdm.tqdm(total=total_chunks, desc="Inserting") as pbar:
+        for i in range(0, total_rows, CHUNK_SIZE):
+            chunk_df = graph_data_df.iloc[i:i + CHUNK_SIZE]
+            batch_entity_rows = [] 
+            batch_relation_rows = []
+            for index, row in chunk_df.iterrows(): # Iterate over rows in the chunk DataFrame
+                
+                formatted_row = {
+                    "source_document": row["url"],
+                    "contexts": ast.literal_eval(row["contexts"]),
+                    "content_glove_vector":ast.literal_eval(row["glove_vector"]) if using_glove else None,
+                    "content_fasttext_vector":ast.literal_eval(row["fasttext_vector"]) if using_fasttext else None
+                }
+                
+
+                match row["entity_type"]:
+                    case "relation":
+                        try:
+                            # company will have int in the cik field
+                            entity1 = [row["url"],"company",str(int(row["entity_cik"]))]
+                        except:
                             entity1 = [row["url"],"person",row["entity_name"]]
-                        
-                        if row["entity2_cik"]:
-                            entity2 = [row["url"],"company",row["entity2_cik"]]
-                        else:
+
+
+                        try:
+                            # company will have int in the cik field
+                            entity2 = [row["url"],"company",str(int(row["entity2_cik"]))]
+                        except:
                             entity2 = [row["url"],"person",row["entity2_name"]]
 
-
-                        formatted_row = {
-                            "entity1": entity1,
-                            "entity2": entity2,
-                            "source_document": row["url"],
-                            "confidence": row["confidence"],
-                            "relationship": row["relationship"],
-                            "contexts": row["contexts"],
-                            "content_glove_vector":ast.literal_eval(row["content_glove_vector"]) if using_glove else None,
-                            "content_fasttext_vector":ast.literal_eval(row["content_fasttext_vector"]) if using_fasttext else None
-                        }
-                        batch_relation_rows.append(formatted_row) # Add formatted row to the batch
-                    else:
-
-                        formatted_row = {
-                            "source_document": row["url"],
-                            "entity_type": row["entity_type"],
-                            "identifier": row["entity_cik"] if row["entity_type"]=="company" else row["entity_name"],
-                            "name": row["entity_name"],
-                            "contexts": row["contexts"],
-                            "content_glove_vector":ast.literal_eval(row["content_glove_vector"]) if using_glove else None,
-                            "content_fasttext_vector":ast.literal_eval(row["content_fasttext_vector"]) if using_fasttext else None,
-                            "additional_data": {
+                        formatted_row["entity1"] = entity1
+                        formatted_row["entity2"] = entity2
+                        formatted_row["confidence"] = row["confidence"]
+                        try:
+                            relationship = str(row["relationship"])
+                        except:
+                            relationship = "?"
+                        formatted_row["relationship"] =  relationship
+                        formatted_row["additional_data"] = {
                                     "form": row["form"],
-                                    "filer_cik": row["filer_cik"],
-                                    "form": row["form"],
+                                    "filer_cik": row["filer_cik"]
                             }
-                        }
+                        batch_relation_rows.append(formatted_row) # Add formatted row to the batch
 
-                                
+                    case "person" | "company":
+                        
+                        identifier = str(int(row["entity_cik"])) if row["entity_type"]=="company" else row["entity_name"]
+                        formatted_row["full_id"] = [row["url"],row["entity_type"],identifier]
+
+                        formatted_row["entity_type"] = row["entity_type"]
+                        formatted_row["identifier"] = identifier
+                        formatted_row["name"] = row["entity_name"]
+                        formatted_row["additional_data"] = {
+                                    "form": row["form"],
+                                    "filer_cik": row["filer_cik"]
+                            }
                         batch_entity_rows.append(formatted_row) # Add formatted row to the batch
+                    case _:
+                        a = ""
+                
+            pbar.set_description("Ins. ents")
+            insert_chunk_of_rows(insert_entity_record_surql, batch_entity_rows)
+            pbar.set_description("Ins. rels")
+            insert_chunk_of_rows(insert_relation_record_surql,batch_relation_rows)
+            pbar.update(1) # Update progress bar after each batch
+            
 
-                    if row_counter % BATCH_SIZE == 0: # Batch size reached, insert batch
-                       insert_chunk_of_rows(insert_entity_record_surql, batch_entity_rows,insert_relation_record_surql,batch_relation_rows)
-                       batch_entity_rows = [] # Clear batch after insert
-                       batch_relation_rows = [] # Clear batch after insert
-                       pbar.update(1) # Update progress bar after each batch
 
-            # Insert any remaining rows in the last batch (if less than BATCH_SIZE)
-            if batch_entity_rows or batch_relation_rows:
-                insert_chunk_of_rows(insert_entity_record_surql, batch_entity_rows,insert_relation_record_surql,batch_relation_rows)
-                batch_entity_rows = [] # Clear batch after insert
-                batch_relation_rows = [] # Clear batch after insert
-                pbar.update(1) # Update progress bar after each batch
-               
 
         
 
@@ -151,6 +152,15 @@ def surreal_edgar_insert() -> None:
     table_name = ""
     entity_display_name = ""
     relation_display_name = ""
+    start_date_str = ""
+    end_date_str = ""
+
+    # df = pd.read_csv("data/graph_database_edgar_data.csv")
+    # df.loc[df['entity_type'] == 'realtion', 'entity_type'] = 'relation'
+
+    
+    # df.to_csv("data/graph_database_edgar_data2.csv", index=False)
+    # return
 
 
     # Add command-line argument for embedding models
@@ -168,10 +178,13 @@ def surreal_edgar_insert() -> None:
         "The name of the FASTTEXT version you uploaded. (default{0})",
         ""
     )
+
+    args_loader.AddArg("start_date","edsd","start_date","Start filing date in format '%Y-%m-%d' for filtering. (default{0} blank string doesn't filter)",start_date_str)
+    args_loader.AddArg("end_date","eded","end_date","End filing date in format '%Y-%m-%d' for filtering. (default{0} blank string doesn't filter)",end_date_str)
     args_loader.AddArg("input_file","if","input_file","The path to the csv to insert. (default{0})",input_file)
     args_loader.AddArg("table_name","tn","entity_table_name","The sql corpuls table name the 2 will be created with suffixes _entity and _relation (eg embedded_edgar_10k_2025). (default{0})",table_name)
-    args_loader.AddArg("entity_display_name","edn","entity_display_name","The name of the entity table (eg 10-K filings people and companies). (default{0})",display_name)
-    args_loader.AddArg("relation_display_name","rdn","relation_display_name","The name of the enity table to see when selecting in the ux (eg '10k filings for 2025 people and companies'). (default{0})",display_name)
+    args_loader.AddArg("entity_display_name","edn","entity_display_name","The name of the entity table (eg 10-K filings people and companies). (default{0})",entity_display_name)
+    args_loader.AddArg("relation_display_name","rdn","relation_display_name","The name of the enity table to see when selecting in the ux (eg '10k filings for 2025 people and companies'). (default{0})",relation_display_name)
     
     # Parse command-line arguments
     args_loader.LoadArgs()
@@ -195,64 +208,50 @@ def surreal_edgar_insert() -> None:
     else:
         raise Exception("You must specify a display name with the -rdn flag")
 
-
     logger = loggers.setup_logger("SurrealEDGARGraphInsert")
-
     logger.info(args_loader.string_to_print())
 
-    # Retrieve embedding models from arguments
-    embed_models_str = args_loader.AdditionalArgs["embed_models"]["value"]
-    embed_models = embed_models_str.split(",")
+    graph_data_df = pd.read_csv(input_file)
+
+    graph_data_df['filing_datetime'] = pd.to_datetime(graph_data_df['filing_date'], errors='coerce')
+
+    if args_loader.AdditionalArgs["start_date"]["value"]:
+        start_date = datetime.datetime.strptime(args_loader.AdditionalArgs["start_date"]["value"], '%Y-%m-%d')
+        graph_data_df = graph_data_df[graph_data_df["filing_datetime"] >= start_date]
     
-    # Validate embedding models
-    if len(embed_models)<1:
-        raise Exception("You must specify at least one valid model of GLOVE,FASTTEXT,OPENAI with the -ems flag")
-    fs_version = args_loader.AdditionalArgs["fast_text_version"]["value"]
-    
+    if args_loader.AdditionalArgs["end_date"]["value"]:
+        end_date = datetime.datetime.strptime(args_loader.AdditionalArgs["end_date"]["value"], '%Y-%m-%d')
+        graph_data_df = graph_data_df[graph_data_df["filing_datetime"] >= end_date]
+
+
+    total_rows = len(graph_data_df)
+
+    logger.info(f"Total rows in CSV: {total_rows}") # Debugging - check row count
+    logger.info(f"Executting DDL for {table_name}")
 
     using_fasttext = False
     using_glove = False
-    for embed_model in embed_models:
-        if embed_model=="FASTTEXT":
-            using_fasttext = True
-            if not fs_version:
-                raise Exception("You must specify at a FASTTEXT version with the -fsv flag")
-        if embed_model=="GLOVE":
-            using_glove = True
-        if embed_model not in SurrealDML.EMBED_MODEL_DEFINITIONS:
-              raise Exception(f"{embed_model} is invalid, You must specify at least one valid model of GLOVE,FASTTEXT,OPENAI with the -ems flag")
-    
-
-
-    # Create embedding model mappings
-    embed_model_mappings = []
-    for embed_model in embed_models:
-        if embed_model in SurrealDML.EMBED_MODEL_DEFINITIONS:
-            field_name = SurrealDML.EMBED_MODEL_DEFINITIONS[embed_model]["field_name"]
-            model_definition = SurrealDML.EMBED_MODEL_DEFINITIONS[embed_model]["model_definition"]
-            # if custom fast text insert the version
-            if embed_model == "FASTTEXT":
-                model_definition[1] = fs_version
-            embed_model_mappings.append({"model_id": model_definition, "field_name": field_name})
-
-
-
-    logger.info(f"Calculating rows in file {input_file}")
-    # num_rows_csv = sum(1 for row in open(input_file, 'r', encoding='utf-8')) - 1 # Subtract header row 
-    num_rows_csv = count_csv_rows_pandas_chunked(input_file)
-    total_rows = num_rows_csv # Use this count for batching and progress bar
-    total_chunks = (total_rows + BATCH_SIZE - 1) // BATCH_SIZE
-
-    logger.info(f"Total rows in CSV: {total_rows}") # Debugging - check row count
-    
-    logger.info(f"Executting DDL for {table_name}")
 
     with Surreal(db_params.DB_PARAMS.url) as connection:
         logger.info(f"Connecting to SurrealDB")
         connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
         connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
         logger.info("Connected to SurrealDB")
+        
 
+
+        model_list = ModelListHandler(model_params,connection)
+        corpus_tables = model_list.available_corpus_tables_sync()
+        embed_models = corpus_tables[table_name]["embed_models"]
+        for embed_model in embed_models:
+            if embed_model["model_trainer"] == "GLOVE":
+                using_glove = True
+            if embed_model["model_trainer"] == "FASTTEXT":
+                using_fasttext = True
+
+        if not (using_glove or using_fasttext):
+            raise Exception("You must specify at least one valid model of GLOVE,FASTTEXT,OPENAI for the core corpus table. Check your corpus table definition")
+    
         # Read and execute table DDL that creates the tables and indexes if missing
         with open(constants.CORPUS_GRAPH_TABLE_DDL) as f: 
             surlql_to_execute = f.read()
@@ -263,7 +262,7 @@ def surreal_edgar_insert() -> None:
 
         # Update corpus table information
         logger.info(f"Deleting any existing corpus table info for {table_name}")
-        SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.DELETE_CORPUS_GRAPH_TABLE_INFO(table_name),params={"embed_models":embed_model_mappings}))
+        SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.DELETE_CORPUS_GRAPH_TABLE_INFO(table_name)))
     
     logger.info("Inserting rows into SurrealDB")
 
@@ -271,7 +270,7 @@ def surreal_edgar_insert() -> None:
     relation_table_name = f"{table_name}_relation"
 
 
-    insert_rows(entity_table_name,relation_table_name, input_file, total_chunks, using_glove, using_fasttext)
+    insert_rows(entity_table_name,relation_table_name, graph_data_df, using_glove, using_fasttext)
 
 
     with Surreal(db_params.DB_PARAMS.url) as connection:

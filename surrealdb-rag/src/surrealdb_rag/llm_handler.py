@@ -9,7 +9,14 @@ import google.generativeai as genai
 from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader
 from surrealdb import AsyncSurreal
 import re
+import asyncio
 
+
+CORPUS_TABLE_SELECT = """
+SELECT display_name,table_name,embed_models,fn::additional_data_keys(table_name) as addional_data_keys ,
+    type::thing('corpus_graph_tables',table_name).{entity_display_name,entity_table_name,relation_display_name,relation_table_name} as corpus_graph_tables
+    FROM corpus_table FETCH embed_models,embed_models.model;
+        """
 
 """
 Handles the retrieval of available LLM models and corpus tables.
@@ -79,6 +86,44 @@ class ModelListHandler():
         
 
             return self.LLM_MODELS 
+         
+    
+
+    def populate_corpus_tables(self,corpus_tables):
+        # Filter out OpenAI models if API key is absent
+        for corpus_table in corpus_tables:
+            
+            # create an dict item for table_name
+            table_name = corpus_table["table_name"]
+            self.CORPUS_TABLES[table_name] = {}
+            self.CORPUS_TABLES[table_name]["display_name"] = corpus_table["display_name"]
+            self.CORPUS_TABLES[table_name]["table_name"] = corpus_table["table_name"]
+            self.CORPUS_TABLES[table_name]["addional_data_keys"] = corpus_table["addional_data_keys"]
+            self.CORPUS_TABLES[table_name]["embed_models"] = []
+            self.CORPUS_TABLES[table_name]["corpus_graph_tables"] = corpus_table["corpus_graph_tables"]
+            for model in corpus_table["embed_models"]:
+                model_def =  model["model"]
+                model_def_id = model_def["id"].id
+                if model_def_id[0] != "OPENAI" or (
+                    model_def_id[0] == "OPENAI" and self.model_params.openai_token):
+
+                    self.CORPUS_TABLES[table_name]["embed_models"].append(
+                            {"model":model_def_id,
+                                "field_name":model["field_name"],
+                                "corpus":model_def["corpus"],
+                                "description":model_def["description"],
+                                "host":model_def["host"],
+                                "model_trainer":model_def["model_trainer"],
+                                "version":model_def["version"],
+                                "dimensions":model_def["dimensions"],
+                                }
+                        )
+        return self.CORPUS_TABLES 
+
+
+    
+
+    
     """
     Retrieves a dictionary of available corpus tables.
 
@@ -90,41 +135,22 @@ class ModelListHandler():
             return self.CORPUS_TABLES 
         else:
             self.CORPUS_TABLES = {}
-            corpus_tables = await self.connection.query("""
-                SELECT display_name,table_name,embed_models,fn::additional_data_keys(table_name) as addional_data_keys FROM corpus_table FETCH embed_models,embed_models.model;
-            """)
-           
-            # Filter out OpenAI models if API key is absent
-            for corpus_table in corpus_tables:
-               
-                # create an dict item for table_name
-                table_name = corpus_table["table_name"]
-                self.CORPUS_TABLES[table_name] = {}
-                self.CORPUS_TABLES[table_name]["display_name"] = corpus_table["display_name"]
-                self.CORPUS_TABLES[table_name]["table_name"] = corpus_table["table_name"]
-                self.CORPUS_TABLES[table_name]["addional_data_keys"] = corpus_table["addional_data_keys"]
-                self.CORPUS_TABLES[table_name]["embed_models"] = []
-                for model in corpus_table["embed_models"]:
-                    model_def =  model["model"]
-                    model_def_id = model_def["id"].id
-                    if model_def_id[0] != "OPENAI" or (
-                        model_def_id[0] == "OPENAI" and self.model_params.openai_token):
+            corpus_tables = await self.connection.query(CORPUS_TABLE_SELECT)
+            return self.populate_corpus_tables(corpus_tables)
 
-                        self.CORPUS_TABLES[table_name]["embed_models"].append(
-                                {"model":model_def_id,
-                                 "field_name":model["field_name"],
-                                 "corpus":model_def["corpus"],
-                                 "description":model_def["description"],
-                                 "host":model_def["host"],
-                                 "model_trainer":model_def["model_trainer"],
-                                 "version":model_def["version"],
-                                 "dimensions":model_def["dimensions"],
-                                 }
-                            )
+
+            
+    def available_corpus_tables_sync(self):
+        """
+        Synchronous version of available_corpus_tables.
+        """
+        if self.CORPUS_TABLES != {}:
             return self.CORPUS_TABLES 
+        else:
+            self.CORPUS_TABLES = {}
+            corpus_tables = self.connection.query(CORPUS_TABLE_SELECT)
+            return self.populate_corpus_tables(corpus_tables)
 
-
-        
 
 
         

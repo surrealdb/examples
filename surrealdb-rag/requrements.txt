@@ -19,3 +19,4 @@ transformers
 fuzzywuzzy
 python-Levenshtein
 spacy[apple]
+en-core-web-trf

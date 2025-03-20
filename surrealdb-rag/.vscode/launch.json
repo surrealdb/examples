@@ -40,6 +40,21 @@
             "args": [ // Array of command-line arguments
                 "-edsd", "2025-02-27", "-edf", "10-K,10-Q"
             ]
+        },
+        {
+            "name": "Python: Insert edgar graph (with args)", // A descriptive name for your configuration
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/Users/sandro/git_repos/examples-1/surrealdb-rag/src/surrealdb_rag/insert_edgar_graph.py", // Path to your script
+            "console": "integratedTerminal", // Or "internalConsole" if you prefer output in the Debug Console
+            "justMyCode": true, // Set to false if you want to step into library code
+            "python": "/Users/sandro/git_repos/examples-1/surrealdb-rag/.venv/bin/python", // Explicitly set your venv Python interpreter
+            "args": [ // Array of command-line arguments
+                "-edsd", "2025-02-27", 
+                "-tn","embedded_edgar",
+                "-edn","Latest SEC filings People and Companies",
+                "-rdn","Latest SEC filings Relationships"
+            ]
         }
 
     ]

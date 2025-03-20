@@ -126,6 +126,8 @@ app = fastapi.FastAPI(lifespan=lifespan)
 app.mount("/static", staticfiles.StaticFiles(directory="static"), name="static")
 
 
+
+
 @app.get("/", response_class=responses.HTMLResponse)
 async def index(request: fastapi.Request) -> responses.HTMLResponse:
 
@@ -153,14 +155,24 @@ async def index(request: fastapi.Request) -> responses.HTMLResponse:
                                                      "prompt_text_templates":LLMModelHander.PROMPT_TEXT_TEMPLATES
                                                      })
 
-@app.get("/get_corpus_table_details")
-async def get_corpus_table_details(corpus_table: str = fastapi.Query(...)):
+@app.get("/get_corpus_table_details", response_class=responses.HTMLResponse)
+async def get_corpus_table_details(
+    request: fastapi.Request,corpus_table: str = fastapi.Query(...)):
     """Retrieve and return details of a corpus table."""
     corpus_table_detail = life_span["corpus_tables"].get(corpus_table)
     if corpus_table_detail:
         s = f"Table: {corpus_table_detail['table_name']}"
     else:
         s = "Corpus table details not found."
+
+    
+    return templates.TemplateResponse(
+        "corpus_table_detail.html",
+        {
+            "request": request,
+            "corpus_table_detail": corpus_table_detail,
+        },
+    )
     return fastapi.Response(s, media_type="text/html") 
     
 
@@ -292,6 +304,59 @@ async def load_message(
             "message_id": message_id,
         },
     )
+
+
+"""
+            SELECT 
+            id,
+            identifier,
+            additional_data,
+            contexts,
+            entity_type,
+            name,
+            source_document, 
+            <->?.{confidence,realtionship,in,out,contexts} as realtionships
+            FROM type::table($entity_table_name) LIMIT 10;
+        """
+
+
+@app.get("/load_graph", response_class=responses.HTMLResponse)
+async def load_corpus_graph(
+    request: fastapi.Request, 
+    corpus_table: str = fastapi.Query(...)
+) -> responses.HTMLResponse:
+    """Load a graph for data souece."""
+
+    corpus_table_detail = life_span["corpus_tables"].get(corpus_table)
+    corpus_graph_tables = corpus_table_detail.get("corpus_graph_tables")
+
+
+    graph_data = await life_span["surrealdb"].query(
+        """
+            SELECT 
+            id,
+            entity_type,
+            name,
+            source_document, 
+            <->?.{confidence,realtionship,in,out} as relationships
+            FROM type::table($entity_table_name) LIMIT 10;
+        """ ,
+        params = {"entity_table_name":corpus_graph_tables.get("entity_table_name")} 
+    )
+    for row in graph_data:
+        row["id"] = str(row["id"])
+        for rel in row["relationships"]:
+            rel["in"] = str(rel["in"])
+            rel["out"] = str(rel["out"])
+
+    return templates.TemplateResponse(
+        "graph.html",
+        {
+            "request": request,
+            "graph_data": json.dumps(graph_data)
+        },
+    )
+
 
 
 @app.get("/documents/{document_id}", response_class=responses.HTMLResponse)

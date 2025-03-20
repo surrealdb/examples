@@ -11,7 +11,7 @@ import ast
 import spacy
 import tqdm
 import spacy
-spacy.require_gpu()
+spacy.prefer_gpu()
 import os
 import edgar
 from fuzzywuzzy import fuzz, process
@@ -383,6 +383,7 @@ def write_file_data_to_csv(
             url,
             filer_cik,
             form,
+            filing_date,
             people,
                  companies,
                 relationships):
@@ -395,7 +396,8 @@ def write_file_data_to_csv(
     row_master = {
         "url":url,
         "filer_cik":filer_cik,
-        "form":form
+        "form":form,
+        "filing_date":filing_date
     }
     for person in people:
         row = row_master.copy()
@@ -426,7 +428,7 @@ def write_file_data_to_csv(
     for relation in relationships:
         row = row_master.copy()
         
-        row["entity_type"] = "realtion"
+        row["entity_type"] = "relation"
 
         #entity 1
         row["entity_name"] = relation["entity1"]["name"]
@@ -604,7 +606,7 @@ def extract_entities_and_relationships(logger, output_file_path ,files, company_
                     "companies": companies,
                     "relationships": all_relationships,
                 }
-            write_file_data_to_csv (dict_writer,gloveEmbeddingModel,fastTextEmbeddingModel,file_data["url"],filing_company_cik,file_data["form"],people,companies,all_relationships)
+            write_file_data_to_csv (dict_writer,gloveEmbeddingModel,fastTextEmbeddingModel,file_data["url"],filing_company_cik,file_data["form"],filing_company_cik,file_data["filing_date"],people,companies,all_relationships)
 
             file_tqdm.set_description("Processing Complete")
         return results

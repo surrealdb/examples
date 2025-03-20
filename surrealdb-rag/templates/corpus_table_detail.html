@@ -1,0 +1,10 @@
+
+Table: {{ corpus_table_detail['display_name'] }}
+{% if corpus_table_detail['corpus_graph_tables'] %}
+Additional data: 
+
+<button hx-get="/load_graph" hx-target="main" 
+hx-include="#corpusTableSelect">View Knowledge Graph
+</button>
+{% endif %}
+

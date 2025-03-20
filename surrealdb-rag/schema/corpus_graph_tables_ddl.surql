@@ -3,7 +3,7 @@
 # Define the `{corpus_table}` related graph tables.
 
 REMOVE TABLE IF EXISTS {corpus_table}_entity;
-DEFINE FIELD IF NOT EXISTS source_document ON TABLE {corpus_table}_entity TYPE object;
+DEFINE FIELD IF NOT EXISTS source_document ON TABLE {corpus_table}_entity TYPE string;
 DEFINE FIELD IF NOT EXISTS identifier ON TABLE {corpus_table}_entity TYPE string
     # Field must be non-empty
     ASSERT string::len($value) > 0;
@@ -45,13 +45,14 @@ DEFINE INDEX IF NOT EXISTS {corpus_table}_entity_context_openai_vector_index ON 
 
 
 REMOVE TABLE IF EXISTS {corpus_table}_relation;
-DEFINE TABLE IF NOT EXISTS {corpus_table}_relation TYPE RELATION 
-DEFINE FIELD IF NOT EXISTS source_document ON TABLE {corpus_table}_relation TYPE object;
+DEFINE TABLE IF NOT EXISTS {corpus_table}_relation TYPE RELATION
 IN {corpus_table}_entity OUT {corpus_table}_entity SCHEMAFULL;
+
+DEFINE FIELD IF NOT EXISTS source_document ON TABLE {corpus_table}_relation TYPE string;
 DEFINE FIELD IF NOT EXISTS contexts ON TABLE {corpus_table}_relation 
     TYPE option<array<string>>;
-DEFINE FIELD IF NOT EXISTS confidence ON TABLE {corpus_table}_entity TYPE int;
-DEFINE FIELD IF NOT EXISTS relationship ON TABLE {corpus_table}_entity TYPE string;
+DEFINE FIELD IF NOT EXISTS confidence ON TABLE {corpus_table}_relation TYPE int;
+DEFINE FIELD IF NOT EXISTS relationship ON TABLE {corpus_table}_relation TYPE string;
 DEFINE FIELD IF NOT EXISTS context_glove_vector ON TABLE {corpus_table}_relation 
     TYPE option<array<float>>
     # Field must have length 300 to use embedding model: glove 300d

@@ -1,0 +1,19 @@
+<div id="mermaid-container"></div>
+
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    const jsonDataStr = `{{ graph_data | safe }}`;
+    // console.log(jsonDataStr);
+    let jsonData = [];
+    try {
+        jsonData = JSON.parse(jsonDataStr);
+        // console.log(jsonData);
+        renderMermaidGraph(jsonData,"Knowledge Graph"); // Call the rendering function
+    } catch (e) {
+        console.error("Error parsing graph json data:", e);
+    }
+  
+
+
+</script>
+
