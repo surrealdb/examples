@@ -24,10 +24,6 @@ db_params = DatabaseParams()
 model_params = ModelParams()
 args_loader = ArgsLoader("Download SEC data with edgar",db_params,model_params)
 
-#https://pypi.org/project/sec-api/
-# gen an api key here https://sec-api.io/profile
-
-
 def file_name_from_url(url:str):
     return url.replace("https://","").replace("http://","").replace(".","_").replace("/","_")
 

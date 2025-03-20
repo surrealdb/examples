@@ -26,9 +26,11 @@ dependencies = [
     "fasttext",
     "edgartools",
     "bs4",
-    "spacy",
     "transformers",
-    "torch"
+    "torch",
+    "fuzzywuzzy",
+    "python-Levenshtein",
+    "spacy[apple]"
 ]
 
 [project.scripts]

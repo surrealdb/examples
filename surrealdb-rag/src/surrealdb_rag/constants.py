@@ -15,12 +15,15 @@ DEFAULT_FS_WIKI_PATH = "data/custom_fast_wiki_text.txt"
 EDGAR_FOLDER = "data/edgar/"
 DEFAULT_EDGAR_FOLDER_FILE_INDEX = "data/edgar/index.csv"
 DEFAULT_EDGAR_PATH = "data/vector_database_edgar_data_embedded.csv"
+DEFAULT_EDGAR_GRAPH_PATH = "data/graph_database_edgar_data.csv"
 FS_EDGAR_PATH = "data/custom_fast_edgar_text.txt"
 DEFAULT_CHUNK_SIZE = 500
+EDGAR_PUBLIC_COMPANIES_LIST = "data/public_companies.csv"
 
 COMMON_FUNCTIONS_DDL = "./schema/common_function_ddl.surql"
 COMMON_TABLES_DDL = "./schema/common_tables_ddl.surql"
 CORPUS_TABLE_DDL = "./schema/corpus_table_ddl.surql"
+CORPUS_GRAPH_TABLE_DDL = "./schema/corpus_graph_tables_ddl.surql"
 
 
 
@@ -56,6 +59,13 @@ class SurrealDML():
             """
     
 
+    # SurrealQL query to update corpus graph table information    
+    def DELETE_CORPUS_GRAPH_TABLE_INFO(TABLE_NAME:str):
+        return f"""
+                DELETE corpus_graph_tables:{TABLE_NAME};  
+            """
+    
+
     # SurrealQL query to update corpus table information    
     def UPDATE_CORPUS_TABLE_INFO(TABLE_NAME:str,DISPLAY_NAME:str):
         
@@ -77,6 +87,20 @@ class SurrealDML():
                     embed_models = (SELECT value id FROM corpus_table_model WHERE corpus_table = corpus_table:{TABLE_NAME}) RETURN NONE;
                     
             """
+    
+
+    # SurrealQL query to update corpus table information    
+    def UPDATE_CORPUS_GRAPH_TABLE_INFO(TABLE_NAME:str):
+      
+        return f"""
+                UPSERT corpus_graph_tables:{TABLE_NAME} SET corpus_table = corpus_table:{TABLE_NAME}, 
+                entity_display_name = $entity_display_name,
+                entity_table_name = $entity_table_name,
+                relation_display_name = $relation_display_name, 
+                relation_table_name = $relation_table_name
+                  RETURN NONE;
+            """
+
     # SurrealQL query to insert corpus table records
     def INSERT_RECORDS(TABLE_NAME:str):
         return f"""
@@ -93,6 +117,46 @@ class SurrealDML():
         }};
     """
 
+
+    # SurrealQL query to insert corpus graph entity table records
+    def INSERT_GRAPH_ENTITY_RECORDS(TABLE_NAME:str):
+        return f"""
+        FOR $row IN $records {{
+            CREATE type::thing("{TABLE_NAME}",[$row.source_document,$row.entity_type,$row.identifier])  CONTENT {{
+                source_document : $row.source_document,
+                entity_type: $row.entity_type,
+                identifier: $row.identifier,
+                name: $row.name,
+                contexts: $row.contexts,
+                content_glove_vector: IF $row.content_glove_vector= NULL THEN None ELSE $row.content_glove_vector END,
+                content_openai_vector: IF $row.content_openai_vector= NULL THEN None ELSE $row.content_openai_vector END,
+                content_fasttext_vector: IF $row.content_fasttext_vector= NULL THEN None ELSE $row.content_fasttext_vector END,
+                additional_data: IF $row.additional_data = NULL THEN None ELSE $row.additional_data END
+            }} RETURN NONE;
+        }};
+    """
+
+
+    # SurrealQL query to insert corpus graph entity table records
+    def INSERT_GRAPH_RELATION_RECORDS(ENTITY_TABLE_NAME:str,RELATE_TABLE_NAME:str,):
+        return f"""
+        # entity1 and entity2 are arrays in format [source_document,entity_type,identifier] that are the ids
+        FOR $row IN $records {{
+            RELATE 
+            type::thing("{ENTITY_TABLE_NAME}",$row.entity1)
+                -> {RELATE_TABLE_NAME} -> 
+            type::thing("{ENTITY_TABLE_NAME}",$row.entity2)
+                  CONTENT {{
+                source_document : $row.source_document,
+                confidence: $row.confidence,
+                relationship: $row.relationship,
+                contexts: $row.contexts,
+                content_glove_vector: IF $row.content_glove_vector= NULL THEN None ELSE $row.content_glove_vector END,
+                content_openai_vector: IF $row.content_openai_vector= NULL THEN None ELSE $row.content_openai_vector END,
+                content_fasttext_vector: IF $row.content_fasttext_vector= NULL THEN None ELSE $row.content_fasttext_vector END
+            }} RETURN NONE;
+        }};
+    """
 
 
 
