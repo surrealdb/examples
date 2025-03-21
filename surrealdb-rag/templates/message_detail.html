@@ -1,0 +1,44 @@
+
+<div>
+message detail:
+<div>ID:{{message.id}}</div>
+
+<div>role: {{message.role}}</div>
+<div>created_at: {{message.created_at}}</div>
+<div>updated_at: {{message.updated_at}}</div>
+<div>embedding_model: {{message.sent[0].embedding_model}}</div>
+<div>llm_model: {{message.sent[0].llm_model}}</div>
+<div>timestamp: {{message.sent[0].timestamp}}</div>
+{% if message.sent[0].referenced_documents %}
+----------------------
+    <div>
+        Referenced Documents:
+        {%for doc in message.sent[0].referenced_documents %}
+        <div>
+            Score: {{doc.score}}
+            Doc:<a hx-get="/documents/{{ doc.doc | format_url_id  }}" id="doc-{{ doc.doc | extract_id }}" class="doc" hx-target="doc_detail" 
+            hx-include="#corpusTableSelect">
+                {{ doc.doc }}
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+{% endif %}
+----------------------
+<div>
+    <pre style="white-space: pre-wrap;">content: 
+        {{message.content}}</pre></div>
+
+
+{% if message.sent[0].prompt_text %}
+----------------------
+<div>
+<pre style="white-space: pre-wrap;">prompt: 
+    {{message.sent[0].prompt_text}}</pre></div>
+</div>
+
+{% endif %}
+<script>
+docDetail = document.getElementById("doc_detail");
+if(docDetail) docDetail.innerHTML = "";
+</script>

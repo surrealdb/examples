@@ -1,0 +1,13 @@
+{% for chat in chats %}
+
+<div id="chat-{{ chat.id | extract_id }}-div">
+<button hx-get="/chats/{{ chat.id }}" id="chat-{{ chat.id | extract_id }}" class="chat" hx-target="main" 
+hx-include="#llmModelSelect, #embedModelSelect, #corpusTableSelect">{{ chat.title
+    }}
+</button>
+<button class="delete" hx-delete="/chats/{{ chat.id }}/delete" hx-confirm="Are you sure you want to delete this chat?"
+    
+    hx-target="#chat-{{ chat.id | extract_id }}-div"
+>x</button>
+</div>
+{% endfor %}
