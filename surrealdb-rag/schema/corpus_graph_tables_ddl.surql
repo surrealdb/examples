@@ -43,6 +43,8 @@ DEFINE INDEX IF NOT EXISTS {corpus_table}_entity_context_openai_vector_index ON 
     FIELDS context_openai_vector
     HNSW DIMENSION 1536 M 32 EFC 300;
 
+DEFINE INDEX IF NOT EXISTS {corpus_table}_entity_identifier_index ON {corpus_table}_entity
+    FIELDS identifier;
 
 REMOVE TABLE IF EXISTS {corpus_table}_relation;
 DEFINE TABLE IF NOT EXISTS {corpus_table}_relation TYPE RELATION
@@ -79,3 +81,10 @@ DEFINE INDEX IF NOT EXISTS {corpus_table}_relation_context_fasttext_vector_index
 DEFINE INDEX IF NOT EXISTS {corpus_table}_relation_context_openai_vector_index ON {corpus_table}_relation
     FIELDS context_openai_vector
     HNSW DIMENSION 1536 M 32 EFC 300;
+
+
+
+DEFINE INDEX IF NOT EXISTS {corpus_table}_relation_out_identifier_index ON {corpus_table}_relation
+    FIELDS out.identifier;
+DEFINE INDEX IF NOT EXISTS {corpus_table}_relation_in_identifier_index ON {corpus_table}_relation
+    FIELDS in.identifier;

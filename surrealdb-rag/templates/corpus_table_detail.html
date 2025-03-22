@@ -30,4 +30,19 @@ hx-include="#corpusTableSelect">View Knowledge Graph
 </button>
 {% endif %}
 
+<div class="query-prompt">
+    <button id="toggleQuery">Query additional Data</button>
+</div>
 
+<script>
+    toggleQuery = document.getElementById('toggleQuery');
+    if (toggleQuery) {
+        toggleQuery.addEventListener('click', function() {
+            document.getElementById('myModal').style.display = 'block';
+            document.getElementById("queryArea").style.display = "block";
+        });
+    } else {
+        console.error("toggleQuery button not found.");
+    }
+
+</script>

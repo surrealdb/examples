@@ -14,8 +14,41 @@
 
     <script src="https://cdn.jsdelivr.net/npm/vivagraphjs@latest/dist/vivagraph.js"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+
+    <style>
+        
+        #graphContainer {
+                position: absolute;
+                width: calc(90%);
+                height: 100%;
+            }
+
+        #graphContainer > svg {
+            width: calc(90%);
+            height: 100%;
+        }
+
+        /* Optional: Style the labels */
+        .node-label {
+            stroke: white;  /* Optional: Add a white outline for better readability */
+            stroke-width: 0.5px; /* Adjust outline width */
+            pointer-events: all;  /* THIS IS THE KEY */
+        }
+        .edge-label{ /*style edge labels */
+            fill: white;
+            font-size: 8px; /* Base font size for edge labels */
+            pointer-events: all; /*  */
+        }
+    </style>
+
+    <style type="text/css" media="screen">
+        html, body, svg { width: 100%; height: 100%;}
+    </style>
+
     <script>
 
+                
         document.addEventListener('htmx:afterRequest', function(evt) {
 
             if (evt.detail.successful) {
@@ -241,20 +274,6 @@
         });
 
 
-        document.addEventListener("DOMContentLoaded", function() {
-            const toggleQuery = document.getElementById('toggleQuery');
-            const toggleQueryArea = document.getElementById('toggleQueryArea');
-
-            if (toggleQuery) {
-                toggleQuery.addEventListener('click', function() {
-                    document.getElementById('myModal').style.display = 'block';
-                    document.getElementById("queryArea").style.display = "block";
-                });
-            } else {
-                console.error("toggleQuery button not found.");
-            }
-
-        });
 
 
     </script>
@@ -316,9 +335,6 @@
                 <button id="togglePrompt">Advanced Prompt Settings</button>
             </div>
 
-            <div class="query-prompt">
-                <button id="toggleQuery">Query additional Data</button>
-            </div>
     </nav>
     <main>
 
@@ -362,7 +378,6 @@
             </div>
 
             <div id="queryArea" style="display: none;">
-                                
                 <select id="additionalDataFieldSelect" name="additional_data_field"
                         hx-include="this, #corpusTableSelect">
                 </select>
@@ -373,6 +388,12 @@
                     
                 </div>
             </div>
+
+            <div id="nodeDetail" style="display: none;">
+
+            </div>
+
+                                
         </div>
     </div>
 </body>

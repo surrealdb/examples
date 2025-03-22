@@ -335,6 +335,12 @@ def convert_to_graph_ux_data(data):
     nodes = {}
     edges = []
     edge_id_counter = 0
+
+    node_edge_count_min = 10000000
+    node_edge_count_max = 0
+
+
+
 # confidence, 
 #                 relationship, 
 #                 in, 
@@ -355,30 +361,106 @@ def convert_to_graph_ux_data(data):
             node = {
                 "id": node_id,
                 "label": f"{edge["in"]['name']}",  
-                "type": edge["in"]['entity_type'],
+                "entity_type": edge["in"]['entity_type'],
                 "source_document": edge["in"]["source_document"],
                 "edge_count": 1
             }
             nodes[node_id] = node
         else:
             nodes[node_id]["edge_count"] += 1
+
+        if nodes[node_id]["edge_count"]>node_edge_count_max:
+            node_edge_count_max = nodes[node_id]["edge_count"]
+        if nodes[node_id]["edge_count"]<node_edge_count_min:
+            node_edge_count_min = nodes[node_id]["edge_count"]
+        
             
         node_id = edge["out"]["identifier"]
         if node_id not in nodes:
             node = {
                 "id": node_id,
                 "label": f"{edge["out"]['name']}",  
-                "type": edge["out"]['entity_type'],
+                "entity_type": edge["out"]['entity_type'],
                 "source_document": edge["out"]["source_document"],
                 "edge_count": 1
             }
             nodes[node_id] = node
         else:
             nodes[node_id]["edge_count"] += 1
-             
 
+
+        if nodes[node_id]["edge_count"]>node_edge_count_max:
+            node_edge_count_max = nodes[node_id]["edge_count"]
+        if nodes[node_id]["edge_count"]<node_edge_count_min:
+            node_edge_count_min = nodes[node_id]["edge_count"]
+
+        node_edge_count_mean = edge_id_counter / len(nodes)
         
-    return {"nodes": list(nodes.values()), "edges": edges}
+    return {"nodes": list(nodes.values()), "edges": edges, 
+            "node_edge_count_min":node_edge_count_min, "node_edge_count_max":node_edge_count_max ,"node_edge_count_mean":node_edge_count_mean}
+
+@app.get("/entity_detail", response_class=responses.HTMLResponse)
+async def load_corpus_graph(
+    request: fastapi.Request, 
+    corpus_table: str = fastapi.Query(...), 
+    identifier: str = fastapi.Query(...)
+) -> responses.HTMLResponse:
+    """Load a entity info for an identifier."""
+
+    corpus_table_detail = life_span["corpus_tables"].get(corpus_table)
+    corpus_graph_tables = corpus_table_detail.get("corpus_graph_tables")
+
+
+
+    entity_relations = await life_span["surrealdb"].query(
+        """
+        
+                    
+            RETURN array::group(
+            [(
+            SELECT in.entity_type AS entity_type, in.identifier AS identifier, in.name AS name, math::mean(confidence) AS confidence
+            FROM  
+            type::table($relation_table_name) 
+            WHERE out.identifier = $identifier
+            GROUP BY entity_type,identifier,name
+            ),
+            (
+            SELECT out.entity_type AS entity_type,out.identifier AS identifier, out.name AS name, math::mean(confidence) AS confidence
+            FROM  
+            type::table($relation_table_name) 
+            WHERE in.identifier = $identifier
+            GROUP BY entity_type,identifier,name
+            )]
+            );
+                """,
+        params = {"relation_table_name":corpus_graph_tables.get("relation_table_name"),"identifier":identifier} 
+    )
+
+    entity_mentions = await life_span["surrealdb"].query("""
+        RETURN array::group (
+            SELECT VALUE {"source_document":source_document,"contexts":contexts,"additional_data":additional_data}
+                FROM  type::table($entity_table_name) WHERE identifier = $identifier
+            )
+        ;""",
+        params = {"entity_table_name":corpus_graph_tables.get("entity_table_name"),"identifier":identifier} 
+    )
+
+    entity_info = await life_span["surrealdb"].query("""
+        SELECT name,identifier,entity_type FROM type::table($entity_table_name) WHERE identifier = $identifier LIMIT 1
+        ;""",
+        params = {"entity_table_name":corpus_graph_tables.get("entity_table_name"),"identifier":identifier} 
+    )
+
+    return templates.TemplateResponse(
+        "entity.html",
+        {
+            "request": request,
+            "corpus_table": corpus_table,
+            "entity_mentions": entity_mentions,
+            "entity_relations": entity_relations,
+            "entity_info": entity_info[0]
+        },
+    )
 
 
 @app.get("/load_graph", response_class=responses.HTMLResponse)
@@ -401,7 +483,7 @@ async def load_corpus_graph(
                 out.{id,entity_type,name,source_document,identifier},
                 in.{id,entity_type,name,source_document,identifier}
                 FROM type::table($relation_table_name)
-                LIMIT 1000
+                LIMIT 100
             ;
 
         """ ,
@@ -412,6 +494,7 @@ async def load_corpus_graph(
         "graph.html",
         {
             "request": request,
+            "corpus_table": corpus_table,
             "graph_data": convert_to_graph_ux_data(graph_data)
         },
     )
