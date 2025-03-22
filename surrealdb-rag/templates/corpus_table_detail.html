@@ -1,10 +1,33 @@
 
 Table: {{ corpus_table_detail['display_name'] }}
-{% if corpus_table_detail['corpus_graph_tables'] %}
-Additional data: 
 
+
+<br>
+Embedding:<br>
+<select id="embedModelSelect" name="embed_model" hx-get="/get_embed_model_details"
+hx-trigger="change"
+hx-target="#embedModelDetails"
+hx-include="this, #corpusTableSelect">
+{% for embed_model in corpus_table_detail['embed_models'] %}
+   
+    <option value='{{embed_model["model"]}}'>{{' - '.join(embed_model["model"])}}</option>
+{% endfor %}
+</select>
+<br>
+<div id="embedModelDetails">
+    {% if default_embed_model %}
+        Dimensions: {{default_embed_model['dimensions']}}, Host: {{default_embed_model['host']}}<br> 
+        Corpus: {{default_embed_model['corpus']}}<br>  
+        Description: {{default_embed_model['description']}}
+
+    {% endif %}
+</div>
+<br>
+
+{% if corpus_table_detail['corpus_graph_tables'] %}
 <button hx-get="/load_graph" hx-target="main" 
 hx-include="#corpusTableSelect">View Knowledge Graph
 </button>
 {% endif %}
+
 

@@ -11,108 +11,17 @@
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
     <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.7.0.js"></script>
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/vivagraphjs@latest/dist/vivagraph.js"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script>
 
-
-        async function renderMermaidGraph(jsonData, label) {
-            const mermaidString = graphDataToMermaid(jsonData, label);
-            // Use mermaid.render to generate the SVG
-            try {
-                const { svg } = await mermaid.render('graphDiv', mermaidString); //graphDiv is the id of the svg element
-
-                // Add the SVG to the container
-                document.getElementById("mermaid-container").innerHTML = svg;
-            } catch (error) {
-                console.error("Error rendering Mermaid diagram:", error);
-                document.getElementById("mermaid-container").textContent = "Error rendering diagram.";
-            }
-            mermaid.initialize({ startOnLoad: true }); //initalize
-        }
-
-        function graphDataToMermaid(jsonData, label) {
-            const mermaidCode = document.createElement("div");
-            const graphHeader = document.createElement("pre"); // Or any block-level element.
-            graphHeader.textContent = "graph LR\n";
-            mermaidCode.appendChild(graphHeader);
-
-
-            const subgraph = document.createElement("div"); //div is a good container
-            subgraph.textContent = `    subgraph "${label}"\n`;
-            mermaidCode.appendChild(subgraph);
-
-            const nodeIds = new Set();
-
-            function generateNodeId(entity) {
-                if (entity.id) {
-                    return entity.id.replace(/[^a-zA-Z0-9_]/g, "_");
-                }
-                let baseId = `${entity.entity_type}_${entity.name.replace(/[^a-zA-Z0-9_]/g, "_")}`;
-                let nodeId = baseId;
-                let counter = 1;
-                while (nodeIds.has(nodeId)) {
-                    nodeId = `${baseId}_${counter++}`;
-                }
-                nodeIds.add(nodeId);
-                return nodeId;
-            }
-
-
-            function addNode(entity) {
-                const nodeId = generateNodeId(entity);
-                console.log(nodeId)
-
-                if (!nodeIds.has(nodeId)) {
-                    let label = `${entity.entity_type}: ${entity.name}`;
-                    if (entity.identifier) {
-                        label += ` (${entity.identifier})`;
-                    }
-                    if (entity.entity_type === "company" && entity.additional_data && entity.additional_data.cik) {
-                        label = `${entity.entity_type}: ${entity.name} (${entity.additional_data.cik})`;
-                    }
-
-                    const nodeElement = document.createElement("div");
-                    nodeElement.textContent = `        ${nodeId}["${label}"]\n`;
-                    subgraph.appendChild(nodeElement);
-                    // No need to add to nodeIds here, it's already done in generateNodeId
-                }
-                return nodeId;
-            }
-
-
-            // Process entities
-            for (const entity of jsonData) {
-                addNode(entity);
-            }
-
-            // Process relationships
-            for (const entity of jsonData) {
-                const sourceNodeId = generateNodeId(entity);
-                if (entity.relationships && Array.isArray(entity.relationships)) {
-                    for (const relationship of entity.relationships) {
-                        const targetNodeId = generateNodeId(relationship.entity2);
-                        const relationshipType = relationship.relationship;
-                        const edgeElement = document.createElement("div");
-                        edgeElement.textContent = `        ${sourceNodeId} -->|${relationshipType}| ${targetNodeId}\n`;
-                        subgraph.appendChild(edgeElement);
-                    }
-                }
-            }
-
-            const subgraphClose = document.createElement("div");
-            subgraphClose.textContent = "    end\n";
-            mermaidCode.appendChild(subgraphClose);
-
-            return mermaidCode.outerHTML; // Return as a string
-
-        }
-        
         document.addEventListener('htmx:afterRequest', function(evt) {
 
             if (evt.detail.successful) {
                 
                 if (evt.detail.elt.hasAttribute('hx-delete')) {
                     const targetId = evt.detail.elt.getAttribute('hx-target');
-                    console.log("delete " + targetId)
                     if (targetId) {
                         const targetElement = document.querySelector(targetId);
                         if (targetElement) {
@@ -181,19 +90,17 @@
                 console.error("Modal or close button not found.");
             }
         });
-        const available_llm_models_string = `{{ available_llm_models | safe }}`; // @ts-ignore - Ignore templating syntax
         let available_llm_models = {};
         try {
-            available_llm_models = JSON.parse(available_llm_models_string);
+            available_llm_models = {{ available_llm_models | tojson }};
         } catch (e) {
             console.error("Error parsing available_llm_models:", e);
         }
 
 
-        const available_corpus_tables_string = `{{ available_corpus_tables | safe }}`; // @ts-ignore - Ignore templating syntax
         let available_corpus_tables = {};
         try {
-            available_corpus_tables = JSON.parse(available_corpus_tables_string);
+            available_corpus_tables = {{ available_corpus_tables | tojson }};
         } catch (e) {
             console.error("Error parsing available_corpus_tables:", e);
         }
@@ -245,10 +152,11 @@
             llmModelSelect.dispatchEvent(new Event('change'));
         }   
 
-        function arrayToCsvString(arr) {
-            const quotedElements = arr.map(element => `"${element}"`);
-            return `[${quotedElements.join(',')}]`;
-        }
+        // function arrayToCsvString(arr) {
+        //     const quotedElements = arr.map(element => `"${element}"`);
+        //     console.log(`[${quotedElements.join(',')}]`);
+        //     return `[${quotedElements.join(',')}]`;
+        // }
         
         function updateCorpusDataTableOptions(){
             const embedModelSelect = document.getElementById("embedModelSelect");
@@ -260,15 +168,15 @@
 
             const corpusTable = available_corpus_tables[selectedCorpusTable];
 
-            embedModelSelect.innerHTML = "";
-            for (const embedModel in corpusTable.embed_models) {
-                const modelName = corpusTable.embed_models[embedModel].model.join(' - ');
-                const modelId = arrayToCsvString(corpusTable.embed_models[embedModel].model);
-                const option = document.createElement("option");
-                option.text = modelName;
-                option.value = modelId;
-                embedModelSelect.add(option);
-            }
+            // embedModelSelect.innerHTML = "";
+            // for (const embedModel in corpusTable.embed_models) {
+            //     const modelName = corpusTable.embed_models[embedModel].model.join(' - ');
+            //     const modelId = arrayToCsvString(corpusTable.embed_models[embedModel].model);
+            //     const option = document.createElement("option");
+            //     option.text = modelName;
+            //     option.value = modelId;
+            //     embedModelSelect.add(option);
+            // }
 
             additionalDataFieldSelect.innerHTML = "";
             const first_option = document.createElement("option");
@@ -288,9 +196,7 @@
         }
         function populateCorpusTableSelect(){
             const corpusTableSelect = document.getElementById("corpusTableSelect");
-            
-            console.log("populateCorpusTableSelect")
-            console.log(available_corpus_tables)
+        
             
             // Clear existing options
             corpusTableSelect.innerHTML = "";
@@ -403,15 +309,6 @@
             hx-include="this, #corpusTableSelect">
                
             </select>
-            <br>
-            <div id="embedModelDetails">
-                {% if default_embed_model %}
-                    Dimensions: {{default_embed_model['dimensions']}}, Host: {{default_embed_model['host']}}<br> 
-                    Corpus: {{default_embed_model['corpus']}}<br>  
-                    Description: {{default_embed_model['description']}}
-
-                {% endif %}
-            </div>
             <br>
             </div>
             <br>

@@ -8,7 +8,6 @@ from surrealdb import AsyncSurreal,RecordID
 from fastapi import responses, staticfiles, templating
 from surrealdb_rag.llm_handler import LLMModelHander,ModelListHandler
 from urllib.parse import quote
-import json
 
 import uvicorn
 import ast
@@ -133,9 +132,9 @@ async def index(request: fastapi.Request) -> responses.HTMLResponse:
 
     """Render the main chat interface."""
 
-    available_llm_models_json = json.dumps(life_span["llm_models"])
-    available_corpus_tables_json = json.dumps(life_span["corpus_tables"])
-    #default_prompt_text_json = json.dumps(LLMModelHander.DEFAULT_PROMPT_TEXT, ensure_ascii=False)
+    available_llm_models = life_span["llm_models"]
+    available_corpus_tables = life_span["corpus_tables"]
+    #default_prompt_text = LLMModelHander.DEFAULT_PROMPT_TEXT
 
     default_llm_model = life_span["llm_models"][next(iter(life_span["llm_models"]))]
     default_corpus_table = life_span["corpus_tables"][next(iter(life_span["corpus_tables"]))]
@@ -146,8 +145,8 @@ async def index(request: fastapi.Request) -> responses.HTMLResponse:
 
     return templates.TemplateResponse("index.html", {
             "request": request, 
-                                                     "available_llm_models": available_llm_models_json, 
-                                                     "available_corpus_tables": available_corpus_tables_json,
+                                                     "available_llm_models": available_llm_models, 
+                                                     "available_corpus_tables": available_corpus_tables,
                                                      "default_llm_model": default_llm_model,
                                                      "default_corpus_table": default_corpus_table,
                                                      "default_embed_model":default_embed_model,
@@ -315,9 +314,71 @@ async def load_message(
             entity_type,
             name,
             source_document, 
-            <->?.{confidence,realtionship,in,out,contexts} as realtionships
+            <->?.{confidence,relationship,in,out,contexts} as relationships
             FROM type::table($entity_table_name) LIMIT 10;
         """
+
+
+def convert_to_graph_ux_data(data):
+    """
+    Converts your specific JSON-like data structure to Sigma.js format.
+
+    Args:
+        data: A list of dictionaries, where each dictionary represents an entity
+              and its relationships.  Expected keys: 'id', 'entity_type',
+              'name', 'source_document', 'relationships' (list of dicts with
+              'confidence', 'relationship', 'in', 'out').
+
+    Returns:
+        A dictionary with 'nodes' and 'edges' lists, suitable for Sigma.js.
+    """
+    nodes = {}
+    edges = []
+    edge_id_counter = 0
+# confidence, 
+#                 relationship, 
+#                 in, 
+#                 out, 
+#                 in.{id,entity_type,name,source_document} 
+    for edge in data:
+        edge_id_counter += 1
+        edges.append({
+                        "id": f"e{edge_id_counter}",
+                        "source": edge["in"]["identifier"],
+                        "target": edge["out"]["identifier"],
+                        "label": edge["relationship"],  # Relationship type
+                        "confidence": edge.get("confidence", 1),  # Use .get() with default
+                        # Add any other relationship properties you want here
+                    })
+        node_id = edge["in"]["identifier"]
+        if node_id not in nodes:
+            node = {
+                "id": node_id,
+                "label": f"{edge["in"]['name']}",  
+                "type": edge["in"]['entity_type'],
+                "source_document": edge["in"]["source_document"],
+                "edge_count": 1
+            }
+            nodes[node_id] = node
+        else:
+            nodes[node_id]["edge_count"] += 1
+            
+        node_id = edge["out"]["identifier"]
+        if node_id not in nodes:
+            node = {
+                "id": node_id,
+                "label": f"{edge["out"]['name']}",  
+                "type": edge["out"]['entity_type'],
+                "source_document": edge["out"]["source_document"],
+                "edge_count": 1
+            }
+            nodes[node_id] = node
+        else:
+            nodes[node_id]["edge_count"] += 1
+             
+
+        
+    return {"nodes": list(nodes.values()), "edges": edges}
 
 
 @app.get("/load_graph", response_class=responses.HTMLResponse)
@@ -333,27 +394,25 @@ async def load_corpus_graph(
 
     graph_data = await life_span["surrealdb"].query(
         """
-            SELECT 
-            id,
-            entity_type,
-            name,
-            source_document, 
-            <->?.{confidence,realtionship,in,out} as relationships
-            FROM type::table($entity_table_name) LIMIT 10;
+                        
+                SELECT 
+                confidence, 
+                relationship, 
+                out.{id,entity_type,name,source_document,identifier},
+                in.{id,entity_type,name,source_document,identifier}
+                FROM type::table($relation_table_name)
+                LIMIT 1000
+            ;
+
         """ ,
-        params = {"entity_table_name":corpus_graph_tables.get("entity_table_name")} 
+        params = {"relation_table_name":corpus_graph_tables.get("relation_table_name")} 
     )
-    for row in graph_data:
-        row["id"] = str(row["id"])
-        for rel in row["relationships"]:
-            rel["in"] = str(rel["in"])
-            rel["out"] = str(rel["out"])
 
     return templates.TemplateResponse(
         "graph.html",
         {
             "request": request,
-            "graph_data": json.dumps(graph_data)
+            "graph_data": convert_to_graph_ux_data(graph_data)
         },
     )
 

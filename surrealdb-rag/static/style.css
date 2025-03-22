@@ -23,6 +23,14 @@ nav {
     display: flex;
     flex-direction: column;
 }
+
+#sigma-container {
+    width: 100%;  /* Use full width */
+    height: 600px; /* Or any desired height */
+    border: 1px solid #ccc;
+}
+
+
 /* Modal Styles */
 .modal {
     display: none; /* Hidden by default */
