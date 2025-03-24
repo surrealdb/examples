@@ -11,6 +11,8 @@ import surrealdb_rag.constants as constants
 import datetime
 from surrealdb_rag.llm_handler import LLMModelHander,ModelListHandler
 
+from surrealdb_rag.edgar_graph_extractor import get_public_companies
+
 
 from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams, SurrealDML
 
@@ -43,7 +45,7 @@ def insert_chunk_of_rows(insert_record_surql: str, batch_rows: list, retry_count
             
 
 
-def insert_rows(entity_table_name,relation_table_name, graph_data_df, using_glove, using_fasttext):
+def insert_rows(entity_table_name,relation_table_name, graph_data_df, company_index, company_metadata_lookup, using_glove, using_fasttext,incrimental_load):
    # Iterate through chunks and insert records
     #schema of the csv
 
@@ -51,6 +53,9 @@ def insert_rows(entity_table_name,relation_table_name, graph_data_df, using_glov
         "url":"",
         "filer_cik":"",
         "form":"",
+        "filing_date":"",
+        "filer_company_name":"",
+        "accession_no":"",
         "entity_type":"",
         "entity_name":"",
         "entity_cik":"",
@@ -62,10 +67,13 @@ def insert_rows(entity_table_name,relation_table_name, graph_data_df, using_glov
         "glove_vector":[],
         "fasttext_vector":[]
         }.keys()
-    
 
-    insert_entity_record_surql = SurrealDML.INSERT_GRAPH_ENTITY_RECORDS(entity_table_name)
-    insert_relation_record_surql = SurrealDML.INSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name)
+    if incrimental_load:
+        insert_entity_record_surql = SurrealDML.UPSERT_GRAPH_ENTITY_RECORDS(entity_table_name)
+        insert_relation_record_surql = SurrealDML.UPSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name)
+    else:
+        insert_entity_record_surql = SurrealDML.INSERT_GRAPH_ENTITY_RECORDS(entity_table_name)
+        insert_relation_record_surql = SurrealDML.INSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name)
 
     total_rows=len(graph_data_df)
     total_chunks = total_rows // CHUNK_SIZE + (
@@ -83,10 +91,16 @@ def insert_rows(entity_table_name,relation_table_name, graph_data_df, using_glov
                     "source_document": row["url"],
                     "contexts": ast.literal_eval(row["contexts"]),
                     "content_glove_vector":ast.literal_eval(row["glove_vector"]) if using_glove else None,
-                    "content_fasttext_vector":ast.literal_eval(row["fasttext_vector"]) if using_fasttext else None
+                    "content_fasttext_vector":ast.literal_eval(row["fasttext_vector"]) if using_fasttext else None,
+                    "additional_data" : {
+                                    "form": row["form"],
+                                    "filer_cik": row["filer_cik"],
+                                    "filing_date": row["filing_date"],
+                                    "filer_company_name": row["filer_company_name"],
+                                    "accession_no": row["accession_no"]
+                                }
                 }
                 
-
                 match row["entity_type"]:
                     case "relation":
                         try:
@@ -94,8 +108,6 @@ def insert_rows(entity_table_name,relation_table_name, graph_data_df, using_glov
                             entity1 = [row["url"],"company",str(int(row["entity_cik"]))]
                         except:
                             entity1 = [row["url"],"person",row["entity_name"]]
-
-
                         try:
                             # company will have int in the cik field
                             entity2 = [row["url"],"company",str(int(row["entity2_cik"]))]
@@ -110,10 +122,6 @@ def insert_rows(entity_table_name,relation_table_name, graph_data_df, using_glov
                         except:
                             relationship = "?"
                         formatted_row["relationship"] =  relationship
-                        formatted_row["additional_data"] = {
-                                    "form": row["form"],
-                                    "filer_cik": row["filer_cik"]
-                            }
                         batch_relation_rows.append(formatted_row) # Add formatted row to the batch
 
                     case "person" | "company":
@@ -124,10 +132,14 @@ def insert_rows(entity_table_name,relation_table_name, graph_data_df, using_glov
                         formatted_row["entity_type"] = row["entity_type"]
                         formatted_row["identifier"] = identifier
                         formatted_row["name"] = row["entity_name"]
-                        formatted_row["additional_data"] = {
-                                    "form": row["form"],
-                                    "filer_cik": row["filer_cik"]
-                            }
+                        
+                        if row["entity_type"] == "company":
+                            try:
+                                company_metadata = company_metadata_lookup[int(row["entity_cik"])]
+                                formatted_row["additional_data"]["company_metadata"] = company_metadata
+                            except:
+                                a = ""
+
                         batch_entity_rows.append(formatted_row) # Add formatted row to the batch
                     case _:
                         a = ""
@@ -154,6 +166,7 @@ def surreal_edgar_insert() -> None:
     relation_display_name = ""
     start_date_str = ""
     end_date_str = ""
+    incrimental_load = True
 
     # df = pd.read_csv("data/graph_database_edgar_data.csv")
     # df.loc[df['entity_type'] == 'realtion', 'entity_type'] = 'relation'
@@ -185,7 +198,8 @@ def surreal_edgar_insert() -> None:
     args_loader.AddArg("table_name","tn","entity_table_name","The sql corpuls table name the 2 will be created with suffixes _entity and _relation (eg embedded_edgar_10k_2025). (default{0})",table_name)
     args_loader.AddArg("entity_display_name","edn","entity_display_name","The name of the entity table (eg 10-K filings people and companies). (default{0})",entity_display_name)
     args_loader.AddArg("relation_display_name","rdn","relation_display_name","The name of the enity table to see when selecting in the ux (eg '10k filings for 2025 people and companies'). (default{0})",relation_display_name)
-    
+    args_loader.AddArg("incrimental_load","il","incrimental_load","do an incremental load? or overwrite entire database?. (default{0})",incrimental_load)
+
     # Parse command-line arguments
     args_loader.LoadArgs()
 
@@ -207,6 +221,10 @@ def surreal_edgar_insert() -> None:
         relation_display_name = args_loader.AdditionalArgs["relation_display_name"]["value"]
     else:
         raise Exception("You must specify a display name with the -rdn flag")
+    
+    if args_loader.AdditionalArgs["incrimental_load"]["value"]:
+        incrimental_load = str(args_loader.AdditionalArgs["incrimental_load"]["value"]).lower()in ("true","yes","1")
+
 
     logger = loggers.setup_logger("SurrealEDGARGraphInsert")
     logger.info(args_loader.string_to_print())
@@ -228,6 +246,10 @@ def surreal_edgar_insert() -> None:
 
     logger.info(f"Total rows in CSV: {total_rows}") # Debugging - check row count
     logger.info(f"Executting DDL for {table_name}")
+
+    logger.info("Getting public companies metadata")
+    company_index, company_metadata_lookup = get_public_companies(logger)
+
 
     using_fasttext = False
     using_glove = False
@@ -252,17 +274,20 @@ def surreal_edgar_insert() -> None:
         if not (using_glove or using_fasttext):
             raise Exception("You must specify at least one valid model of GLOVE,FASTTEXT,OPENAI for the core corpus table. Check your corpus table definition")
     
-        # Read and execute table DDL that creates the tables and indexes if missing
-        with open(constants.CORPUS_GRAPH_TABLE_DDL) as f: 
-            surlql_to_execute = f.read()
-            surlql_to_execute = surlql_to_execute.format(corpus_table = table_name)
-            
-            SurrealParams.ParseResponseForErrors( connection.query_raw(surlql_to_execute))
+
+        if not incrimental_load:
+            # Read and execute table DDL that creates the tables and indexes if missing
+            logger.info(f"Executting DDL for {table_name}")
+            with open(constants.CORPUS_GRAPH_TABLE_DDL) as f: 
+                surlql_to_execute = f.read()
+                surlql_to_execute = surlql_to_execute.format(corpus_table = table_name)
+                
+                SurrealParams.ParseResponseForErrors( connection.query_raw(surlql_to_execute))
 
 
-        # Update corpus table information
-        logger.info(f"Deleting any existing corpus table info for {table_name}")
-        SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.DELETE_CORPUS_GRAPH_TABLE_INFO(table_name)))
+            # Update corpus table information
+            logger.info(f"Deleting any existing corpus table info for {table_name}")
+            SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.DELETE_CORPUS_GRAPH_TABLE_INFO(table_name)))
     
     logger.info("Inserting rows into SurrealDB")
 
@@ -270,23 +295,25 @@ def surreal_edgar_insert() -> None:
     relation_table_name = f"{table_name}_relation"
 
 
-    insert_rows(entity_table_name,relation_table_name, graph_data_df, using_glove, using_fasttext)
+    insert_rows(entity_table_name,relation_table_name, graph_data_df,company_index, company_metadata_lookup, using_glove, using_fasttext,incrimental_load)
 
+    if not incrimental_load:
+        with Surreal(db_params.DB_PARAMS.url) as connection:
+            logger.info(f"Connecting to SurrealDB")
+            connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
+            connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
+            logger.info("Connected to SurrealDB")
 
-    with Surreal(db_params.DB_PARAMS.url) as connection:
-        logger.info(f"Connecting to SurrealDB")
-        connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
-        connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
-        logger.info("Connected to SurrealDB")
-
-        # Update corpus table information
-        logger.info(f"Updating corpus table info for {table_name}")
-        SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.UPDATE_CORPUS_GRAPH_TABLE_INFO(table_name),params={
-            "entity_display_name": entity_display_name,
-            "entity_table_name": entity_table_name,
-            "relation_display_name": relation_display_name, 
-            "relation_table_name": relation_table_name
-            }))
+            # Update corpus table information
+            logger.info(f"Updating corpus table info for {table_name}")
+            SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.UPDATE_CORPUS_GRAPH_TABLE_INFO(table_name),params={
+                "entity_display_name": entity_display_name,
+                "entity_table_name": entity_table_name,
+                "relation_display_name": relation_display_name, 
+                "relation_table_name": relation_table_name,
+                "entity_date_field": "additional_data.filing_date",
+                "relation_date_field": "additional_data.filing_date"
+                }))
 
 
 

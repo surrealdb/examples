@@ -1,38 +1,64 @@
 
-Table: {{ corpus_table_detail['display_name'] }}
 
-
-<br>
-Embedding:<br>
+<h4>Embedding:</h4>
 <select id="embedModelSelect" name="embed_model" hx-get="/get_embed_model_details"
 hx-trigger="change"
 hx-target="#embedModelDetails"
 hx-include="this, #corpusTableSelect">
 {% for embed_model in corpus_table_detail['embed_models'] %}
-   
     <option value='{{embed_model["model"]}}'>{{' - '.join(embed_model["model"])}}</option>
 {% endfor %}
 </select>
-<br>
 <div id="embedModelDetails">
     {% if default_embed_model %}
         Dimensions: {{default_embed_model['dimensions']}}, Host: {{default_embed_model['host']}}<br> 
         Corpus: {{default_embed_model['corpus']}}<br>  
         Description: {{default_embed_model['description']}}
-
     {% endif %}
 </div>
-<br>
-
 {% if corpus_table_detail['corpus_graph_tables'] %}
-<button hx-get="/load_graph" hx-target="main" 
-hx-include="#corpusTableSelect">View Knowledge Graph
-</button>
+    <h4>Knowledge Graph <button hx-get="/load_graph" hx-target="main" id="loadGraphButton"
+        hx-include="#corpusTableSelect,#graphDateStart,#graphDateEnd">View
+        </button></h4>
+    {% if corpus_table_detail['corpus_graph_tables']['entity_date_field'] and corpus_table_detail['corpus_graph_tables']['relation_date_field'] %}
+        <div class="graphDate">
+        <input name="graph_start_date" id="graphDateStart">
+        <input name="graph_end_date" id="graphDateEnd">
+        </div>
+        <script>
+            var picker = new Lightpick({
+                field: document.getElementById('graphDateStart'),
+                secondField: document.getElementById('graphDateEnd'),
+                singleDate: false,
+                selectBackward: true,
+                numberOfMonths: 3,
+                numberOfColumns: 3,
+                minDays: 7,
+                maxDays: 120,
+                repick: true,
+                orientation: "top left",
+                minDate: moment().startOf('month').subtract(120, 'day'),
+                maxDate: moment().endOf('month').subtract(0, 'day'),
+                format: 'YYYY-MM-DD',
+                onSelect: function(start, end){
+                    var str = '';
+                    str += start ? start.format('YYYY-MM-DD') + ' to ' : '';
+                    str += end ? end.format('YYYY-MM-DD') : '...';
+                    console.log(str);
+                    // load_graph_button = document.getElementById('loadGraphButton');
+                    // if (load_graph_button) {
+                    //     load_graph_button.click();
+                    // }
+
+                }
+            });
+        </script>
+    {% endif %}
+    
 {% endif %}
 
-<div class="query-prompt">
-    <button id="toggleQuery">Query additional Data</button>
-</div>
+<h4>Additional Data <button id="toggleQuery">Query</button></h4>
+    
 
 <script>
     toggleQuery = document.getElementById('toggleQuery');

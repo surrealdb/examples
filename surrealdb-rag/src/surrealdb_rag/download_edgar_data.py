@@ -199,6 +199,7 @@ def download_edgar_data() -> None:
     form_str = "10-K,10-Q,SC 13D,SC 13G,S-1,S-4"
     ticker_str = ""
     index_file = constants.DEFAULT_EDGAR_FOLDER_FILE_INDEX
+    backup_index_file = True
 
 
     args_loader.AddArg("start_date","edsd","start_date","Start filing date in format '%Y-%m-%d'. (default{0})",start_date_str)
@@ -206,6 +207,7 @@ def download_edgar_data() -> None:
     args_loader.AddArg("form","edf","form","Form type to download can be an array in format '10-K,10-Q,SC 13D,SC 13G,S-1,S-4'. (default{0})",form_str)
     args_loader.AddArg("ticker","tic","ticker","Tickers to download can be an array in format 'AAPL,MSFT,AMZN' leave blank for all tickers. (default{0})",ticker_str)
     args_loader.AddArg("index_file","if","index_file","The path to the file that stores the file list and meta data. (default{0})",index_file)
+    args_loader.AddArg("backup_index_file","buif","backup_index_file","If the index file already exists backup or not with timestamp?. (default{0})",backup_index_file)
     
     args_loader.LoadArgs()
 
@@ -225,6 +227,13 @@ def download_edgar_data() -> None:
     if args_loader.AdditionalArgs["index_file"]["value"]:
         index_file = args_loader.AdditionalArgs["index_file"]["value"]
 
+
+    
+    if args_loader.AdditionalArgs["backup_index_file"]["value"]:
+        backup_index_file = str(args_loader.AdditionalArgs["backup_index_file"]["value"]).lower() in ("true","yes","1")
+
+
+
     form = form_str.split(",")
     
     logger.info(args_loader.string_to_print())
@@ -242,6 +251,15 @@ def download_edgar_data() -> None:
     filings = edgar.get_filings(form=form,filing_date=f"{start_date_str}:{end_date_str}")
     if len(ticker)>0:
         filings = filings.filter(ticker=ticker)
+
+    if backup_index_file and os.path.exists(index_file):
+        backup_index_file_path = index_file.replace(".csv",f"_backup_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.csv")
+        logger.info(f"Backing up index file to {backup_index_file_path}")
+        os.rename(index_file,backup_index_file_path)
+    else:
+        if os.path.exists(index_file):
+            logger.info(f"File already exists... skipping (delete it if you want to regenerate or set buif to true): '{index_file}'.")
+            return
 
     file_keys = {
         "url":"",

@@ -59,3 +59,10 @@ python ./src/surrealdb_rag/insert_embedding_model.py -emtr FASTTEXT -emv "EDGAR 
 python ./src/surrealdb_rag/edgar_build_csv_append_vectors.py
 
 python ./src/surrealdb_rag/insert_edgar.py -fsv "EDGAR Data" -ems GLOVE,FASTTEXT
+
+
+
+
+https://wakirin.github.io/Lightpick/
+
+https://github.com/search?q=repo%3Aanvaka%2FVivaGraphJS+hasLink&type=code

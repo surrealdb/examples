@@ -1,13 +1,28 @@
 
+<style>
+
+.entity_info {
+            display: inline-block;
+            vertical-align: top;
+            margin-left: 20px;
+        }
+</style>
+
 <h1>{{entity_info["entity_type"]}} : {{entity_info["name"]}} Detail</h1>
 
 
-<h3>Relations ({{entity_relations | length}}):</h3>
 
+<div id="entity_tabs">
+    <ul>
+        <li><a href="#relation_list">Relations ({{entity_relations | length}})</a></li>
+        <li><a href="#mention_list">Mentions ({{entity_mentions | length}})</a></li>
+    </ul>
+
+<span class="entity_info" style="display: inline-block;" id="relation_list">
 <table>
     <thead>
         <tr>
-            <th>Relation</th>
+            <th>With</th>
             <th>Confidence</th>
             <th>Entity Type</th>
         </tr>
@@ -17,7 +32,7 @@
 
 <tr>
     <td><button hx-get="/entity_detail?identifier={{relation["identifier"]}}"
-        hx-target="#nodeDetail" hx-include="#corpusTableSelect" hx-swap="innerHTML">
+        hx-target="#node_detail" hx-include="#corpusTableSelect" hx-swap="innerHTML">
         {{relation["name"]}}
     </button></td>  
     <td>{{relation["confidence"] | round(1)}}</td>
@@ -26,49 +41,50 @@
 {% endfor %}
 </tbody>
 </table>
+    </span>
+    <span class="entity_info" style="display: inline-block;" id="mention_list">
+    <table>
+        <thead>
+            <tr>
+                <th>Source Document</th>
+                <th>Additional Data</th>
+                <th>Contexts</th>
+            </tr>
+        </thead>
+        <tbody>
+    {% for mention in entity_mentions %}
+            <tr>
+                <td>
+                    <a hx-get="/source_documents/{{ mention["source_document"] | format_url_id  }}" class="doc" hx-target="node_detail" 
+                    hx-include="#corpusTableSelect">
+                    doc
+                    <!-- {{mention["source_document"] }} -->
+                    </a>
 
-<h3>Mentions ({{entity_mentions | length}}):</h3>
-<table>
-    <thead>
-        <tr>
-            <th>Source Document</th>
-            <th>Additional Data</th>
-            <th>Contexts</th>
-        </tr>
-    </thead>
-    <tbody>
-{% for mention in entity_mentions %}
-        <tr>
-            <td>
-                <a hx-get="/documents/{{ mention["source_document"] | format_url_id  }}" class="doc" hx-target="doc_detail" 
-                hx-include="#corpusTableSelect">
-                mention["source_document"]
-                </a>
+                </td>
+                <td><pre style="white-space: pre-wrap;">{{mention["additional_data"]}}</pre></td>
 
-            </td>
-            <td><pre style="white-space: pre-wrap;">{{mention["additional_data"]}}</pre></td>
+                <td>
+                    <div class="sitesection">
+                        <p class="expand-contexts"><a href="#">{{mention["contexts"] | length}} ... </a></p>
+                        {%for context in mention["contexts"] %}
+                            <pre class="expand-contexts-content" style="white-space: pre-wrap;">{{context}}</pre>
+                        {% endfor %}
+                        
+                    </div>
+                </td>
+            </tr>
+    {% endfor %}
 
-            <td>
-                <div class="sitesection">
-                    <p class="expand-contexts"><a href="#">{{mention["contexts"] | length}} ... </a> <img src="images/arrow.png" width="5" height="7" /></p>
-                    {%for context in mention["contexts"] %}
-                        <pre class="expand-contexts-content" style="white-space: pre-wrap;">{{context}}</pre>
-                    {% endfor %}
-                    
-                </div>
-            </td>
-        </tr>
-{% endfor %}
+    </table>
+    </span>
 
-</table>
-<style>
-    .expand-contexts-content {
-        display:none;
-    }
-</style>
 <script>
 $('.expand-contexts').click(function(){
-    $('.expand-contexts-content').slideToggle('fast');
+    theElementToToggle = $(this).parent().find('.expand-contexts-content');
+    theElementToToggle.slideToggle('fast').focus();;
 });
-
+$( function() {
+    $( "#entity_tabs" ).tabs();
+} );
 </script>

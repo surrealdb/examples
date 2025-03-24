@@ -10,6 +10,7 @@ from surrealdb_rag import loggers
 import surrealdb_rag.constants as constants
 
 
+
 from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams, SurrealDML
 
 # Initialize database and model parameters, and argument loader
@@ -48,7 +49,7 @@ def insert_chunk_of_rows(insert_record_surql: str, batch_rows: list, retry_count
             
 
 
-def insert_rows(table_name, input_file, total_chunks, using_glove, using_fasttext):
+def insert_rows(table_name, input_file, total_chunks, using_glove, using_fasttext,incrimental_load):
    # Iterate through chunks and insert records
     #schema of the csv
     file_keys = {
@@ -72,8 +73,11 @@ def insert_rows(table_name, input_file, total_chunks, using_glove, using_fasttex
         "content_glove_vector":"",
         "content_fasttext_vector":"",
         }.keys()
+    if incrimental_load:
+        insert_record_surql = SurrealDML.UPSERT_RECORDS(table_name)
+    else:
+        insert_record_surql = SurrealDML.INSERT_RECORDS(table_name)
 
-    insert_record_surql = SurrealDML.INSERT_RECORDS(table_name)
     #with tqdm.tqdm(total=total_chunks, desc="Inserting Batches") as pbar: # Progress bar for batches
     with tqdm.tqdm(total=total_chunks,desc="Inserting Batches") as pbar: # Progress bar for batches
         row_counter = 0 # Track row number for batching
@@ -132,6 +136,7 @@ def surreal_edgar_insert() -> None:
     input_file = constants.DEFAULT_EDGAR_PATH
     table_name = ""
     display_name = ""
+    incrimental_load = True
 
 
     # Add command-line argument for embedding models
@@ -152,6 +157,7 @@ def surreal_edgar_insert() -> None:
     args_loader.AddArg("input_file","if","input_file","The path to the csv to insert. (default{0})",input_file)
     args_loader.AddArg("table_name","tn","table_name","The sql table name to load the data into (eg embedded_edgar_10k_2025). (default{0})",table_name)
     args_loader.AddArg("display_name","dn","display_name","The name of the corpus to see when selecting in the ux (eg '10k filings for 2025'). (default{0})",display_name)
+    args_loader.AddArg("incrimental_load","il","incrimental_load","do an incremental load? or overwrite entire database?. (default{0})",incrimental_load)
 
     # Parse command-line arguments
     args_loader.LoadArgs()
@@ -169,6 +175,10 @@ def surreal_edgar_insert() -> None:
         display_name = args_loader.AdditionalArgs["display_name"]["value"]
     else:
         raise Exception("You must specify a display name with the -dn flag")
+
+    if args_loader.AdditionalArgs["incrimental_load"]["value"]:
+        incrimental_load = str(args_loader.AdditionalArgs["incrimental_load"]["value"]).lower()in ("true","yes","1")
+
 
 
     logger = loggers.setup_logger("SurrealEDGARInsert")
@@ -223,39 +233,40 @@ def surreal_edgar_insert() -> None:
 
 
     
-    logger.info(f"Executting DDL for {table_name}")
 
     with Surreal(db_params.DB_PARAMS.url) as connection:
+        
         logger.info(f"Connecting to SurrealDB")
         connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
         connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
         logger.info("Connected to SurrealDB")
-
-        # Read and execute table DDL that creates the tables and indexes if missing
-        with open(constants.CORPUS_TABLE_DDL) as f: 
-            surlql_to_execute = f.read()
-            surlql_to_execute = surlql_to_execute.format(corpus_table = table_name)
-            
-            SurrealParams.ParseResponseForErrors( connection.query_raw(surlql_to_execute))
-
-
-        # Update corpus table information
-        logger.info(f"Deleting any existing corpus table info for {table_name}")
-        SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.DELETE_CORPUS_TABLE_INFO(table_name),params={"embed_models":embed_model_mappings}))
+        if not incrimental_load:
+            logger.info(f"Executting DDL for {table_name}")
+            # Read and execute table DDL that creates the tables and indexes if missing
+            with open(constants.CORPUS_TABLE_DDL) as f: 
+                surlql_to_execute = f.read()
+                surlql_to_execute = surlql_to_execute.format(corpus_table = table_name)
+                
+                SurrealParams.ParseResponseForErrors( connection.query_raw(surlql_to_execute))
+            # Update corpus table information
+            logger.info(f"Deleting any existing corpus table info for {table_name}")
+            SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.DELETE_CORPUS_TABLE_INFO(table_name),params={"embed_models":embed_model_mappings}))
     
+
+
     logger.info("Inserting rows into SurrealDB")
-    insert_rows(table_name, input_file, total_chunks, using_glove, using_fasttext)
+    insert_rows(table_name, input_file, total_chunks, using_glove, using_fasttext, incrimental_load)
 
+    if not incrimental_load:
+        with Surreal(db_params.DB_PARAMS.url) as connection:
+            logger.info(f"Connecting to SurrealDB")
+            connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
+            connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
+            logger.info("Connected to SurrealDB")
 
-    with Surreal(db_params.DB_PARAMS.url) as connection:
-        logger.info(f"Connecting to SurrealDB")
-        connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
-        connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
-        logger.info("Connected to SurrealDB")
-
-        # Update corpus table information
-        logger.info(f"Updating corpus table info for {table_name}")
-        SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.UPDATE_CORPUS_TABLE_INFO(table_name,display_name),params={"embed_models":embed_model_mappings}))
+            # Update corpus table information
+            logger.info(f"Updating corpus table info for {table_name}")
+            SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.UPDATE_CORPUS_TABLE_INFO(table_name,display_name),params={"embed_models":embed_model_mappings}))
 
 
 

@@ -13,8 +13,10 @@ import asyncio
 
 
 CORPUS_TABLE_SELECT = """
-SELECT display_name,table_name,embed_models,fn::additional_data_keys(table_name) as addional_data_keys ,
-    type::thing('corpus_graph_tables',table_name).{entity_display_name,entity_table_name,relation_display_name,relation_table_name} as corpus_graph_tables
+SELECT display_name,table_name,embed_models,fn::additional_data_keys(table_name) as addional_data_keys,
+    type::thing('corpus_graph_tables',table_name).{
+        entity_date_field,entity_display_name,entity_table_name,relation_date_field,relation_display_name,relation_table_name
+        } as corpus_graph_tables
     FROM corpus_table FETCH embed_models,embed_models.model;
         """
 

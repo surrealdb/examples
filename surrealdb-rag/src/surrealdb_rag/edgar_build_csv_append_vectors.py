@@ -85,9 +85,6 @@ def generate_chunks(input_text:str, chunk_size:int)-> list[str]:
 def create_csv_from_folder(logger,file_index_df: pd.DataFrame , output_file_path, chunk_size:int) -> None:
     
 
-    if os.path.exists(output_file_path):
-        logger.info(f"File already exists... skipping (delete it if you want to regenerate): '{output_file_path}'.")
-        return
 
     logger.info(f"Loading Glove embedding model {constants.DEFAULT_GLOVE_PATH}")
     try:
@@ -186,6 +183,8 @@ def generate_edgar_csv() -> None:
     form_str = ""
     index_file = constants.DEFAULT_EDGAR_FOLDER_FILE_INDEX
     output_file = constants.DEFAULT_EDGAR_PATH
+    backup_output_file = True
+
 
     chunk_size = constants.DEFAULT_CHUNK_SIZE
 
@@ -203,6 +202,7 @@ def generate_edgar_csv() -> None:
     args_loader.AddArg("exchange","ex","exchange","Exchanges to filter by can be an array in format 'Nasdaq,NYSE,OTC' leave blank for all exchanges. (default{0})",ticker_str)
     args_loader.AddArg("sic","sic","sic","Industries to filter by can be an array in format '3674,1234,5432' (refer to https://www.sec.gov/search-filings/standard-industrial-classification-sic-code-list) leave blank for all industries. (default{0})",sic_str)
     args_loader.AddArg("form","edf","form","Form type to filter can be an array in format '10-K,10-Q,SC 13D,SC 13G,S-1,S-4'. (default{0})",form_str)
+    args_loader.AddArg("backup_output_file","buof","backup_output_file","If the ouptut file already exists backup or not with timestamp? If false program will exit if exists. (default{0})",backup_output_file)
     
     args_loader.LoadArgs()
 
@@ -237,6 +237,12 @@ def generate_edgar_csv() -> None:
 
     if args_loader.AdditionalArgs["output_file"]["value"]:
         output_file = args_loader.AdditionalArgs["output_file"]["value"]
+
+
+    if args_loader.AdditionalArgs["backup_output_file"]["value"]:
+        backup_output_file = str(args_loader.AdditionalArgs["backup_output_file"]["value"]).lower()in ("true","yes","1")
+
+
 
     if args_loader.AdditionalArgs["chunk_size"]["value"]:
         chunk_size = args_loader.AdditionalArgs["chunk_size"]["value"]
@@ -300,6 +306,14 @@ def generate_edgar_csv() -> None:
         file_index_df = file_index_df[file_index_df["filing_datetime"] >= end_date]
 
 
+    if backup_output_file and os.path.exists(output_file):
+        backup_output_file_path = output_file.replace(".csv",f"_backup_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.csv")
+        logger.info(f"Backing up index file to {backup_output_file_path}")
+        os.rename(output_file,backup_output_file_path)
+    else:
+        if os.path.exists(output_file):
+            logger.info(f"File already exists... skipping (delete it if you want to regenerate or set buif to true): '{output_file}'.")
+            return
 
     create_csv_from_folder(logger,file_index_df,output_file,chunk_size)
 

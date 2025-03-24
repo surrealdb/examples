@@ -97,13 +97,11 @@ hello
                     event.stopPropagation(); // Prevent the click from bubbling up
                     if (node.data && node.data.link) { // Access node.data.link *here*
                         document.getElementById('myModal').style.display = 'block';
-                        document.getElementById("nodeDetail").style.display = "block";
-                        console.log("click!", node.data.link);
+                        document.getElementById("node_detail").style.display = "block";
                         htmx.ajax('GET', node.data.link, {
-                            target: '#nodeDetail',
+                            target: '#node_detail',
                             swap: 'innerHTML' // Correct way to specify swap with htmx.ajax
                         });
-                        // htmx.ajax('GET', node.data.link, { target: '#nodeDetail' });
                     }
                 });
 
@@ -144,7 +142,6 @@ hello
                     console.log(link);
                     if (link.data && link.data.link) { // Access node.data.link *here*
                         console.log("click!", link.data.link);
-                        // htmx.ajax('GET', node.data.link, { target: '#nodeDetail' });
                     }
                 });
                 ui.append(line);

@@ -380,24 +380,23 @@ def add_directional_relationship(relationships, entity1, entity2, relationship_d
 
 def write_file_data_to_csv(
             dict_writer:csv.DictWriter,gloveEmbeddingModel,fastTextEmbeddingModel,
-            url,
-            filer_cik,
-            form,
-            filing_date,
+            file_data,
             people,
-                 companies,
-                relationships):
+            companies,
+            relationships):
     
 
-
+#url,company_name,cik,form,accession_no,company.ticker_display,company.tickers,company.exchanges,company.description,company.category,company.industry,company.sic,company.website,filing_date,file_path,error
 
 
 
     row_master = {
-        "url":url,
-        "filer_cik":filer_cik,
-        "form":form,
-        "filing_date":filing_date
+        "url":file_data["url"],
+        "filer_cik":file_data["cik"],
+        "form":file_data["form"],
+        "filing_date":file_data["filing_date"],
+        "filer_company_name":file_data["company_name"],
+        "accession_no":file_data["accession_no"],
     }
     for person in people:
         row = row_master.copy()
@@ -523,6 +522,9 @@ def extract_entities_and_relationships(logger, output_file_path ,files, company_
         "url":"",
         "filer_cik":"",
         "form":"",
+        "filing_date":"",
+        "filer_company_name":"",
+        "accession_no":"",
         "entity_type":"",
         "entity_name":"",
         "entity_cik":"",
@@ -606,7 +608,7 @@ def extract_entities_and_relationships(logger, output_file_path ,files, company_
                     "companies": companies,
                     "relationships": all_relationships,
                 }
-            write_file_data_to_csv (dict_writer,gloveEmbeddingModel,fastTextEmbeddingModel,file_data["url"],filing_company_cik,file_data["form"],filing_company_cik,file_data["filing_date"],people,companies,all_relationships)
+            write_file_data_to_csv (dict_writer,gloveEmbeddingModel,fastTextEmbeddingModel,file_data,people,companies,all_relationships)
 
             file_tqdm.set_description("Processing Complete")
         return results
@@ -643,6 +645,7 @@ def get_public_companies(logger):
                         "company.description": company.description, "company.category": company.category,
                         "company.industry": company.industry, "company.sic": company.sic,
                         "company.website": company.website
+                        
                     }
                     for key, value in row.items():
                         if isinstance(value, list):

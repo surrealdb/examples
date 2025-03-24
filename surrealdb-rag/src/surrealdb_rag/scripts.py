@@ -107,23 +107,64 @@ def setup_wiki():
     insert_wiki()
 
 
+
+def incriment_latest_edgar_graph():
+    download_edgar(10)
+    add_vectors_to_edgar(10)
+    edgar_graph_extraction()
+    insert_edgar_graph(il=True,delta_days=10)
+
+def setup_edgar_graph():
+    edgar_graph_extraction()
+    insert_edgar_graph(il=False,delta_days=30)
+
+
+
+def edgar_graph_extraction():
+    run_process(["python", "./src/surrealdb_rag/edgar_graph_extractor.py"])
+
+def insert_edgar_graph(il=True,delta_days=30):
+    end_date = datetime.date.today()
+    start_date = end_date - datetime.timedelta(days=delta_days) 
+    start_date_str = start_date.strftime('%Y-%m-%d')
+
+    """Runs the embedding model insertion for EDGAR data."""
+    command = [
+        "python",
+        "./src/surrealdb_rag/insert_edgar_graph.py",  # Path to the script
+        "-edsd", start_date_str, 
+        "-tn","embedded_edgar",
+        "-edn","Latest SEC filings People and Companies",
+        "-rdn","Latest SEC filings Relationships",
+        "-il", str(il)
+    ]
+    run_process(command)
+
+
+def incriment_latest_edgar():
+    download_edgar(10)
+    add_vectors_to_edgar(10)
+    insert_edgar()
+
 def setup_edgar():
     create_database()
     download_edgar()
     train_edgar()
     insert_edgar_fs()
     add_vectors_to_edgar()
-    insert_edgar()
+    insert_edgar(False)
 
-
-
-
-
+    
 
 
 # python ./src/surrealdb_rag/download_edgar_data.py
-def download_edgar():
-    run_process(["python", "./src/surrealdb_rag/download_edgar_data.py"])
+def download_edgar(delta_days=90):
+    end_date = datetime.date.today()
+    start_date = end_date - datetime.timedelta(days=delta_days) 
+    start_date_str = start_date.strftime('%Y-%m-%d')
+    run_process(["python", "./src/surrealdb_rag/download_edgar_data.py",
+                 "-edsd",start_date_str])
+    
 
 # python ./src/surrealdb_rag/edgar_train_fasttext.py
 def train_edgar():
@@ -152,9 +193,9 @@ def insert_edgar_fs(): # Alias definition IN this file
 
 
 # python ./src/surrealdb_rag/edgar_build_csv_append_vectors.py
-def add_vectors_to_edgar():
+def add_vectors_to_edgar(delta_days=7):
     end_date = datetime.date.today()
-    start_date = end_date - datetime.timedelta(days=7) 
+    start_date = end_date - datetime.timedelta(days=delta_days) 
     start_date_str = start_date.strftime('%Y-%m-%d')
     run_process(["python", "./src/surrealdb_rag/edgar_build_csv_append_vectors.py",
                  "-edsd",start_date_str,
@@ -162,7 +203,7 @@ def add_vectors_to_edgar():
 
 
 # python ./src/surrealdb_rag/insert_edgar.py -fsv "EDGAR Data" -ems GLOVE,FASTTEXT
-def insert_edgar(): # Alias definition IN this file
+def insert_edgar(il=True): # Alias definition IN this file
     """Runs the embedding model insertion for EDGAR data."""
     command = [
         "python",
@@ -173,7 +214,8 @@ def insert_edgar(): # Alias definition IN this file
         "GLOVE,FASTTEXT", # Value for embed_models (NO quotes needed),
         "-tn","embedded_edgar",
         "-dn","Latest SEC filings", 
-        "-url", URL
+        "-url", URL,
+        "-il", str(il)
     ]
     run_process(command)
 
@@ -203,7 +245,8 @@ def insert_ai_industry_edgar():
         "-td","Latest AI filings",
         "-if", AI_EDGAR_FILE, 
         "-url",
-        URL
+        URL,
+        "-il", False
     ]
     run_process(command)
 
@@ -231,7 +274,8 @@ def insert_large_chunk_edgar():
         "GLOVE,FASTTEXT", # Value for embed_models (NO quotes needed),
         "-tn","embedded_edgar_lc",
         "-td","Latest filings 1k token chunks",
-        "-if", LARGE_CHUNK_EDGAR_FILE
+        "-if", LARGE_CHUNK_EDGAR_FILE,
+        "-il", False
     ]
     run_process(command)  
 
@@ -239,6 +283,7 @@ def insert_large_chunk_edgar():
 def add_large_chunk_edgar_data():
     add_vectors_to_large_chunk_edgar()
     insert_large_chunk_edgar()
+
 
 
 # args_loader.AddArg("start_date","edsd","start_date","Start filing date in format '%Y-%m-%d' for filtering. (default{0} blank string doesn't filter)",start_date_str)

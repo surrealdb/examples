@@ -1,0 +1,92 @@
+
+    <h2>{{source_document}}</h2>
+
+    <div id="entity_relation_tabs">
+        <ul>
+          <li><a href="#entity_list">Entities  ({{entities | length}})</a></li>
+          <li><a href="#relation_list">Relationship ({{relations | length}})</a></li>
+        </ul>
+    <span class="entity_info" style="display: inline-block;" id="entity_list">
+    <table>
+        <thead>
+            <tr>
+                <th>Entity</th>
+                <th>Data</th>
+                <th>Contexts</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entity in entities %}
+            <tr>
+                <td>
+                    <button hx-get="/entity_detail?identifier={{entity["identifier"]}}" 
+                    hx-target="#node_detail" hx-include="#corpusTableSelect" hx-swap="innerHTML">
+                    {{ entity["name"] }} ({{ entity["identifier"] }}) 
+                    </button> 
+                </td>
+                <td><pre style="white-space: pre-wrap;">{{entity["additional_data"]}}</pre></td>
+                <td>
+                    <div class="sitesection">
+                        <p class="expand-contexts"><a href="#">{{entity["contexts"] | length}} ... </a></p>
+                        {%for context in entity["contexts"] %}
+                            <pre class="expand-contexts-content" style="white-space: pre-wrap;">{{context}}</pre>
+                        {% endfor %}
+                        
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </span>
+     <span class="entity_info" style="display: inline-block;" id="relation_list">
+    <table>
+        <thead>
+            <tr>
+                <th>From</th>
+                <th>Relation</th>
+                <th>To</th>
+                <th>Confidence</th>
+                <th>Contexts</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for relation in relations %}
+            <tr>
+                <td><button hx-get="/entity_detail?identifier={{relation["in"]["identifier"] }}" 
+                    hx-target="#node_detail" hx-include="#corpusTableSelect" hx-swap="innerHTML">
+                    {{relation["in"]["name"]}}
+                </button></td>   
+                <td>{{relation["relationship"]}}</td>
+                <td><button hx-get="/entity_detail?identifier={{relation["out"]["identifier"] }}" 
+                    hx-target="#node_detail" hx-include="#corpusTableSelect" hx-swap="innerHTML">
+                    {{relation["out"]["name"]}}
+                </button></td>   
+                <td>{{relation["confidence"] | round(1)}}</td>
+                <td>
+                    <div class="sitesection">
+                        <p class="expand-contexts"><a href="#">{{relation["contexts"] | length}} ... </a></p>
+                        {%for context in relation["contexts"] %}
+                            <pre class="expand-contexts-content" style="white-space: pre-wrap;">{{context}}</pre>
+                        {% endfor %}
+                        
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+     </span>
+    </div>
+
+
+
+<script>
+$('.expand-contexts').click(function(){
+    theElementToToggle = $(this).parent().find('.expand-contexts-content');
+    theElementToToggle.slideToggle('fast').focus();;
+});
+$( function() {
+    $( "#entity_relation_tabs" ).tabs();
+  } );
+</script>

@@ -93,3 +93,5 @@ DEFINE FIELD IF NOT EXISTS entity_table_name ON TABLE corpus_graph_tables TYPE s
 DEFINE FIELD IF NOT EXISTS entity_display_name ON TABLE corpus_graph_tables TYPE string;
 DEFINE FIELD IF NOT EXISTS relation_table_name ON TABLE corpus_graph_tables TYPE string;
 DEFINE FIELD IF NOT EXISTS relation_display_name ON TABLE corpus_graph_tables TYPE string;
+DEFINE FIELD IF NOT EXISTS entity_date_field ON TABLE corpus_graph_tables TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS relation_date_field ON TABLE corpus_graph_tables TYPE option<string>;

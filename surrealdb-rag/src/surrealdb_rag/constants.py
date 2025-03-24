@@ -117,6 +117,22 @@ class SurrealDML():
         }};
     """
 
+    # SurrealQL query to insert corpus table records
+    def UPSERT_RECORDS(TABLE_NAME:str):
+        return f"""
+        FOR $row IN $records {{
+            UPSERT type::thing("{TABLE_NAME}",$row.url)  CONTENT {{
+                url : $row.url,
+                title: $row.title,
+                text: $row.text,
+                content_glove_vector: IF $row.content_glove_vector= NULL THEN None ELSE $row.content_glove_vector END,
+                content_openai_vector: IF $row.content_openai_vector= NULL THEN None ELSE $row.content_openai_vector END,
+                content_fasttext_vector: IF $row.content_fasttext_vector= NULL THEN None ELSE $row.content_fasttext_vector END,
+                additional_data: IF $row.additional_data= NULL THEN None ELSE $row.additional_data END
+            }} RETURN NONE;
+        }};
+    """
+
 
     # SurrealQL query to insert corpus graph entity table records
     def INSERT_GRAPH_ENTITY_RECORDS(TABLE_NAME:str):
@@ -135,6 +151,26 @@ class SurrealDML():
             }} RETURN NONE;
         }};
     """
+
+
+    # SurrealQL query to insert corpus graph entity table records
+    def UPSERT_GRAPH_ENTITY_RECORDS(TABLE_NAME:str):
+        return f"""
+        FOR $row IN $records {{
+            UPSERT type::thing("{TABLE_NAME}",$row.full_id)  CONTENT {{
+                source_document : $row.source_document,
+                entity_type: $row.entity_type,
+                identifier: $row.identifier,
+                name: $row.name,
+                contexts: $row.contexts,
+                context_glove_vector: IF $row.content_glove_vector= NULL THEN None ELSE $row.content_glove_vector END,
+                context_openai_vector: IF $row.content_openai_vector= NULL THEN None ELSE $row.content_openai_vector END,
+                context_fasttext_vector: IF $row.content_fasttext_vector= NULL THEN None ELSE $row.content_fasttext_vector END,
+                additional_data: IF $row.additional_data = NULL THEN None ELSE $row.additional_data END
+            }} RETURN NONE;
+        }};
+    """
+
 
 
     # SurrealQL query to insert corpus graph entity table records
@@ -160,6 +196,29 @@ class SurrealDML():
         }};
     """
 
+
+    # SurrealQL query to insert corpus graph entity table records
+    def UPSERT_GRAPH_RELATION_RECORDS(ENTITY_TABLE_NAME:str,RELATE_TABLE_NAME:str,):
+        return f"""
+        # entity1 and entity2 are arrays in format [source_document,entity_type,identifier] that are the ids
+        FOR $row IN $records {{
+            LET $ent1 = type::thing("{ENTITY_TABLE_NAME}",$row.entity1);
+            LET $ent2 = type::thing("{ENTITY_TABLE_NAME}",$row.entity2);
+            RELATE 
+            $ent1
+                -> {RELATE_TABLE_NAME} -> 
+            $ent2
+                  CONTENT {{
+                source_document : $row.source_document,
+                confidence: $row.confidence,
+                relationship: $row.relationship,
+                contexts: $row.contexts,
+                context_glove_vector: IF $row.content_glove_vector= NULL THEN None ELSE $row.content_glove_vector END,
+                context_openai_vector: IF $row.content_openai_vector= NULL THEN None ELSE $row.content_openai_vector END,
+                context_fasttext_vector: IF $row.content_fasttext_vector= NULL THEN None ELSE $row.content_fasttext_vector END
+            }} RETURN NONE;
+        }};
+    """
 
 
 class SurrealParams():

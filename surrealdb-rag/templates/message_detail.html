@@ -17,7 +17,7 @@ message detail:
         <div>
             Score: {{doc.score}}
             Doc:<a hx-get="/documents/{{ doc.doc | format_url_id  }}" id="doc-{{ doc.doc | extract_id }}" class="doc" hx-target="doc_detail" 
-            hx-include="#corpusTableSelect">
+            hx-include="#corpusTableSelect" hx-swap="innerHTML">
                 {{ doc.doc }}
             </a>
         </div>

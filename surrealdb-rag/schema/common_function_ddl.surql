@@ -522,6 +522,20 @@ DEFINE FUNCTION OVERWRITE fn::load_document_detail($corpus_table:string,$documen
     RETURN SELECT * FROM type::thing($corpus_table,$document_id);
 };
     
+/*
+Loads the details of a documents with the same root url.
+
+Args:
+    corpus_table (string): The name of the corpus table.
+    url (string): root url to match.
+
+Returns:
+    array<object>: The documents detail.
+*/
+DEFINE FUNCTION OVERWRITE fn::load_documents_from_url_root($corpus_table:string,$url_root: string) {
+    RETURN SELECT * FROM type::table($corpus_table) WHERE string::starts_with(url,$url_root) = True
+};
+    
 
 /*
 Loads the details of a message, including related sent data.
