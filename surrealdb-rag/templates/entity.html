@@ -16,32 +16,33 @@
     <ul>
         <li><a href="#relation_list">Relations ({{entity_relations | length}})</a></li>
         <li><a href="#mention_list">Mentions ({{entity_mentions | length}})</a></li>
+        <li><a href="#entity_graph" hx-get="/load_graph/?identifier={{entity_info['identifier']}}" hx-target="#entity_graph" id="loadGraphButton"
+            hx-include="#corpusTableSelect, #graphSizeLimit">Graph</a></li>
     </ul>
 
 <span class="entity_info" style="display: inline-block;" id="relation_list">
-<table>
-    <thead>
-        <tr>
-            <th>With</th>
-            <th>Confidence</th>
-            <th>Entity Type</th>
-        </tr>
-    </thead>
-    <tbody>
-{% for relation in entity_relations %}
-
-<tr>
-    <td><button hx-get="/entity_detail?identifier={{relation["identifier"]}}"
-        hx-target="#node_detail" hx-include="#corpusTableSelect" hx-swap="innerHTML">
-        {{relation["name"]}}
-    </button></td>  
-    <td>{{relation["confidence"] | round(1)}}</td>
-    <td>{{relation["entity_type"]}}</td>
-</tr>
-{% endfor %}
-</tbody>
-</table>
-    </span>
+    <table>
+        <thead>
+            <tr>
+                <th>With</th>
+                <th>Confidence</th>
+                <th>Entity Type</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for relation in entity_relations %}
+            <tr>
+                <td><button hx-get="/entity_detail?identifier={{relation["identifier"]}}"
+                    hx-target="#node_detail" hx-include="#corpusTableSelect" hx-swap="innerHTML">
+                    {{relation["name"]}}
+                </button></td>  
+                <td>{{relation["confidence"] | round(1)}}</td>
+                <td>{{relation["entity_type"]}}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</span>
     <span class="entity_info" style="display: inline-block;" id="mention_list">
     <table>
         <thead>
@@ -55,10 +56,9 @@
     {% for mention in entity_mentions %}
             <tr>
                 <td>
-                    <a hx-get="/source_documents/{{ mention["source_document"] | format_url_id  }}" class="doc" hx-target="node_detail" 
+                    <a hx-get="/source_documents/{{ mention["source_document"]["url"] | format_url_id  }}" class="doc" hx-target="node_detail" 
                     hx-include="#corpusTableSelect">
-                    doc
-                    <!-- {{mention["source_document"] }} -->
+                    {{mention["source_document"]["title"]}}
                     </a>
 
                 </td>
@@ -79,6 +79,9 @@
     </table>
     </span>
 
+    <span class="entity_info" style="display: inline-block;" id="entity_graph">
+        Show graph here
+    </span>
 <script>
 $('.expand-contexts').click(function(){
     theElementToToggle = $(this).parent().find('.expand-contexts-content');

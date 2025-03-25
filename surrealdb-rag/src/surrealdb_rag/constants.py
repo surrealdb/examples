@@ -93,11 +93,23 @@ class SurrealDML():
     def UPDATE_CORPUS_GRAPH_TABLE_INFO(TABLE_NAME:str):
       
         return f"""
+
+                LET $display_name = 
+                (SELECT VALUE display_name FROM corpus_table WHERE table_name = '{TABLE_NAME}')[0];
+
                 UPSERT corpus_graph_tables:{TABLE_NAME} SET corpus_table = corpus_table:{TABLE_NAME}, 
-                entity_display_name = $entity_display_name,
+
+                entity_display_name = $display_name + " Entities",
                 entity_table_name = $entity_table_name,
-                relation_display_name = $relation_display_name, 
-                relation_table_name = $relation_table_name
+
+                relation_display_name =  $display_name + " Relationships",
+                relation_table_name = $relation_table_name,
+
+                source_document_display_name = $display_name + " Documents",
+                source_document_table_name = $source_document_table_name,
+
+                relation_date_field = $relation_date_field,
+                entity_date_field = $entity_date_field
                   RETURN NONE;
             """
 
@@ -134,12 +146,26 @@ class SurrealDML():
     """
 
 
+
+    # SurrealQL query to insert source dcoument table records
+    def UPSERT_SOURCE_DOCUMENTS(TABLE_NAME:str):
+        return f"""
+        FOR $row IN $records {{
+            UPSERT type::thing("{TABLE_NAME}",$row.url)  CONTENT {{
+                url : $row.url,
+                title: $row.title,
+                additional_data: IF $row.additional_data= NULL THEN None ELSE $row.additional_data END
+            }} RETURN NONE;
+        }};
+    """
+
+
     # SurrealQL query to insert corpus graph entity table records
-    def INSERT_GRAPH_ENTITY_RECORDS(TABLE_NAME:str):
+    def INSERT_GRAPH_ENTITY_RECORDS(TABLE_NAME:str,SOURCE_DOCUMENT_TABLE_NAME:str):
         return f"""
         FOR $row IN $records {{
             CREATE type::thing("{TABLE_NAME}",$row.full_id)  CONTENT {{
-                source_document : $row.source_document,
+                source_document : type::thing("{SOURCE_DOCUMENT_TABLE_NAME}",$row.url),
                 entity_type: $row.entity_type,
                 identifier: $row.identifier,
                 name: $row.name,
@@ -154,11 +180,11 @@ class SurrealDML():
 
 
     # SurrealQL query to insert corpus graph entity table records
-    def UPSERT_GRAPH_ENTITY_RECORDS(TABLE_NAME:str):
+    def UPSERT_GRAPH_ENTITY_RECORDS(TABLE_NAME:str,SOURCE_DOCUMENT_TABLE_NAME:str):
         return f"""
         FOR $row IN $records {{
             UPSERT type::thing("{TABLE_NAME}",$row.full_id)  CONTENT {{
-                source_document : $row.source_document,
+                source_document : type::thing("{SOURCE_DOCUMENT_TABLE_NAME}",$row.url),
                 entity_type: $row.entity_type,
                 identifier: $row.identifier,
                 name: $row.name,
@@ -174,7 +200,7 @@ class SurrealDML():
 
 
     # SurrealQL query to insert corpus graph entity table records
-    def INSERT_GRAPH_RELATION_RECORDS(ENTITY_TABLE_NAME:str,RELATE_TABLE_NAME:str,):
+    def INSERT_GRAPH_RELATION_RECORDS(ENTITY_TABLE_NAME:str,RELATE_TABLE_NAME:str,SOURCE_DOCUMENT_TABLE_NAME:str):
         return f"""
         # entity1 and entity2 are arrays in format [source_document,entity_type,identifier] that are the ids
         FOR $row IN $records {{
@@ -185,7 +211,7 @@ class SurrealDML():
                 -> {RELATE_TABLE_NAME} -> 
             $ent2
                   CONTENT {{
-                source_document : $row.source_document,
+                source_document : type::thing("{SOURCE_DOCUMENT_TABLE_NAME}",$row.url),
                 confidence: $row.confidence,
                 relationship: $row.relationship,
                 contexts: $row.contexts,
@@ -198,7 +224,7 @@ class SurrealDML():
 
 
     # SurrealQL query to insert corpus graph entity table records
-    def UPSERT_GRAPH_RELATION_RECORDS(ENTITY_TABLE_NAME:str,RELATE_TABLE_NAME:str,):
+    def UPSERT_GRAPH_RELATION_RECORDS(ENTITY_TABLE_NAME:str,RELATE_TABLE_NAME:str,SOURCE_DOCUMENT_TABLE_NAME:str):
         return f"""
         # entity1 and entity2 are arrays in format [source_document,entity_type,identifier] that are the ids
         FOR $row IN $records {{
@@ -209,7 +235,7 @@ class SurrealDML():
                 -> {RELATE_TABLE_NAME} -> 
             $ent2
                   CONTENT {{
-                source_document : $row.source_document,
+                source_document : type::thing("{SOURCE_DOCUMENT_TABLE_NAME}",$row.url),
                 confidence: $row.confidence,
                 relationship: $row.relationship,
                 contexts: $row.contexts,

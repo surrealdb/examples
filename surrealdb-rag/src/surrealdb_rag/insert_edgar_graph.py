@@ -45,7 +45,7 @@ def insert_chunk_of_rows(insert_record_surql: str, batch_rows: list, retry_count
             
 
 
-def insert_rows(entity_table_name,relation_table_name, graph_data_df, company_index, company_metadata_lookup, using_glove, using_fasttext,incrimental_load):
+def insert_rows(entity_table_name,relation_table_name,source_document_table_name,graph_data_df, company_index, company_metadata_lookup, using_glove, using_fasttext,incrimental_load):
    # Iterate through chunks and insert records
     #schema of the csv
 
@@ -68,12 +68,18 @@ def insert_rows(entity_table_name,relation_table_name, graph_data_df, company_in
         "fasttext_vector":[]
         }.keys()
 
-    if incrimental_load:
-        insert_entity_record_surql = SurrealDML.UPSERT_GRAPH_ENTITY_RECORDS(entity_table_name)
-        insert_relation_record_surql = SurrealDML.UPSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name)
-    else:
-        insert_entity_record_surql = SurrealDML.INSERT_GRAPH_ENTITY_RECORDS(entity_table_name)
-        insert_relation_record_surql = SurrealDML.INSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name)
+    insert_source_documents_surql = SurrealDML.UPSERT_SOURCE_DOCUMENTS(source_document_table_name)
+
+    insert_entity_record_surql = SurrealDML.UPSERT_GRAPH_ENTITY_RECORDS(entity_table_name,source_document_table_name)
+    insert_relation_record_surql = SurrealDML.UPSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name,source_document_table_name)
+
+    # if incrimental_load:
+    #     insert_entity_record_surql = SurrealDML.UPSERT_GRAPH_ENTITY_RECORDS(entity_table_name,source_document_table_name)
+    #     insert_relation_record_surql = SurrealDML.UPSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name,source_document_table_name)
+    # else:
+    #     insert_entity_record_surql = SurrealDML.INSERT_GRAPH_ENTITY_RECORDS(entity_table_name,source_document_table_name)
+    #     insert_relation_record_surql = SurrealDML.INSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name,source_document_table_name)
+
 
     total_rows=len(graph_data_df)
     total_chunks = total_rows // CHUNK_SIZE + (
@@ -85,10 +91,24 @@ def insert_rows(entity_table_name,relation_table_name, graph_data_df, company_in
             chunk_df = graph_data_df.iloc[i:i + CHUNK_SIZE]
             batch_entity_rows = [] 
             batch_relation_rows = []
+            batch_source_document_rows = {}
             for index, row in chunk_df.iterrows(): # Iterate over rows in the chunk DataFrame
+
+                source_document_row = {}
+                source_document_row["url"] = row["url"]
+                source_document_row["title"] = row["filer_company_name"] + ' ' + row["form"] + ' ' + row["filing_date"]
+                source_document_row["additional_data"] = {
+                                    "form": row["form"],
+                                    "filer_cik": row["filer_cik"],
+                                    "filing_date": row["filing_date"],
+                                    "filer_company_name": row["filer_company_name"],
+                                    "accession_no": row["accession_no"]
+                                }
+                batch_source_document_rows[row["url"]] = source_document_row
+
                 
                 formatted_row = {
-                    "source_document": row["url"],
+                    "url": row["url"],
                     "contexts": ast.literal_eval(row["contexts"]),
                     "content_glove_vector":ast.literal_eval(row["glove_vector"]) if using_glove else None,
                     "content_fasttext_vector":ast.literal_eval(row["fasttext_vector"]) if using_fasttext else None,
@@ -144,6 +164,8 @@ def insert_rows(entity_table_name,relation_table_name, graph_data_df, company_in
                     case _:
                         a = ""
                 
+            pbar.set_description("Ins. docs")
+            insert_chunk_of_rows(insert_source_documents_surql, list(batch_source_document_rows.values()))
             pbar.set_description("Ins. ents")
             insert_chunk_of_rows(insert_entity_record_surql, batch_entity_rows)
             pbar.set_description("Ins. rels")
@@ -158,12 +180,10 @@ def insert_rows(entity_table_name,relation_table_name, graph_data_df, company_in
 
 
 """Main entrypoint to insert embeddings into SurrealDB."""
-def surreal_edgar_insert() -> None:
+def surreal_edgar_graph_insert() -> None:
 
     input_file = constants.DEFAULT_EDGAR_GRAPH_PATH
     table_name = ""
-    entity_display_name = ""
-    relation_display_name = ""
     start_date_str = ""
     end_date_str = ""
     incrimental_load = True
@@ -196,8 +216,6 @@ def surreal_edgar_insert() -> None:
     args_loader.AddArg("end_date","eded","end_date","End filing date in format '%Y-%m-%d' for filtering. (default{0} blank string doesn't filter)",end_date_str)
     args_loader.AddArg("input_file","if","input_file","The path to the csv to insert. (default{0})",input_file)
     args_loader.AddArg("table_name","tn","entity_table_name","The sql corpuls table name the 2 will be created with suffixes _entity and _relation (eg embedded_edgar_10k_2025). (default{0})",table_name)
-    args_loader.AddArg("entity_display_name","edn","entity_display_name","The name of the entity table (eg 10-K filings people and companies). (default{0})",entity_display_name)
-    args_loader.AddArg("relation_display_name","rdn","relation_display_name","The name of the enity table to see when selecting in the ux (eg '10k filings for 2025 people and companies'). (default{0})",relation_display_name)
     args_loader.AddArg("incrimental_load","il","incrimental_load","do an incremental load? or overwrite entire database?. (default{0})",incrimental_load)
 
     # Parse command-line arguments
@@ -211,16 +229,6 @@ def surreal_edgar_insert() -> None:
         table_name = args_loader.AdditionalArgs["table_name"]["value"]
     else:
         raise Exception("You must specify a table name with the -tn flag")
-    
-    if args_loader.AdditionalArgs["entity_display_name"]["value"]:
-        entity_display_name = args_loader.AdditionalArgs["entity_display_name"]["value"]
-    else:
-        raise Exception("You must specify a display name with the -edn flag")
-
-    if args_loader.AdditionalArgs["relation_display_name"]["value"]:
-        relation_display_name = args_loader.AdditionalArgs["relation_display_name"]["value"]
-    else:
-        raise Exception("You must specify a display name with the -rdn flag")
     
     if args_loader.AdditionalArgs["incrimental_load"]["value"]:
         incrimental_load = str(args_loader.AdditionalArgs["incrimental_load"]["value"]).lower()in ("true","yes","1")
@@ -293,9 +301,10 @@ def surreal_edgar_insert() -> None:
 
     entity_table_name = f"{table_name}_entity"
     relation_table_name = f"{table_name}_relation"
+    source_document_table_name = f"{table_name}_source_document"
 
 
-    insert_rows(entity_table_name,relation_table_name, graph_data_df,company_index, company_metadata_lookup, using_glove, using_fasttext,incrimental_load)
+    insert_rows(entity_table_name,relation_table_name,source_document_table_name, graph_data_df,company_index, company_metadata_lookup, using_glove, using_fasttext,incrimental_load)
 
     if not incrimental_load:
         with Surreal(db_params.DB_PARAMS.url) as connection:
@@ -307,10 +316,9 @@ def surreal_edgar_insert() -> None:
             # Update corpus table information
             logger.info(f"Updating corpus table info for {table_name}")
             SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.UPDATE_CORPUS_GRAPH_TABLE_INFO(table_name),params={
-                "entity_display_name": entity_display_name,
                 "entity_table_name": entity_table_name,
-                "relation_display_name": relation_display_name, 
                 "relation_table_name": relation_table_name,
+                "source_document_table_name": source_document_table_name,
                 "entity_date_field": "additional_data.filing_date",
                 "relation_date_field": "additional_data.filing_date"
                 }))
@@ -320,4 +328,4 @@ def surreal_edgar_insert() -> None:
 
 
 if __name__ == "__main__":
-    surreal_edgar_insert()
+    surreal_edgar_graph_insert()

@@ -1,7 +1,16 @@
 
-hello
-  
-<div id="graphContainer"></div>
+<h4>{{graph_title}}</h4>
+
+
+
+<div id="{{graph_id | safe}}" class="graphContainer"></div>
+
+
+{% if graph_size_limit==graph_size %}
+<div class="graph_warning">
+    Maximum graph size reached.  Only displaying first {{graph_size_limit}} nodes and edges.
+</div>
+{% endif %}
     <script>
 
 
@@ -9,7 +18,7 @@ hello
         corpus_table = "{{ corpus_table }}";
         node_edge_count_min = the_data.node_edge_count_min;   
         node_edge_count_max = the_data.node_edge_count_max;   
-        node_edge_count_mean = the_data.node_edge_count_mean;       
+        node_edge_count_mean = the_data.node_edge_count_mean;
         
         function renderGraph(graphData) {
             var graphGenerator = Viva.Graph.generator();
@@ -193,7 +202,7 @@ hello
             });
 
             
-            var container = document.getElementById('graphContainer');
+            var container = document.getElementById('{{graph_id | safe}}');
 
             // specify where it should be rendered:
             var renderer = Viva.Graph.View.renderer(graph, {

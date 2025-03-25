@@ -3,7 +3,7 @@
 # Define the `{corpus_table}` related graph tables.
 
 REMOVE TABLE IF EXISTS {corpus_table}_entity;
-DEFINE FIELD IF NOT EXISTS source_document ON TABLE {corpus_table}_entity TYPE string;
+DEFINE FIELD IF NOT EXISTS source_document ON TABLE {corpus_table}_entity TYPE Record<{corpus_table}_source_document>;
 DEFINE FIELD IF NOT EXISTS identifier ON TABLE {corpus_table}_entity TYPE string
     # Field must be non-empty
     ASSERT string::len($value) > 0;
@@ -50,7 +50,7 @@ REMOVE TABLE IF EXISTS {corpus_table}_relation;
 DEFINE TABLE IF NOT EXISTS {corpus_table}_relation TYPE RELATION
 IN {corpus_table}_entity OUT {corpus_table}_entity SCHEMAFULL;
 
-DEFINE FIELD IF NOT EXISTS source_document ON TABLE {corpus_table}_relation TYPE string;
+DEFINE FIELD IF NOT EXISTS source_document ON TABLE {corpus_table}_relation TYPE Record<{corpus_table}_source_document>;
 DEFINE FIELD IF NOT EXISTS contexts ON TABLE {corpus_table}_relation 
     TYPE option<array<string>>;
 DEFINE FIELD IF NOT EXISTS confidence ON TABLE {corpus_table}_relation TYPE int;

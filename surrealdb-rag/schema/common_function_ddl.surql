@@ -60,6 +60,21 @@ DEFINE FUNCTION OVERWRITE fn::additional_data_keys($corpus_table: string){
     RETURN (SELECT VALUE IF additional_data = NONE THEN [] ELSE additional_data.keys() END FROM type::table($corpus_table) LIMIT 1)[0];
     
 };
+
+
+DEFINE FUNCTION OVERWRITE fn::get_datetime_range_for_corpus_table($table_name:option<string>,$date_field_name:option<string>){
+   IF $table_name IS NONE OR $date_field_name IS NONE {
+       RETURN NONE;
+   } ELSE{
+       
+        RETURN
+        (SELECT time::min(<datetime> type::field($date_field_name)) AS min,
+        time::max(<datetime> type::field($date_field_name)) as max
+        FROM type::table($table_name) GROUP ALL)[0];
+
+   }
+};
+
 DEFINE FUNCTION OVERWRITE fn::select_additional_data($corpus_table: string,$key:string){
     -- This function selects the values associated with a specified key within the 'additional_data' field of a table,
     -- and counts the occurrences of each unique value.

@@ -50,7 +50,7 @@
             "justMyCode": true, // Set to false if you want to step into library code
             "python": "/Users/sandro/git_repos/examples-1/surrealdb-rag/.venv/bin/python", // Explicitly set your venv Python interpreter
             "args": [ // Array of command-line arguments
-                "-edsd", "2025-02-27", 
+                "-edsd", "2025-03-10", 
                 "-tn","embedded_edgar",
                 "-edn","Latest SEC filings People and Companies",
                 "-rdn","Latest SEC filings Relationships"

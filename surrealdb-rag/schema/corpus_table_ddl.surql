@@ -44,3 +44,11 @@ DEFINE INDEX IF NOT EXISTS {corpus_table}_content_fasttext_vector_index ON {corp
     FIELDS content_fasttext_vector
     HNSW DIMENSION 100 M 32 EFC 300;
 
+
+DEFINE TABLE IF NOT EXISTS {corpus_table}_source_document SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS url ON TABLE {corpus_table}_source_document TYPE string
+    # Field must be a URL.
+    ASSERT string::is::url($value);
+DEFINE FIELD IF NOT EXISTS title ON TABLE {corpus_table}_source_document TYPE string;
+DEFINE FIELD IF NOT EXISTS additional_data ON TABLE {corpus_table}_source_document 
+    FLEXIBLE TYPE option<object>;

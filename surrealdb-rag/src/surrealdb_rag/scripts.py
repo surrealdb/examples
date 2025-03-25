@@ -134,8 +134,6 @@ def insert_edgar_graph(il=True,delta_days=30):
         "./src/surrealdb_rag/insert_edgar_graph.py",  # Path to the script
         "-edsd", start_date_str, 
         "-tn","embedded_edgar",
-        "-edn","Latest SEC filings People and Companies",
-        "-rdn","Latest SEC filings Relationships",
         "-il", str(il)
     ]
     run_process(command)

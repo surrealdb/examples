@@ -1,10 +1,15 @@
 
-    <h2>{{source_document}}</h2>
+    <h2>{{source_document_info["title"]}}</h2>
+    <div>URL: <a href="{{source_document_info["url"]}}" target="new">{{source_document_info["url"]}}</a></div>
+    <pre style="white-space: pre-wrap;">{{source_document_info["additional_data"]}}</pre>
+
 
     <div id="entity_relation_tabs">
         <ul>
           <li><a href="#entity_list">Entities  ({{entities | length}})</a></li>
           <li><a href="#relation_list">Relationship ({{relations | length}})</a></li>
+          <li><a href="#document_graph" hx-get="/load_graph/?url={{source_document_info["url"] | format_url_id }}" hx-target="#document_graph" id="loadGraphButton"
+              hx-include="#corpusTableSelect, #graphSizeLimit">Graph</a></li>
         </ul>
     <span class="entity_info" style="display: inline-block;" id="entity_list">
     <table>
@@ -77,6 +82,10 @@
         </tbody>
         </table>
      </span>
+
+        <span class="entity_info" style="display: inline-block;" id="document_graph">
+            Show graph here
+        </span>
     </div>
 
 

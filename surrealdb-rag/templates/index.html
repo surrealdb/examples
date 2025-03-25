@@ -26,6 +26,40 @@
 
 
     <style>
+        select {
+            background-color: black;
+            color: white;
+        
+        }
+
+        #platformSelect{
+            text-overflow: ellipsis; width: calc(34%);
+        }
+        #hostSelect{
+            text-overflow: ellipsis; width: calc(34%);
+        }
+        #llmModelSelect{
+            text-overflow: ellipsis; width: calc(70%);
+        }
+        #embedModelSelect{
+            text-overflow: ellipsis; width: calc(40%);
+        }
+        #corpusTableSelect{
+            text-overflow: ellipsis; width: calc(60%);
+        }
+
+        .graph_warning {
+            position: fixed; /* Or absolute, depending on desired behavior */
+            top: 10px; /* Adjust vertical positioning */
+            left: 50%; /* Start at the horizontal center */
+            transform: translateX(-50%); /* Shift it back half its width */
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border: 1px solid #ccc;
+            z-index: 1000;
+            color:red;
+            white-space: nowrap; /*prevent the text from wrapping, and allow the div to size itself correctly*/
+        }
         .sub_selection_details{
             margin-left: 10px;   
         }
@@ -34,16 +68,35 @@
         }
         .graphDate input{
                 width: calc(40%);
+                background-color: black;
+                color: white;
+                border: 1px solid white;
+                
         }
-        #graphContainer {
-                position: absolute;
-                width: calc(90%);
-                height: 100%;
-            }
-
-        #graphContainer > svg {
+        .nav_input{
+                width: calc(100%);
+                background-color: black;
+                color: white;
+                border: 1px solid white;   
+        }
+        .graphContainer {
             width: calc(90%);
+            height: calc(90%);
             height: 100%;
+        }
+        .graphContainer > svg {
+            width: calc(100%);
+            height: calc(100%);
+        }
+        #entity_graph{
+            width: calc(100%);
+            height: 500px;
+            background-color: black;
+        }
+        #document_graph{
+            width: calc(100%);
+            height: 500px;
+            background-color: black;
         }
 
         /* Optional: Style the labels */
@@ -248,14 +301,12 @@
             first_option.text = "total count";
             first_option.value = "";
             additionalDataFieldSelect.add(first_option);
-            for (const data_key of corpusTable.addional_data_keys) { // Use 'of' instead of 'in'
+            for (const data_key of corpusTable.additional_data_keys) { // Use 'of' instead of 'in'
                 const option = document.createElement("option");
                 option.text = data_key;
                 option.value = data_key;
                 additionalDataFieldSelect.add(option);
             }
-
-
 
 
         }
@@ -321,22 +372,23 @@
 
       
         <div id="modelSelector" class="model_selector">
-            <h4>Data Set:</h4>
+            <h4>Data Set:
+                    <select id="corpusTableSelect" name="corpus_table"
+                            hx-include="this"  onchange="updateCorpusDataTableOptions()"
+                            hx-get="/get_corpus_table_details"
+                            hx-target="#corpusTableDetails">
+                    </select>
+            </h4>
             <div class="sub_selection_details">
-                <select id="corpusTableSelect" name="corpus_table"
-                        hx-include="this"  onchange="updateCorpusDataTableOptions()"
-                        hx-get="/get_corpus_table_details"
-                        hx-target="#corpusTableDetails">
-                </select>
                 <div id="corpusTableDetails">
                     
 
                 </div>
             </div>
-            <h4>
-                LLM:</h4>
-            <div class="sub_selection_details">
+            <h4>RAG Settings:</h4>
+            <button id="togglePrompt">Prompt Settings</button>
 
+            <div class="sub_selection_details">
                 <select name="platformSelect" id="platformSelect" onchange="updateLlmModelSelect()">
                     <option>GOOGLE</option>
                     <option>OPENAI</option>
@@ -347,17 +399,17 @@
                     <option>SQL</option>
                     <option>OLLAMA</option>
                 </select>
-                <select id="llmModelSelect" name="llm_model" hx-get="/get_llm_model_details"
+
+                <select id="llmModelSelect" name="llm_model">
+                </select>
+
+                {# <select id="llmModelSelect" name="llm_model" hx-get="/get_llm_model_details"
                         hx-trigger="change"
                         hx-target="#llmModelDetails"
                         hx-include="this">
                 </select>
-            
                 <div id="llmModelDetails">
-                </div>
-                <div class="advanced-prompt">
-                    <button id="togglePrompt">Advanced Prompt Settings</button>
-                </div>
+                </div> #}
             </div>
     </nav>
     <main>

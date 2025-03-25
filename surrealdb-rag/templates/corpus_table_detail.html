@@ -1,6 +1,6 @@
 
 
-<h4>Embedding:</h4>
+<h5>Embedding:
 <select id="embedModelSelect" name="embed_model" hx-get="/get_embed_model_details"
 hx-trigger="change"
 hx-target="#embedModelDetails"
@@ -9,55 +9,83 @@ hx-include="this, #corpusTableSelect">
     <option value='{{embed_model["model"]}}'>{{' - '.join(embed_model["model"])}}</option>
 {% endfor %}
 </select>
-<div id="embedModelDetails">
+<button  class="expand-contexts">
+    +
+</button>
+<div id="embedModelDetails" class="expand-contexts-content">
     {% if default_embed_model %}
         Dimensions: {{default_embed_model['dimensions']}}, Host: {{default_embed_model['host']}}<br> 
         Corpus: {{default_embed_model['corpus']}}<br>  
         Description: {{default_embed_model['description']}}
     {% endif %}
 </div>
-{% if corpus_table_detail['corpus_graph_tables'] %}
-    <h4>Knowledge Graph <button hx-get="/load_graph" hx-target="main" id="loadGraphButton"
-        hx-include="#corpusTableSelect,#graphDateStart,#graphDateEnd">View
-        </button></h4>
-    {% if corpus_table_detail['corpus_graph_tables']['entity_date_field'] and corpus_table_detail['corpus_graph_tables']['relation_date_field'] %}
-        <div class="graphDate">
-        <input name="graph_start_date" id="graphDateStart">
-        <input name="graph_end_date" id="graphDateEnd">
-        </div>
-        <script>
-            var picker = new Lightpick({
-                field: document.getElementById('graphDateStart'),
-                secondField: document.getElementById('graphDateEnd'),
-                singleDate: false,
-                selectBackward: true,
-                numberOfMonths: 3,
-                numberOfColumns: 3,
-                minDays: 7,
-                maxDays: 120,
-                repick: true,
-                orientation: "top left",
-                minDate: moment().startOf('month').subtract(120, 'day'),
-                maxDate: moment().endOf('month').subtract(0, 'day'),
-                format: 'YYYY-MM-DD',
-                onSelect: function(start, end){
-                    var str = '';
-                    str += start ? start.format('YYYY-MM-DD') + ' to ' : '';
-                    str += end ? end.format('YYYY-MM-DD') : '...';
-                    console.log(str);
-                    // load_graph_button = document.getElementById('loadGraphButton');
-                    // if (load_graph_button) {
-                    //     load_graph_button.click();
-                    // }
+</h5>
+<script>
+$('.expand-contexts').click(function(){
+    theElementToToggle = $(this).parent().find('.expand-contexts-content');
+    theElementToToggle.slideToggle('fast').focus();;
+});
+</script>
 
-                }
-            });
-        </script>
-    {% endif %}
-    
+{% if corpus_table_detail['corpus_graph_tables'] %}
+    <h5>Knowledge Graph
+        <button hx-get="/load_graph" hx-target="main" id="loadGraphButton"
+            hx-include="#corpusTableSelect,#graphDateStart,#graphDateEnd, #graphSizeLimit, #relationship">View
+            </button>
+        </h5>
+        <div class="sub_selection_details">
+        {% if corpus_table_detail['corpus_graph_tables']['relation_date_field'] %}
+
+            <div class="graphDate">
+
+
+            <input name="graph_start_date" id="graphDateStart">
+            <input name="graph_end_date" id="graphDateEnd">
+            </div>
+            <script>
+                var max_date = "{{ corpus_table_detail['corpus_graph_tables']['date_range']['max']}}";
+                var min_date = "{{ corpus_table_detail['corpus_graph_tables']['date_range']['min']}}";
+                document.getElementById('graphDateStart').value = min_date;
+                document.getElementById('graphDateEnd').value = max_date;
+                var picker = new Lightpick({
+                    field: document.getElementById('graphDateStart'),
+                    secondField: document.getElementById('graphDateEnd'),
+                    singleDate: false,
+                    selectBackward: true,
+                    numberOfMonths: 3,
+                    numberOfColumns: 3,
+                    minDays: 1,
+                    maxDays: 120,
+                    repick: true,
+                    orientation: "top left",
+                    minDate: min_date,
+                    maxDate: max_date,
+                    format: 'YYYY-MM-DD',
+                    onSelect: function(start, end){
+                        var str = '';
+                        str += start ? start.format('YYYY-MM-DD') + ' to ' : '';
+                        str += end ? end.format('YYYY-MM-DD') : '...';
+                        //console.log(str);
+                        // load_graph_button = document.getElementById('loadGraphButton');
+                        // if (load_graph_button) {
+                        //     load_graph_button.click();
+                        // }
+
+                    }
+                });
+            </script>
+        {% endif %}
+        <select id="graphSizeLimit" name="graph_size_limit">
+            <option value='1000'>Max nodes: 1,000</option>
+            <option value='10000'>Max nodes: 10,000</option>
+            <option value='100000'>Max nodes: 100,000</option>
+            <option value='1000000'>Max nodes: 1,000,000</option>
+        </select>
+        <input name="relationship" id="relationship" class="nav_input">
+    </div>
 {% endif %}
 
-<h4>Additional Data <button id="toggleQuery">Query</button></h4>
+<h5>Additional Data <button id="toggleQuery">Query</button></h5>
     
 
 <script>

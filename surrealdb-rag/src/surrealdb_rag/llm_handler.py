@@ -13,11 +13,21 @@ import asyncio
 
 
 CORPUS_TABLE_SELECT = """
-SELECT display_name,table_name,embed_models,fn::additional_data_keys(table_name) as addional_data_keys,
-    type::thing('corpus_graph_tables',table_name).{
-        entity_date_field,entity_display_name,entity_table_name,relation_date_field,relation_display_name,relation_table_name
-        } as corpus_graph_tables
-    FROM corpus_table FETCH embed_models,embed_models.model;
+        SELECT 
+            display_name,table_name,embed_models,additional_data_keys,corpus_graph_tables,
+            fn::get_datetime_range_for_corpus_table(corpus_graph_tables.relation_table_name,corpus_graph_tables.relation_date_field)
+            AS corpus_graph_tables.date_range
+        FROM (
+            SELECT
+
+            display_name,table_name,embed_models,fn::additional_data_keys(table_name) as additional_data_keys,
+                type::thing('corpus_graph_tables',table_name).{
+                    entity_date_field,entity_display_name,entity_table_name,
+                    relation_date_field,relation_display_name,relation_table_name,
+                    source_document_display_name,source_document_table_name,
+                    } as corpus_graph_tables
+                FROM corpus_table FETCH embed_models,embed_models.model
+            );
         """
 
 """
@@ -100,9 +110,14 @@ class ModelListHandler():
             self.CORPUS_TABLES[table_name] = {}
             self.CORPUS_TABLES[table_name]["display_name"] = corpus_table["display_name"]
             self.CORPUS_TABLES[table_name]["table_name"] = corpus_table["table_name"]
-            self.CORPUS_TABLES[table_name]["addional_data_keys"] = corpus_table["addional_data_keys"]
+            self.CORPUS_TABLES[table_name]["additional_data_keys"] = corpus_table["additional_data_keys"]
             self.CORPUS_TABLES[table_name]["embed_models"] = []
             self.CORPUS_TABLES[table_name]["corpus_graph_tables"] = corpus_table["corpus_graph_tables"]
+            #datetime not serializable
+            if corpus_table["corpus_graph_tables"] and corpus_table["corpus_graph_tables"]["date_range"]:
+                self.CORPUS_TABLES[table_name]["corpus_graph_tables"]["date_range"]["min"] = str(corpus_table["corpus_graph_tables"]["date_range"]["min"])
+                self.CORPUS_TABLES[table_name]["corpus_graph_tables"]["date_range"]["max"] = str(corpus_table["corpus_graph_tables"]["date_range"]["max"])
+
             for model in corpus_table["embed_models"]:
                 model_def =  model["model"]
                 model_def_id = model_def["id"].id

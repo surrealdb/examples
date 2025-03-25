@@ -21,7 +21,7 @@ model_params = ModelParams()
 args_loader = ArgsLoader("LLM Model Handler",db_params,model_params)
 args_loader.LoadArgs()
 
-GRAPH_SIZE_LIMIT = 10
+GRAPH_SIZE_LIMIT = 1000
 
 
 """Format a SurrealDB RecordID for use in a URL.
@@ -140,7 +140,6 @@ async def index(request: fastapi.Request) -> responses.HTMLResponse:
 
     default_llm_model = life_span["llm_models"][next(iter(life_span["llm_models"]))]
     default_corpus_table = life_span["corpus_tables"][next(iter(life_span["corpus_tables"]))]
-    default_embed_model = default_corpus_table["embed_models"][0]
 
     default_prompt_text = LLMModelHander.PROMPT_TEXT_TEMPLATES[next(iter(LLMModelHander.PROMPT_TEXT_TEMPLATES))]["text"]
    
@@ -151,7 +150,6 @@ async def index(request: fastapi.Request) -> responses.HTMLResponse:
                                                      "available_corpus_tables": available_corpus_tables,
                                                      "default_llm_model": default_llm_model,
                                                      "default_corpus_table": default_corpus_table,
-                                                     "default_embed_model":default_embed_model,
                                                      "default_prompt_text":default_prompt_text,
                                                      "prompt_text_templates":LLMModelHander.PROMPT_TEXT_TEMPLATES
                                                      })
@@ -161,6 +159,7 @@ async def get_corpus_table_details(
     request: fastapi.Request,corpus_table: str = fastapi.Query(...)):
     """Retrieve and return details of a corpus table."""
     corpus_table_detail = life_span["corpus_tables"].get(corpus_table)
+    default_embed_model = corpus_table_detail["embed_models"][0]
     if corpus_table_detail:
         s = f"Table: {corpus_table_detail['table_name']}"
     else:
@@ -172,9 +171,9 @@ async def get_corpus_table_details(
         {
             "request": request,
             "corpus_table_detail": corpus_table_detail,
+            "default_embed_model": default_embed_model
         },
     )
-    return fastapi.Response(s, media_type="text/html") 
     
 
 
@@ -349,7 +348,7 @@ def convert_to_graph_ux_data(data):
                 "id": node_id,
                 "label": f"{edge["in"]['name']}",  
                 "entity_type": edge["in"]['entity_type'],
-                "source_document": edge["in"]["source_document"],
+                "url": edge["in"]["source_document"]["url"],
                 "edge_count": 1
             }
             nodes[node_id] = node
@@ -368,7 +367,7 @@ def convert_to_graph_ux_data(data):
                 "id": node_id,
                 "label": f"{edge["out"]['name']}",  
                 "entity_type": edge["out"]['entity_type'],
-                "source_document": edge["out"]["source_document"],
+                "url": edge["out"]["source_document"]["url"],
                 "edge_count": 1
             }
             nodes[node_id] = node
@@ -424,7 +423,7 @@ async def load_entity_detail(
     entity_mentions = await life_span["surrealdb"].query("""
         RETURN array::group (
             SELECT VALUE {"source_document":source_document,"contexts":contexts,"additional_data":additional_data}
-                FROM  type::table($entity_table_name) WHERE identifier = $identifier
+                FROM  type::table($entity_table_name) WHERE identifier = $identifier FETCH source_document
             )
         ;""",
         params = {"entity_table_name":corpus_graph_tables.get("entity_table_name"),"identifier":identifier} 
@@ -450,11 +449,11 @@ async def load_entity_detail(
 
 
 
-@app.get("/source_documents/{source_document}", response_class=responses.HTMLResponse)
+@app.get("/source_documents/{url}", response_class=responses.HTMLResponse)
 async def load_source_document(
     request: fastapi.Request,
-    source_document: str,
-    corpus_table: str = fastapi.Query(...)
+    url: str,
+    corpus_table: str = fastapi.Query(...), 
 ) -> responses.HTMLResponse:
     
 
@@ -462,15 +461,31 @@ async def load_source_document(
     corpus_graph_tables = corpus_table_detail.get("corpus_graph_tables")
 
 
-    source_document = unformat_url_id(source_document)
+    url = unformat_url_id(url)
+
+
+    source_document_info = await life_span["surrealdb"].query(
+        """SELECT additional_data,title,url FROM type::thing($source_document_table_name,$url);""",
+        params = {"source_document_table_name":corpus_graph_tables.get("source_document_table_name"),"url":url}    
+    )
+    # entities = await life_span["surrealdb"].query(
+    #     """SELECT * FROM type::table($entity_table_name) WHERE source_document = type::thing($source_document_table_name,$url);""",
+    #     params = {"entity_table_name":corpus_graph_tables.get("entity_table_name"),
+    #               "source_document_table_name":corpus_graph_tables.get("source_document_table_name"),"url":url}    
+    # )
     entities = await life_span["surrealdb"].query(
-        """SELECT * FROM type::table($entity_table_name) WHERE source_document = $source_document;""",params = {"entity_table_name":corpus_graph_tables.get("entity_table_name"),"source_document":source_document}    
+        f"""SELECT * FROM {corpus_graph_tables.get("entity_table_name")}:[$url,None,None]..[$url,..,..];""",
+        params = {"source_document_table_name":corpus_graph_tables.get("source_document_table_name"),"url":url}    
     )
 
+
+                                     
     relations = await life_span["surrealdb"].query(
         """
             SELECT confidence,contexts,relationship,in.{additional_data,identifier,name},out.{additional_data,identifier,name} 
-          FROM type::table($relation_table_name) WHERE source_document = $source_document;""",params = {"relation_table_name":corpus_graph_tables.get("relation_table_name"),"source_document":source_document}    
+          FROM type::table($relation_table_name) WHERE source_document = type::thing($source_document_table_name,$url);""",
+          params = {"relation_table_name":corpus_graph_tables.get("relation_table_name"),
+                    "source_document_table_name":corpus_graph_tables.get("source_document_table_name"),"url":url}    
     )
     return templates.TemplateResponse(
         "source_document_contexts.html",
@@ -478,7 +493,8 @@ async def load_source_document(
             "request": request,
             "entities": entities,
             "relations": relations,
-            "source_document": source_document
+            "source_document_info": source_document_info[0],
+            "url": url
         },
     )
 
@@ -489,13 +505,18 @@ async def load_source_document(
 async def load_corpus_graph(
     request: fastapi.Request, 
     corpus_table: str = fastapi.Query(...), 
-    graph_start_date: str = fastapi.Query(...), 
-    graph_end_date: str = fastapi.Query(...)
+    graph_start_date: str | None = fastapi.Query(None), 
+    graph_end_date: str | None = fastapi.Query(None), 
+    identifier: str | None = fastapi.Query(None), 
+    relationship: str | None = fastapi.Query(None), 
+    url: str | None = fastapi.Query(None), 
+    graph_size_limit: int | None = fastapi.Query(None)
 ) -> responses.HTMLResponse:
     """Load a graph for data souece."""
 
 
-
+    if graph_size_limit is None:
+        graph_size_limit = GRAPH_SIZE_LIMIT
 
     corpus_table_detail = life_span["corpus_tables"].get(corpus_table)
     corpus_graph_tables = corpus_table_detail.get("corpus_graph_tables")
@@ -503,6 +524,7 @@ async def load_corpus_graph(
                 SELECT 
                 confidence, 
                 relationship, 
+                source_document,
                 out.{id,entity_type,name,source_document,identifier},
                 in.{id,entity_type,name,source_document,identifier}
                 FROM type::table($relation_table_name)
@@ -510,15 +532,17 @@ async def load_corpus_graph(
     
     params = {"relation_table_name":corpus_graph_tables.get("relation_table_name")} 
     
+    graph_title = "Graph "
     where_clause = ""
     if graph_start_date:
         start_date = datetime.datetime.strptime(graph_start_date, '%Y-%m-%d')
         if where_clause:
             where_clause += " AND "
-        where_clause += """ (type::field($entity_date_field) >= $start_date AND type::field($relation_date_field) >= $start_date)"""
+        where_clause += """ <datetime>(type::field($relation_date_field)) >= $start_date"""
         params["start_date"] = start_date
         params["entity_date_field"] = corpus_graph_tables.get("entity_date_field")
         params["relation_date_field"] = corpus_graph_tables.get("relation_date_field")
+        graph_title += f"from {start_date.strftime('%Y-%m-%d')} "
     else:
         start_date = None
 
@@ -526,17 +550,42 @@ async def load_corpus_graph(
         end_date = datetime.datetime.strptime(graph_end_date, '%Y-%m-%d')
         if where_clause:
             where_clause += " AND "
-        where_clause += """ (type::field($entity_date_field) <= $end_date AND type::field($relation_date_field) <= $end_date)"""
+        where_clause += """ <datetime>(type::field($relation_date_field)) <= $end_date"""
         params["end_date"] = end_date
         params["entity_date_field"] = corpus_graph_tables.get("entity_date_field")
         params["relation_date_field"] = corpus_graph_tables.get("relation_date_field")
+        graph_title += f"to {end_date.strftime('%Y-%m-%d')} "
     else:
         end_date = None
+
+    if identifier:
+        if where_clause:
+            where_clause += " AND "
+        where_clause += """ (in.identifier = $identifier OR out.identifier = $identifier)"""
+        params["identifier"] = identifier
+        graph_title += f"for {identifier} "
+
+    if relationship:    
+        if where_clause:
+            where_clause += " AND "
+        where_clause += """ relationship = $relationship"""
+        params["relationship"] = relationship
+        graph_title += f"with relationship {relationship} "
+
+    if url:   
+        url = unformat_url_id(url)
+        if where_clause:
+            where_clause += " AND "
+        where_clause += """ (source_document.url = $url 
+                    OR in.source_document.url = $url 
+                    OR out.source_documen.url = $url)"""
+        params["url"] = url
+        graph_title += f"for {url} "
 
     if where_clause:
         select_sql_string += " WHERE " + where_clause
 
-    select_sql_string += f" LIMIT {GRAPH_SIZE_LIMIT};"
+    select_sql_string += f" LIMIT {graph_size_limit} FETCH in.source_document, out.source_document;"
     
 
 
@@ -548,13 +597,17 @@ async def load_corpus_graph(
         select_sql_string ,
         params = params 
     )
-
+    graph_size = len(graph_data)
     return templates.TemplateResponse(
         "graph.html",
         {
             "request": request,
             "corpus_table": corpus_table,
-            "graph_data": convert_to_graph_ux_data(graph_data)
+            "graph_data": convert_to_graph_ux_data(graph_data),
+            "graph_size_limit": GRAPH_SIZE_LIMIT,
+            "graph_size": graph_size,
+            "graph_title": graph_title,
+            "graph_id": format_url_id(graph_title.replace(" ","_"))
         },
     )
 
