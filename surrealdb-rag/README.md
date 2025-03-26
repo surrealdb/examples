@@ -48,7 +48,7 @@ This project isn't just a demo; it's a toolkit for RAG experimentation. Here's w
 1.  **Clone the Repository:**
 
     ```bash
-    git clone [https://github.com/apireno/examples.git](https://github.com/apireno/examples.git)
+    git clone [https://github.com/surrealdb/examples.git](https://github.com/surrealdb/examples.git)
     cd examples/surrealdb-rag
     ```
 
