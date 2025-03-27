@@ -31,15 +31,23 @@
             color: white;
         
         }
+        .graphTitle{
+            color: #ff00a0;
+        }
+        .chat-header h5 span{
+
+            margin-left:30px;
+
+        }
 
         #platformSelect{
-            text-overflow: ellipsis; width: calc(34%);
+            text-overflow: ellipsis; width: calc(20%);
         }
         #hostSelect{
-            text-overflow: ellipsis; width: calc(34%);
+            text-overflow: ellipsis; width: 150px;
         }
         #llmModelSelect{
-            text-overflow: ellipsis; width: calc(70%);
+            text-overflow: ellipsis; width: calc(30%);
         }
         #embedModelSelect{
             text-overflow: ellipsis; width: calc(40%);
@@ -47,10 +55,14 @@
         #corpusTableSelect{
             text-overflow: ellipsis; width: calc(60%);
         }
+        #graphSizeLimit {
+            text-overflow: ellipsis; width: calc(88%);
+        }
+
 
         .graph_warning {
             position: fixed; /* Or absolute, depending on desired behavior */
-            top: 10px; /* Adjust vertical positioning */
+            top: 100px; /* Adjust vertical positioning */
             left: 50%; /* Start at the horizontal center */
             transform: translateX(-50%); /* Shift it back half its width */
             background-color: rgba(255, 255, 255, 0.8);
@@ -67,14 +79,14 @@
                 width: calc(100%);
         }
         .graphDate input{
-                width: calc(40%);
+                width: calc(41%);
                 background-color: black;
                 color: white;
                 border: 1px solid white;
                 
         }
         .nav_input{
-                width: calc(100%);
+                width: calc(85%);
                 background-color: black;
                 color: white;
                 border: 1px solid white;   
@@ -113,8 +125,29 @@
         .expand-contexts-content {
             display:none;
         }
+        p {
 
-       
+            margin-block-start: 0px;
+            margin-block-end: 0px;
+            margin-inline-start: 0px;
+            margin-inline-end: 0px;
+        }
+        .nav h4, .nav h5 {
+            display: flex;
+            justify-content: space-between;
+            width: 100%; /* Make h5 fill its container */
+            align-items: center;
+        }
+        .nav h4 button , 
+        .nav h5 button{
+            margin-left: auto;
+        }
+        .nav h4 select , 
+        .nav h5 select{
+            margin-left: auto;
+        }
+
+        
     </style>
 
     <style type="text/css" media="screen">
@@ -122,7 +155,7 @@
     </style>
 
     <script>
-
+        var show_graph_toggle = false;
                 
         document.addEventListener('htmx:afterRequest', function(evt) {
 
@@ -328,9 +361,6 @@
             corpusTableSelect.dispatchEvent(new Event('change'));
         }   
 
-        document.addEventListener("DOMContentLoaded", function() {
-            updateLlmModelSelect();
-        });
 
 
         document.addEventListener("DOMContentLoaded", function() {
@@ -341,20 +371,6 @@
             updateCorpusDataTableOptions();
             
         });
-        document.addEventListener("DOMContentLoaded", function() {
-            const togglePrompt = document.getElementById('togglePrompt');
-            const togglePromptArea = document.getElementById('togglePromptArea');
-
-            if (togglePrompt) {
-                togglePrompt.addEventListener('click', function() {
-                    document.getElementById('myModal').style.display = 'block';
-                    document.getElementById("promptArea").style.display = "block";
-                });
-            } else {
-                console.error("togglePrompt button not found.");
-            }
-
-        });
 
 
 
@@ -363,7 +379,7 @@
 </head>
 
 <body>
-    <nav>
+    <nav class="nav">
         <button hx-post="/chats" hx-target="#chats" hx-swap="afterbegin">
             <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
             New Chat
@@ -385,32 +401,6 @@
 
                 </div>
             </div>
-            <h4>RAG Settings:</h4>
-            <button id="togglePrompt">Prompt Settings</button>
-
-            <div class="sub_selection_details">
-                <select name="platformSelect" id="platformSelect" onchange="updateLlmModelSelect()">
-                    <option>GOOGLE</option>
-                    <option>OPENAI</option>
-                    <option>OLLAMA</option>
-                </select>
-                <select name="hostSelect" id="hostSelect" onchange="updateLlmModelSelect()">
-                    <option>API</option>
-                    <option>SQL</option>
-                    <option>OLLAMA</option>
-                </select>
-
-                <select id="llmModelSelect" name="llm_model">
-                </select>
-
-                {# <select id="llmModelSelect" name="llm_model" hx-get="/get_llm_model_details"
-                        hx-trigger="change"
-                        hx-target="#llmModelDetails"
-                        hx-include="this">
-                </select>
-                <div id="llmModelDetails">
-                </div> #}
-            </div>
     </nav>
     <main>
 
@@ -425,25 +415,9 @@
                 <textarea id="promptTemplateText" name="prompt_template" rows="30" cols="120">
                     {{ default_prompt_text }}
                 </textarea>
+                
                 <br>
-                <div>
-                    Content Length:
-                    <select id="numberOfChunks" name="number_of_chunks">
-                        {% for i in range(1, 100) %}
-                            <option value="{{ i }}"  {% if i == 10 %}selected{% endif %}>{{ i }} chunks</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    Chat Memory Length:
-                    <select id="numberOfChats" name="number_of_chats">
-                        {% for i in range(1, 100) %}
-                            <option value="{{ i }}"  {% if i == 10 %}selected{% endif %}>{{ i }} messages</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <br>
+        
                 <div>
                 {% for prompt_text in prompt_text_templates %}
                     <button onclick="document.getElementById('promptTemplateText').value = document.getElementById('promptTemplateText_{{ prompt_text }}').value">{{ prompt_text }}</button>

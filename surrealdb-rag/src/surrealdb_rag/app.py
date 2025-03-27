@@ -296,16 +296,121 @@ async def load_message(
     if message_think["think"]:
         message["think"] = message_think["think"]
     
+    
+    corpus_table = ""   
+    graph_data = message["sent"][0]["knowledge_graph"]
+    if graph_data:
+        graph_size = len(graph_data["relations"])
+        graph_title = f"Message Graph For Message ID: {message_id}"
+        if message['sent'][0]['referenced_documents']:
+            doc_id:RecordID = message['sent'][0]['referenced_documents'][0]['doc']
+            corpus_table = doc_id.table_name
+    else:
+        graph_size = 0
+        graph_title = ""
+
     return templates.TemplateResponse(
         "message_detail.html",
         {
             "request": request,
             "message": message,
             "message_id": message_id,
+            "corpus_table": corpus_table,
+            "graph_data": convert_prompt_graph_to_ux_data(graph_data),
+            "graph_size_limit": GRAPH_SIZE_LIMIT,
+            "graph_size": graph_size,
+            "graph_id": format_url_id(graph_title.replace(" ","_"))
         },
     )
+			
+def convert_prompt_graph_to_ux_data(data):
+    """
+    Converts your specific JSON-like data structure to Sigma.js format.
 
-def convert_to_graph_ux_data(data):
+    Args:
+        data: A list of dictionaries, where each dictionary represents an entity
+              and its relationships.  Expected keys: 'id', 'entity_type',
+              'name', 'source_document', 'relationships' (list of dicts with
+              'confidence', 'relationship', 'in', 'out').
+
+    Returns:
+        A dictionary with 'nodes' and 'edges' lists, suitable for Sigma.js.
+    """
+
+    if not data:
+        return None
+    
+    nodes = {}
+    edges = []
+    edge_id_counter = 0
+
+    node_edge_count_min = 10000000
+    node_edge_count_max = 0
+
+
+    entities_dict = {entity['identifier']: entity for entity in data["entities"]}
+
+
+    for relation in data["relations"]:
+        edge_id_counter += 1
+        edges.append({
+                        "id": f"e{edge_id_counter}",
+                        "source": relation["in_identifier"],
+                        "target": relation["out_identifier"],
+                        "label": relation["relationship"],  # Relationship type
+                        "confidence": relation.get("confidence", 1),  # Use .get() with default
+                    })
+        
+
+        node_id = relation["in_identifier"]
+        entity = entities_dict.get(node_id)
+        if entity:
+            if node_id not in nodes:
+                node = {
+                    "id": entity["identifier"],
+                    "label": f"{entity['name']}",  
+                    "entity_type": entity['entity_type'],
+                    "edge_count": 1
+                }
+                nodes[node_id] = node
+            else:
+                nodes[node_id]["edge_count"] += 1
+
+            if nodes[node_id]["edge_count"]>node_edge_count_max:
+                node_edge_count_max = nodes[node_id]["edge_count"]
+            if nodes[node_id]["edge_count"]<node_edge_count_min:
+                node_edge_count_min = nodes[node_id]["edge_count"]
+
+        node_id = relation["out_identifier"]
+        entity = entities_dict.get(node_id)
+        if entity:
+            if node_id not in nodes:
+                node = {
+                    "id": entity["identifier"],
+                    "label": f"{entity['name']}",  
+                    "entity_type": entity['entity_type'],
+                    "edge_count": 1
+                }
+                nodes[node_id] = node
+            else:
+                nodes[node_id]["edge_count"] += 1
+
+
+            if nodes[node_id]["edge_count"]>node_edge_count_max:
+                node_edge_count_max = nodes[node_id]["edge_count"]
+            if nodes[node_id]["edge_count"]<node_edge_count_min:
+                node_edge_count_min = nodes[node_id]["edge_count"]
+
+
+    node_edge_count_mean = edge_id_counter / len(nodes) if len(nodes)>0 else 0
+    return {"nodes": list(nodes.values()), "edges": edges, 
+            "node_edge_count_min":node_edge_count_min, "node_edge_count_max":node_edge_count_max ,"node_edge_count_mean":node_edge_count_mean}
+
+
+
+
+
+def convert_corpus_graph_to_ux_data(data):
     """
     Converts your specific JSON-like data structure to Sigma.js format.
 
@@ -325,13 +430,6 @@ def convert_to_graph_ux_data(data):
     node_edge_count_min = 10000000
     node_edge_count_max = 0
 
-
-
-# confidence, 
-#                 relationship, 
-#                 in, 
-#                 out, 
-#                 in.{id,entity_type,name,source_document} 
     for edge in data:
         edge_id_counter += 1
         edges.append({
@@ -385,6 +483,47 @@ def convert_to_graph_ux_data(data):
     return {"nodes": list(nodes.values()), "edges": edges, 
             "node_edge_count_min":node_edge_count_min, "node_edge_count_max":node_edge_count_max ,"node_edge_count_mean":node_edge_count_mean}
 
+
+def organize_relations_for_ux(relations,parent_identifier):
+    entity_relations_dict = {}
+    for relation in relations:
+        if relation["in"]["identifier"] == parent_identifier:
+            entity = relation["out"]
+        elif relation["in"]["identifier"] == parent_identifier:
+            entity = relation["in"]
+        else:
+            entity = None
+
+        if not entity is None:
+            identifier = entity["identifier"]
+            if identifier not in entity_relations_dict:
+                entity_relations_dict[identifier] = {
+                    "identifier":identifier,
+                    "name":entity["name"],
+                    "entity_type":entity["entity_type"],
+                    "relations":[
+                        {"confidence":relation["confidence"],
+                        "relationship":relation["relationship"],
+                        "source_document":relation["source_document"],
+                        "contexts":relation["contexts"],}
+                    ]
+                    }
+            else:
+                entity_relations_dict[identifier]["relations"].append(
+                    {"confidence":relation["confidence"],
+                    "relationship":relation["relationship"],
+                    "source_document":relation["source_document"],
+                    "contexts":relation["contexts"],}
+                )
+
+    return entity_relations_dict
+
+
+
+
+
+                                                                                        
+
 @app.get("/entity_detail", response_class=responses.HTMLResponse)
 async def load_entity_detail(
     request: fastapi.Request, 
@@ -400,25 +539,16 @@ async def load_entity_detail(
 
     entity_relations = await life_span["surrealdb"].query(
         """
-            RETURN array::group(
-            [(
-            SELECT in.entity_type AS entity_type, in.identifier AS identifier, in.name AS name, math::mean(confidence) AS confidence
-            FROM  
-            type::table($relation_table_name) 
-            WHERE out.identifier = $identifier
-            GROUP BY entity_type,identifier,name
-            ),
-            (
-            SELECT out.entity_type AS entity_type,out.identifier AS identifier, out.name AS name, math::mean(confidence) AS confidence
-            FROM  
-            type::table($relation_table_name) 
-            WHERE in.identifier = $identifier
-            GROUP BY entity_type,identifier,name
-            )]
-            );
+RETURN array::group(
+SELECT VALUE <->?.{confidence,contexts,relationship,source_document.{url,title},
+    in.{entity_type, identifier, name},
+    out.{entity_type, identifier, name}} 
+FROM type::table($entity_table_name) WHERE identifier=$identifier);
                 """,
-        params = {"relation_table_name":corpus_graph_tables.get("relation_table_name"),"identifier":identifier} 
+        params = {"entity_table_name":corpus_graph_tables.get("entity_table_name"),"identifier":identifier} 
     )
+
+    entity_relations_dict = organize_relations_for_ux(entity_relations,identifier)
 
     entity_mentions = await life_span["surrealdb"].query("""
         RETURN array::group (
@@ -441,10 +571,12 @@ async def load_entity_detail(
             "request": request,
             "corpus_table": corpus_table,
             "entity_mentions": entity_mentions,
-            "entity_relations": entity_relations,
+            "entity_relations": list(entity_relations_dict.values()),
             "entity_info": entity_info[0]
         },
     )
+
+
 
 
 
@@ -510,6 +642,7 @@ async def load_corpus_graph(
     identifier: str | None = fastapi.Query(None), 
     relationship: str | None = fastapi.Query(None), 
     url: str | None = fastapi.Query(None), 
+    name_filter: str | None = fastapi.Query(None), 
     graph_size_limit: int | None = fastapi.Query(None)
 ) -> responses.HTMLResponse:
     """Load a graph for data souece."""
@@ -565,6 +698,15 @@ async def load_corpus_graph(
         params["identifier"] = identifier
         graph_title += f"for {identifier} "
 
+
+    if name_filter:
+        if where_clause:
+            where_clause += " AND "
+        where_clause += """ (in.name @1@ $name_filter or out.name  @2@ $name_filter)"""
+        params["name_filter"] = name_filter
+        graph_title += f""" "{name_filter}" """
+
+
     if relationship:    
         if where_clause:
             where_clause += " AND "
@@ -598,13 +740,15 @@ async def load_corpus_graph(
         params = params 
     )
     graph_size = len(graph_data)
+
+    
     return templates.TemplateResponse(
         "graph.html",
         {
             "request": request,
             "corpus_table": corpus_table,
-            "graph_data": convert_to_graph_ux_data(graph_data),
-            "graph_size_limit": GRAPH_SIZE_LIMIT,
+            "graph_data": convert_corpus_graph_to_ux_data(graph_data),
+            "graph_size_limit": graph_size_limit,
             "graph_size": graph_size,
             "graph_title": graph_title,
             "graph_id": format_url_id(graph_title.replace(" ","_"))
@@ -654,32 +798,27 @@ async def send_user_message(
     content: str = fastapi.Form(...),
     embed_model: str = fastapi.Form(...),
     corpus_table: str = fastapi.Form(...),
-    number_of_chunks: int = fastapi.Form(...)
+    number_of_chunks: int = fastapi.Form(...),
+    graph_mode: str | None = fastapi.Form(...)
 ) -> responses.HTMLResponse:
     """Send user message."""
 
     embed_model = ast.literal_eval(embed_model)
-    # # need to fix for model_trainer
-    # if embed_model[0] == "OPENAI":
-    #      outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
-    #         """RETURN fn::create_user_message($chat_id,$corpus_table, $content,type::thing('embedding_model_definition',$embedding_model),$openaitoken,$number_of_chunks);""",params = {"chat_id":chat_id,"corpus_table":corpus_table,"content":content,"embedding_model":embed_model,"openaitoken":model_params.openai_token,"number_of_chunks":number_of_chunks}    
-    #     ))
-    # else:
-    #     outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
-    #         """RETURN fn::create_user_message($chat_id,$corpus_table, $content,type::thing('embedding_model_definition',$embedding_model));""",
-    #         params = {"chat_id":chat_id,"corpus_table":corpus_table,"content":content,"embedding_model":embed_model}    
-    #     ))
+  
+    
 
 
     outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
-            """RETURN fn::create_user_message($chat_id,$corpus_table, $content,type::thing('embedding_model_definition',$embedding_model),$openaitoken,$number_of_chunks);""",
+            """RETURN fn::create_user_message($chat_id,$corpus_table, $content,
+            type::thing('embedding_model_definition',$embedding_model),$number_of_chunks,$graph_mode,$openaitoken);""",
             params = {
                 "chat_id":chat_id,
                 "corpus_table":corpus_table,
                 "content":content,
                 "embedding_model":embed_model,
                 "openaitoken":model_params.openai_token,
-                "number_of_chunks":number_of_chunks
+                "number_of_chunks":number_of_chunks,
+                "graph_mode":graph_mode
                 }    
         ))
     
@@ -694,14 +833,13 @@ async def send_user_message(
             "message" : message
         },
     )
-
-
 @app.post(
     "/chats/{chat_id}/send-system-message",
     response_class=responses.HTMLResponse,
 )
 async def send_system_message(
-    request: fastapi.Request, chat_id: str,
+    request: fastapi.Request, 
+    chat_id: str,
     llm_model: str = fastapi.Form(...),
     prompt_template: str = fastapi.Form(...),
     number_of_chats: int = fastapi.Form(...)
@@ -711,9 +849,6 @@ async def send_system_message(
     
     
 
-    # outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
-    #     """RETURN fn::get_last_user_message_input_and_prompt($chat_id,$prompt,$message_memory_length);""",params = {"chat_id":chat_id,"prompt":LLMModelHander.DEFAULT_PROMPT_TEXT,"message_memory_length":5}
-    # ))
     outcome = SurrealParams.ParseResponseForErrors( await life_span["surrealdb"].query_raw(
         """RETURN fn::get_last_user_message_input_and_prompt($chat_id,$prompt,$message_memory_length);""",params = {"chat_id":chat_id,"prompt":prompt_template,"message_memory_length":number_of_chats}
     ))

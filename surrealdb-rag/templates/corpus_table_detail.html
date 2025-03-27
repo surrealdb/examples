@@ -12,6 +12,7 @@ hx-include="this, #corpusTableSelect">
 <button  class="expand-contexts">
     +
 </button>
+<br>
 <div id="embedModelDetails" class="expand-contexts-content">
     {% if default_embed_model %}
         Dimensions: {{default_embed_model['dimensions']}}, Host: {{default_embed_model['host']}}<br> 
@@ -22,7 +23,7 @@ hx-include="this, #corpusTableSelect">
 </h5>
 <script>
 $('.expand-contexts').click(function(){
-    theElementToToggle = $(this).parent().find('.expand-contexts-content');
+    theElementToToggle = $(this).parent().find('> .expand-contexts-content');
     theElementToToggle.slideToggle('fast').focus();;
 });
 </script>
@@ -30,7 +31,7 @@ $('.expand-contexts').click(function(){
 {% if corpus_table_detail['corpus_graph_tables'] %}
     <h5>Knowledge Graph
         <button hx-get="/load_graph" hx-target="main" id="loadGraphButton"
-            hx-include="#corpusTableSelect,#graphDateStart,#graphDateEnd, #graphSizeLimit, #relationship">View
+            hx-include="#corpusTableSelect,#graphDateStart,#graphDateEnd,#graphSizeLimit,#relationship,#nameFilter">View
             </button>
         </h5>
         <div class="sub_selection_details">
@@ -45,7 +46,11 @@ $('.expand-contexts').click(function(){
             <script>
                 var max_date = "{{ corpus_table_detail['corpus_graph_tables']['date_range']['max']}}";
                 var min_date = "{{ corpus_table_detail['corpus_graph_tables']['date_range']['min']}}";
-                document.getElementById('graphDateStart').value = min_date;
+
+                var default_days_back = 1 * 24 * 60 * 60 * 1000;
+                var default_start_date = new Date(new Date(max_date).getTime() - default_days_back).toISOString();
+                
+                document.getElementById('graphDateStart').value = default_start_date;
                 document.getElementById('graphDateEnd').value = max_date;
                 var picker = new Lightpick({
                     field: document.getElementById('graphDateStart'),
@@ -73,6 +78,15 @@ $('.expand-contexts').click(function(){
 
                     }
                 });
+                
+                show_graph_toggle = true;
+            
+            </script>
+        {% else %}
+            <script>
+
+                show_graph_toggle = false;
+                
             </script>
         {% endif %}
         <select id="graphSizeLimit" name="graph_size_limit">
@@ -81,7 +95,8 @@ $('.expand-contexts').click(function(){
             <option value='100000'>Max nodes: 100,000</option>
             <option value='1000000'>Max nodes: 1,000,000</option>
         </select>
-        <input name="relationship" id="relationship" class="nav_input">
+        <input name="relationship" id="relationship" class="nav_input" placeholder="Relationship Filter">
+        <input name="name_filter" id="nameFilter" class="nav_input" placeholder="Name Filter">
     </div>
 {% endif %}
 

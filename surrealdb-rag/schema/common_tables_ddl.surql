@@ -2,6 +2,9 @@
 This file defines the SurrealQL for the chat functionality of this project. and functions that span either embedding model
 */
 
+DEFINE ANALYZER IF NOT EXISTS snowball_analyzer
+    TOKENIZERS class
+    FILTERS lowercase, snowball(english);
 
 # Define the `chat` table.
 DEFINE TABLE IF NOT EXISTS chat SCHEMAFULL;
@@ -43,6 +46,7 @@ DEFINE FIELD IF NOT EXISTS referenced_documents ON TABLE sent TYPE option<array<
 DEFINE FIELD IF NOT EXISTS llm_model ON TABLE sent TYPE option<string>;
 DEFINE FIELD IF NOT EXISTS embedding_model ON TABLE sent TYPE option<Record<embedding_model_definition>>;
 DEFINE FIELD IF NOT EXISTS prompt_text ON TABLE sent TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS knowledge_graph ON TABLE sent TYPE option<object>;
 
 
 

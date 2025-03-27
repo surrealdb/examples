@@ -4,8 +4,9 @@
 {% if new_message %}
     {% if message.role=="user" %}
         hx-trigger="load" hx-post="chats/{{ chat_id }}/send-system-message" hx-target=".messages"
+        hx-include="#promptTemplateText, #llmModelSelect, #embedModelSelect, #corpusTableSelect, #numberOfChats"
     {% endif %}
-    hx-swap="beforeend"  hx-include="#promptTemplateText, #llmModelSelect, #embedModelSelect, #corpusTableSelect, #numberOfChats">
+    hx-swap="beforeend" >
 {% else %}
    >
 {% endif %}

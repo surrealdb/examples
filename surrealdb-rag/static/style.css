@@ -4,11 +4,15 @@ body {
     height: 100%;
     margin: 0;
     padding: 0;
-}
-
-body {
     font-family: sans-serif;
     display: flex;
+}
+
+button:hover {
+    background: #ff00a0;
+}
+nav button:last-child {
+    margin-bottom: 0;
 }
 
 nav {
@@ -30,6 +34,9 @@ nav {
     border: 1px solid #ccc;
 }
 
+.expand-contexts, .expand-contexts a{
+    color:green;
+}
 
 /* Modal Styles */
 .modal {
@@ -71,6 +78,17 @@ nav {
     text-decoration: none;
     cursor: pointer;
 }
+
+td {
+    vertical-align: top;
+}
+a {
+    color: #ff00a0;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+
 #chats {
     flex: 1; /* Allow chats to grow and take available space */
     overflow-y: auto; /* Enable scrolling within chats */
@@ -94,7 +112,7 @@ button {
     background: #000000;
     color: #fff;
     cursor: pointer;
-    border: 2px solid #000;
+    border: 1px solid #ff00a0;
     border-radius: 8px;
     font-size: 12px;
     transition: background-color 0.3s ease;
@@ -102,6 +120,15 @@ button {
 }
 
 button.chat {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+    width: calc(100%);
+    padding: 10px 20px;
+}
+
+a.chat {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -120,13 +147,6 @@ button.delete {
     align-items: center;
 }
 
-nav button:last-child {
-    margin-bottom: 0;
-}
-
-nav button:hover {
-    background: #ff00a0;
-}
 
 button img.surrealdb-logo {
     height: 40px;

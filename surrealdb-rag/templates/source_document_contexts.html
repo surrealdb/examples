@@ -92,7 +92,7 @@
 
 <script>
 $('.expand-contexts').click(function(){
-    theElementToToggle = $(this).parent().find('.expand-contexts-content');
+    theElementToToggle = $(this).parent().find('> .expand-contexts-content');
     theElementToToggle.slideToggle('fast').focus();;
 });
 $( function() {

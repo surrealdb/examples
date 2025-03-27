@@ -19,25 +19,63 @@
         <li><a href="#entity_graph" hx-get="/load_graph/?identifier={{entity_info['identifier']}}" hx-target="#entity_graph" id="loadGraphButton"
             hx-include="#corpusTableSelect, #graphSizeLimit">Graph</a></li>
     </ul>
-
 <span class="entity_info" style="display: inline-block;" id="relation_list">
     <table>
         <thead>
             <tr>
                 <th>With</th>
-                <th>Confidence</th>
-                <th>Entity Type</th>
+                <th>
+                    Relations (confidence) & Context</th>
             </tr>
         </thead>
         <tbody>
-        {% for relation in entity_relations %}
+        {% for entity in entity_relations %}
             <tr>
-                <td><button hx-get="/entity_detail?identifier={{relation["identifier"]}}"
+                <td>
+                    {{entity["entity_type"]}}:
+                    <a hx-get="/entity_detail?identifier={{entity["identifier"]}}"
                     hx-target="#node_detail" hx-include="#corpusTableSelect" hx-swap="innerHTML">
-                    {{relation["name"]}}
-                </button></td>  
-                <td>{{relation["confidence"] | round(1)}}</td>
-                <td>{{relation["entity_type"]}}</td>
+                    {{entity["name"]}}
+                </a></td>  
+                <td>
+                    <div class="sitesection">
+                                <button  class="expand-contexts">
+                                    ({{entity["relations"] | length}}) 
+                                </button>
+                        <table class="expand-contexts-content">
+                            <tbody>
+                                {% for relation in entity["relations"] %}
+                                    <tr>
+                                        <td>{{relation["relationship"]}} ({{relation["confidence"] | round(1) }})</td>
+                                        <td>
+                                            <a hx-get="/source_documents/{{ relation["source_document"]["url"] | format_url_id  }}" class="doc" hx-target="node_detail" 
+                                            hx-include="#corpusTableSelect">
+                                            {{relation["source_document"]["title"]}}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <div class="sitesection">
+
+                                                Context
+                                                <button  class="expand-contexts">
+                                                    ({{relation["contexts"] | length}}) 
+                                                </button>
+                                                
+                                                {%for context in relation["contexts"] %}
+                                                    <pre class="expand-contexts-content" style="white-space: pre-wrap;">{{context}}</pre>
+                                                {% endfor %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                
+                            </tbody>    
+
+                        </table>
+                    </div>
+
+
+                </td>
             </tr>
         {% endfor %}
         </tbody>
@@ -66,7 +104,11 @@
 
                 <td>
                     <div class="sitesection">
-                        <p class="expand-contexts"><a href="#">{{mention["contexts"] | length}} ... </a></p>
+
+                        Context
+                        <button  class="expand-contexts">
+                            ({{mention["contexts"] | length}}) 
+                        </button>
                         {%for context in mention["contexts"] %}
                             <pre class="expand-contexts-content" style="white-space: pre-wrap;">{{context}}</pre>
                         {% endfor %}
@@ -84,7 +126,7 @@
     </span>
 <script>
 $('.expand-contexts').click(function(){
-    theElementToToggle = $(this).parent().find('.expand-contexts-content');
+    theElementToToggle = $(this).parent().find('> .expand-contexts-content');
     theElementToToggle.slideToggle('fast').focus();;
 });
 $( function() {

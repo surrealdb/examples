@@ -1,12 +1,12 @@
 
-<h4>{{graph_title}}</h4>
+<h4 class="graphTitle">{{graph_title}} ({{graph_size}} relations displayed)</h4>
 
 
 
 <div id="{{graph_id | safe}}" class="graphContainer"></div>
 
 
-{% if graph_size_limit==graph_size %}
+{% if graph_size_limit<=graph_size %}
 <div class="graph_warning">
     Maximum graph size reached.  Only displaying first {{graph_size_limit}} nodes and edges.
 </div>

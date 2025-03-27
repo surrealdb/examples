@@ -9,9 +9,36 @@ message detail:
 <div>embedding_model: {{message.sent[0].embedding_model}}</div>
 <div>llm_model: {{message.sent[0].llm_model}}</div>
 <div>timestamp: {{message.sent[0].timestamp}}</div>
+
+
+
+
+<div id="message_detail_tabs">
+    <ul>
+        
+      <li><a href="#message_content">Content</a></li>
+      {% if message.sent[0].referenced_documents %}
+            <li><a href="#docs">Referenced Documents</a></li>
+      {% endif %}
+      {% if message.sent[0].knowledge_graph %}
+            <li><a href="#knowledge_graph">Knowledge Graph</a></li>
+      {% endif %}
+      {% if message.sent[0].prompt_text %}
+            <li><a href="#prompt">Prompt</a></li>
+      {% endif %}
+
+    </ul>
+
+
+----------------------
+<div id="message_content">
+    <pre style="white-space: pre-wrap;">content: 
+        {{message.content}}</pre></div>
+
+
 {% if message.sent[0].referenced_documents %}
 ----------------------
-    <div>
+    <div id="docs">
         Referenced Documents:
         {%for doc in message.sent[0].referenced_documents %}
         <div>
@@ -24,21 +51,28 @@ message detail:
         {% endfor %}
     </div>
 {% endif %}
+{% if message.sent[0].knowledge_graph %}
 ----------------------
-<div>
-    <pre style="white-space: pre-wrap;">content: 
-        {{message.content}}</pre></div>
+<div id="knowledge_graph"> Knowledge Graph:
+
+    {% include 'graph.html' %}
+<!-- <pre style="white-space: pre-wrap;">{{graph_data}}</pre></div> -->
+{% endif %}
 
 
 {% if message.sent[0].prompt_text %}
 ----------------------
-<div>
+<div id="prompt">
 <pre style="white-space: pre-wrap;">prompt: 
     {{message.sent[0].prompt_text}}</pre></div>
 </div>
-
 {% endif %}
 <script>
 docDetail = document.getElementById("doc_detail");
 if(docDetail) docDetail.innerHTML = "";
+
+$( function() {
+    $( "#message_detail_tabs" ).tabs();
+  } );
+
 </script>

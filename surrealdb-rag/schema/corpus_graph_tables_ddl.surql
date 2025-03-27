@@ -46,6 +46,10 @@ DEFINE INDEX IF NOT EXISTS {corpus_table}_entity_context_openai_vector_index ON 
 DEFINE INDEX IF NOT EXISTS {corpus_table}_entity_identifier_index ON {corpus_table}_entity
     FIELDS identifier;
 
+
+DEFINE INDEX IF NOT EXISTS {corpus_table}_entity_source_document_index ON {corpus_table}_entity FIELDS source_document,source_document.url;
+
+
 REMOVE TABLE IF EXISTS {corpus_table}_relation;
 DEFINE TABLE IF NOT EXISTS {corpus_table}_relation TYPE RELATION
 IN {corpus_table}_entity OUT {corpus_table}_entity SCHEMAFULL;
@@ -88,3 +92,14 @@ DEFINE INDEX IF NOT EXISTS {corpus_table}_relation_out_identifier_index ON {corp
     FIELDS out.identifier;
 DEFINE INDEX IF NOT EXISTS {corpus_table}_relation_in_identifier_index ON {corpus_table}_relation
     FIELDS in.identifier;
+DEFINE INDEX IF NOT EXISTS {corpus_table}_relation_source_document_index ON {corpus_table}_relation FIELDS source_document,source_document.url;
+
+
+DEFINE INDEX IF NOT EXISTS {corpus_table}_entity_name_text_index ON TABLE {corpus_table}_entity
+    FIELDS name SEARCH ANALYZER snowball_analyzer BM25;
+
+DEFINE INDEX IF NOT EXISTS {corpus_table}_relation_in_name_text_index ON TABLE {corpus_table}_relation
+    FIELDS in.name SEARCH ANALYZER snowball_analyzer BM25;
+
+DEFINE INDEX IF NOT EXISTS {corpus_table}_relation_out_name_text_index ON TABLE {corpus_table}_relation
+    FIELDS out.name SEARCH ANALYZER snowball_analyzer BM25;
