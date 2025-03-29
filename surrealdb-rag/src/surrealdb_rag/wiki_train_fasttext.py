@@ -7,7 +7,6 @@ from surrealdb_rag import loggers
 import surrealdb_rag.constants as constants
 import pandas as pd
 import fasttext
-import re
 import os
 import tqdm
 

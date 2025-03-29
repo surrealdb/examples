@@ -9,12 +9,14 @@ import tqdm
 from surrealdb_rag import loggers
 import surrealdb_rag.constants as constants
 import datetime
-from surrealdb_rag.llm_handler import LLMModelHander,ModelListHandler
+from surrealdb_rag.llm_handler import RAGChatHandler,ModelListHandler
 
 from surrealdb_rag.edgar_graph_extractor import get_public_companies
 
 
 from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams, SurrealDML
+
+from surrealdb_rag.corpus_data_handler import CorpusTableListHandler
 
 # Initialize database and model parameters, and argument loader
 db_params = DatabaseParams()
@@ -271,7 +273,10 @@ def surreal_edgar_graph_insert() -> None:
 
 
         model_list = ModelListHandler(model_params,connection)
-        corpus_tables = model_list.available_corpus_tables_sync()
+        corpus_list = CorpusTableListHandler(connection)
+
+        
+        corpus_tables = corpus_list.available_corpus_tables_sync()
         embed_models = corpus_tables[table_name]["embed_models"]
         for embed_model in embed_models:
             if embed_model["model_trainer"] == "GLOVE":

@@ -687,7 +687,6 @@ def print_entities_and_relationships(logger, results):
         print("\nPeople:")
         if data['people']:
             for person in data['people']:
-                #print(f"  - {person['name']} (Aliases: {', '.join(person['aliases'])}), Contexts: {len(person['contexts'])}")
                 print(f"  - {person['name']}, Contexts: {len(person['contexts'])}")
         else:
             print("  No people found.")
@@ -703,7 +702,6 @@ def print_entities_and_relationships(logger, results):
         print("\nRelationships:")
         if data['relationships']:
             for rel in data['relationships']:
-                #print(f"  - {rel['entity1']} -> {rel['relationship']} -> {rel['entity2']} ({rel['context']})")
                 print(f"  - {get_name_of_entity_dict(rel['entity1'])} -> {rel['relationship']} -> {get_name_of_entity_dict(rel['entity2'])} conf: {rel['confidence']} ")
         else:
             print("  No relationships found.")
@@ -736,10 +734,6 @@ def run_edgar_graph_extraction() -> None:
     files = file_index_df.to_dict(orient='records')
 
     extract_entities_and_relationships(logger,output_file,files, company_metadata_lookup,company_index,nlp, use_fuzz_company_match = False, return_results = False)
-    # results = extract_entities_and_relationships(logger,output_file,files, company_metadata_lookup,company_index,nlp, use_fuzz_company_match = False, return_results = True)
-    
-    # if results:
-    #     print_entities_and_relationships(logger,results)
 
 if __name__ == "__main__":
     run_edgar_graph_extraction()

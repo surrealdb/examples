@@ -5,34 +5,10 @@ from ollama import generate,GenerateResponse
 
 import google.generativeai as genai 
 
-
 from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader
 from surrealdb import AsyncSurreal
 import re
-import asyncio
 
-
-CORPUS_TABLE_SELECT = """
-        SELECT 
-            display_name,table_name,embed_models,additional_data_keys,corpus_graph_tables,
-            fn::get_datetime_range_for_corpus_table(corpus_graph_tables.relation_table_name,corpus_graph_tables.relation_date_field)
-            AS corpus_graph_tables.date_range
-        FROM (
-            SELECT
-
-            display_name,table_name,embed_models,fn::additional_data_keys(table_name) as additional_data_keys,
-                type::thing('corpus_graph_tables',table_name).{
-                    entity_date_field,entity_display_name,entity_table_name,
-                    relation_date_field,relation_display_name,relation_table_name,
-                    source_document_display_name,source_document_table_name,
-                    } as corpus_graph_tables
-                FROM corpus_table FETCH embed_models,embed_models.model
-            );
-        """
-
-"""
-Handles the retrieval of available LLM models and corpus tables.
-"""
 class ModelListHandler():
     
     """
@@ -44,7 +20,6 @@ class ModelListHandler():
         """
     def __init__(self, model_params, connection):
         self.LLM_MODELS = {}
-        self.CORPUS_TABLES = {}
         self.model_params = model_params
         self.connection = connection
     
@@ -101,230 +76,13 @@ class ModelListHandler():
          
     
 
-    def populate_corpus_tables(self,corpus_tables):
-        # Filter out OpenAI models if API key is absent
-        for corpus_table in corpus_tables:
-            
-            # create an dict item for table_name
-            table_name = corpus_table["table_name"]
-            self.CORPUS_TABLES[table_name] = {}
-            self.CORPUS_TABLES[table_name]["display_name"] = corpus_table["display_name"]
-            self.CORPUS_TABLES[table_name]["table_name"] = corpus_table["table_name"]
-            self.CORPUS_TABLES[table_name]["additional_data_keys"] = corpus_table["additional_data_keys"]
-            self.CORPUS_TABLES[table_name]["embed_models"] = []
-            self.CORPUS_TABLES[table_name]["corpus_graph_tables"] = corpus_table["corpus_graph_tables"]
-            #datetime not serializable
-            if corpus_table["corpus_graph_tables"] and corpus_table["corpus_graph_tables"]["date_range"]:
-                self.CORPUS_TABLES[table_name]["corpus_graph_tables"]["date_range"]["min"] = str(corpus_table["corpus_graph_tables"]["date_range"]["min"])
-                self.CORPUS_TABLES[table_name]["corpus_graph_tables"]["date_range"]["max"] = str(corpus_table["corpus_graph_tables"]["date_range"]["max"])
-
-            for model in corpus_table["embed_models"]:
-                model_def =  model["model"]
-                model_def_id = model_def["id"].id
-                if model_def_id[0] != "OPENAI" or (
-                    model_def_id[0] == "OPENAI" and self.model_params.openai_token):
-
-                    self.CORPUS_TABLES[table_name]["embed_models"].append(
-                            {"model":model_def_id,
-                                "field_name":model["field_name"],
-                                "corpus":model_def["corpus"],
-                                "description":model_def["description"],
-                                "host":model_def["host"],
-                                "model_trainer":model_def["model_trainer"],
-                                "version":model_def["version"],
-                                "dimensions":model_def["dimensions"],
-                                }
-                        )
-        return self.CORPUS_TABLES 
-
-
-    
-
-    
-    """
-    Retrieves a dictionary of available corpus tables.
-
-    Returns:
-        dict: Dictionary of available corpus tables.
-    """
-    async def available_corpus_tables(self):
-        if self.CORPUS_TABLES != {}:
-            return self.CORPUS_TABLES 
-        else:
-            self.CORPUS_TABLES = {}
-            corpus_tables = await self.connection.query(CORPUS_TABLE_SELECT)
-            return self.populate_corpus_tables(corpus_tables)
-
-
-            
-    def available_corpus_tables_sync(self):
-        """
-        Synchronous version of available_corpus_tables.
-        """
-        if self.CORPUS_TABLES != {}:
-            return self.CORPUS_TABLES 
-        else:
-            self.CORPUS_TABLES = {}
-            corpus_tables = self.connection.query(CORPUS_TABLE_SELECT)
-            return self.populate_corpus_tables(corpus_tables)
-
-
-
         
 """
 Handles interactions with different LLM models.
 """
-class LLMModelHander():
+class RAGChatHandler():
 
 
-
-    PROMPT_TEXT_TEMPLATES =  {
-
-        "Generic_Exclusive":{"name":"Generic Exclusive", "text":"""              
-    You are an AI assistant answering questions about anything from the corpus of knowledge provided in the <context></context> tags.
-    
-    You may also refer to the text in the <chat_history></chat_history> tags but only for refining your understanding of what is being asked of you. Do not rely on the chat_history for answering the question!
-    
-    If there is data in the <knowledge_graph></knowledge_graph> tags, you must use that data to help answer the question. 
-    Prioritize the knowledge graph data over the context and chat history.
-    The knowledge graph wiil be formatted in JSON the entities and relationships will be in the form of a list of dictionaries.
-    The knowledge graph data will have entities in this structure:         
-        { entity_type: 'the type of entity', identifier: 'an id for matching on the graph', name: 'a friendly name to describe the entity' }
-    The knowledge graph data will have relationships in this structure:     
-        { confidence: 'an int from 1-10 on the confidence of the realtionship',
-            in_identifier: 'an id that is a key representing an entity from the entity list',
-            out_identifier: 'an id that is a key representing an entity from the entity list',
-            contexts: 'an array of strings that represent the reason for the relationship',
-            relationship: 'the verb that describes the relationship' }
-                                                      
-    Please provide your response in HTML format. Include appropriate headings and lists where relevant.
-
-    At the end of the response, add any links as a HTML link and replace the title and url with the associated title and url of the more relevant page from the context.
-
-    Only reply with the context provided. If the context is an empty string, reply with 'I am sorry, I do not know the answer.'.
-
-    Do not use any prior knowledge that you have been trained on.
-
-    <context>
-        $context
-    </context>
-    <chat_history>
-        $chat_history
-    </chat_history>         
-    <knowledge_graph>
-        $knowledge_graph
-    </knowledge_graph>  
-    """},
-    "Generic_Inclusive":{"name":"Generic Inclusive","text":"""              
-    You are an AI assistant answering questions about anything from the corpus of knowledge provided in the <context></context> tags.
-    
-    You may also refer to the text in the <chat_history></chat_history> tags but only for refining your understanding of what is being asked of you. Do not rely on the chat_history for answering the question!
-    
-    If there is data in the <knowledge_graph></knowledge_graph> tags, you must use that data to help answer the question. 
-    Prioritize the knowledge graph data over the context and chat history.
-    The knowledge graph wiil be formatted in JSON the entities and relationships will be in the form of a list of dictionaries.
-    The knowledge graph data will have entities in this structure:         
-        { entity_type: 'the type of entity', identifier: 'an id for matching on the graph', name: 'a friendly name to describe the entity' }
-    The knowledge graph data will have relationships in this structure:     
-        { confidence: 'an int from 1-10 on the confidence of the realtionship',
-            in_identifier: 'an id that is a key representing an entity from the entity list',
-            out_identifier: 'an id that is a key representing an entity from the entity list',
-            contexts: 'an array of strings that represent the reason for the relationship',
-            relationship: 'the verb that describes the relationship' }
-                              
-    Please provide your response in HTML format. Include appropriate headings and lists where relevant.
-
-    At the end of the response, add any links as a HTML link and replace the title and url with the associated title and url of the more relevant page from the context.
-
-    Use the context as a guide but feel free to use any prior knowledge that you have been trained on.
-
-    <context>
-        $context
-    </context>
-    <chat_history>
-        $chat_history
-    </chat_history>         
-    <knowledge_graph>
-        $knowledge_graph
-    </knowledge_graph>  
-    """}
-    ,
-    "Finance_Exclusive":{"name":"Finance Exclusive","text":"""              
-    You are an a financial analyist helping me with my finance questions.
-     
-    I have given you some details from my database to consider as a focused corpus of knowledge provided in the <context></context> tags.
-    
-    You may also refer to the text in the <chat_history></chat_history> tags but only for refining your understanding of what is being asked of you. Do not rely on the chat_history for answering the question!
-    
-    If there is data in the <knowledge_graph></knowledge_graph> tags, you must use that data to help answer the question. 
-    Prioritize the knowledge graph data over the context and chat history.
-    The knowledge graph wiil be formatted in JSON the entities and relationships will be in the form of a list of dictionaries.
-    The knowledge graph data will have entities in this structure:         
-        { entity_type: 'the type of entity', identifier: 'an id for matching on the graph', name: 'a friendly name to describe the entity' }
-    The knowledge graph data will have relationships in this structure:     
-        { confidence: 'an int from 1-10 on the confidence of the realtionship',
-            in_identifier: 'an id that is a key representing an entity from the entity list',
-            out_identifier: 'an id that is a key representing an entity from the entity list',
-            contexts: 'an array of strings that represent the reason for the relationship',
-            relationship: 'the verb that describes the relationship' }
-                                
-    Please provide your response in HTML format. Include appropriate headings and lists where relevant.
-
-    At the end of the response, add any links as a HTML link and replace the title and url with the associated title and url of the more relevant page from the context.
-
-    Only reply with the context provided. If the context is an empty string, reply with 'I am sorry, I do not know the answer.'.
-
-    Do not use any prior knowledge that you have been trained on.
-
-    <context>
-        $context
-    </context>
-    <chat_history>
-        $chat_history
-    </chat_history>         
-    <knowledge_graph>
-        $knowledge_graph
-    </knowledge_graph>  
-    """}
-    ,
-    "Finance_Inclusive":{"name":"Finance Inclusive","text":"""              
-    You are an a financial analyist helping me with my finance questions.
-     
-    I have given you some details from my database to consider as a focused corpus of knowledge provided in the <context></context> tags.
-    
-    You may also refer to the text in the <chat_history></chat_history> tags but only for refining your understanding of what is being asked of you. Do not rely on the chat_history for answering the question!
-    
-    If there is data in the <knowledge_graph></knowledge_graph> tags, you must use that data to help answer the question. 
-    Prioritize the knowledge graph data over the context and chat history.
-    The knowledge graph wiil be formatted in JSON the entities and relationships will be in the form of a list of dictionaries.
-    The knowledge graph data will have entities in this structure:         
-        { entity_type: 'the type of entity', identifier: 'an id for matching on the graph', name: 'a friendly name to describe the entity' }
-    The knowledge graph data will have relationships in this structure:     
-        { confidence: 'an int from 1-10 on the confidence of the realtionship',
-            in_identifier: 'an id that is a key representing an entity from the entity list',
-            out_identifier: 'an id that is a key representing an entity from the entity list',
-            contexts: 'an array of strings that represent the reason for the relationship',
-            relationship: 'the verb that describes the relationship' }
-                              
-    Please provide your response in HTML format. Include appropriate headings and lists where relevant.
-
-    At the end of the response, add any links as a HTML link and replace the title and url with the associated title and url of the more relevant page from the context.
-
-    Use the context as a guide but feel free to use any prior knowledge that you have been trained on.
-
-    <context>
-        $context
-    </context>
-    <chat_history>
-        $chat_history
-    </chat_history>         
-    <knowledge_graph>
-        $knowledge_graph
-    </knowledge_graph>  
-    """},
-    "No_Context":{"name":"No Context","text":"""
-    """}
-    }
 
     GEMINI_CHAT_COMPLETE = """RETURN fn::gemini_chat_complete($llm,$prompt_with_context,$input,$google_token);"""
 
@@ -332,7 +90,7 @@ class LLMModelHander():
 
 
     """
-    Initializes the LLMModelHander.
+    Initializes the RAGChatHandler.
 
     Args:
         model_data (str): Model data.
@@ -391,7 +149,7 @@ class LLMModelHander():
     def extract_plain_text(text):
 
         # Use a regular expression to find and remove content within tags
-        clean_text = LLMModelHander.remove_think_tags(text)
+        clean_text = RAGChatHandler.remove_think_tags(text)
         clean_text = re.sub(r'<[^>]*>', '', clean_text)
         return clean_text
     
@@ -446,7 +204,7 @@ class LLMModelHander():
         # Limits the response to 255 characters.
         n = 255
         # Extracts plain text from the chat response.
-        text = LLMModelHander.extract_plain_text(await self.get_chat_response(prompt_with_context,input))
+        text = RAGChatHandler.extract_plain_text(await self.get_chat_response(prompt_with_context,input))
         if len(text) > n:
             # Returns the first 255 characters if the response is longer.
             return text[:n]
@@ -541,7 +299,7 @@ class LLMModelHander():
         # Executes the OpenAI chat completion query in SurrealDB.
         model_version = self.model_data["model_version"]
         openai_response = await self.connection.query(
-            LLMModelHander.OPENAI_CHAT_COMPLETE, params={
+            RAGChatHandler.OPENAI_CHAT_COMPLETE, params={
                 "llm":model_version,
                 "prompt_with_context":prompt_with_context,
                 "input":input,
@@ -568,7 +326,7 @@ class LLMModelHander():
         # Executes the Gemini chat completion query in SurrealDB.
         model_version = self.model_data["model_version"].replace("models/","")
         gemini_response = await self.connection.query(
-            LLMModelHander.GEMINI_CHAT_COMPLETE, params={
+            RAGChatHandler.GEMINI_CHAT_COMPLETE, params={
                 "llm":model_version,
                 "prompt_with_context":prompt_with_context,
                 "input":input,

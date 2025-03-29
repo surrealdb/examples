@@ -1,8 +1,4 @@
-"""Download OpenAI Wikipedia data."""
 
-import zipfile
-
-import wget
 import os
 
 from surrealdb_rag import loggers

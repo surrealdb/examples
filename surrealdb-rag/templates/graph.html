@@ -57,11 +57,18 @@
                         
                         graph.addLink(edge.source, edge.target, {
                             label: edge.label,
-                            confidence: edge.confidence
+                            confidence: edge.confidence,
+                            link: "/relation_detail?corpus_table=" + corpus_table 
+                                + "&identifier_in=" + edge.source
+                                + "&identifier_out=" + edge.target
+                                + "&relationship=" + edge.label
                         });
                     }
                 }
             });
+
+
+
             var graphics = Viva.Graph.View.svgGraphics();
             graphics.node(function(node){
                 var label_str = ""
@@ -149,9 +156,18 @@
                 label.addEventListener('click', function(event) {
                     event.stopPropagation(); // Prevent the click from bubbling up
                     console.log(link);
-                    if (link.data && link.data.link) { // Access node.data.link *here*
-                        console.log("click!", link.data.link);
+
+                    if (link.data && link.data.link) {
+                        
+                        console.log("click!", link.data.link); // Access node.data.link *here*
+                        document.getElementById('myModal').style.display = 'block';
+                        document.getElementById("node_detail").style.display = "block";
+                        htmx.ajax('GET', link.data.link, {
+                            target: '#node_detail',
+                            swap: 'innerHTML' // Correct way to specify swap with htmx.ajax
+                        });
                     }
+
                 });
                 ui.append(line);
                 ui.append(label);
