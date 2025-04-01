@@ -5,9 +5,33 @@ from ollama import generate,GenerateResponse
 
 import google.generativeai as genai 
 
-from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader
+from surrealdb_rag.helpers.params import DatabaseParams, ModelParams, SurrealParams
+
 from surrealdb import AsyncSurreal
 import re
+
+
+
+# Mapping of embedding models to their field names and definitions
+EMBED_MODEL_DEFINITIONS = {
+    "GLOVE":{"field_name":"content_glove_vector","model_definition":[
+        'GLOVE',
+        '6b 300d'
+        ]},
+    "OPENAI":{"field_name":"content_openai_vector","model_definition":[
+        'OPENAI',
+        'text-embedding-ada-002'
+        ]},
+    "FASTTEXT":{"field_name":"content_fasttext_vector","model_definition":[
+        'FASTTEXT',
+        'wiki'
+        ]},
+}
+"""
+A dictionary mapping embedding model names to their corresponding field names
+in the database and their model definitions (trainer and version).
+"""
+
 
 class ModelListHandler():
     

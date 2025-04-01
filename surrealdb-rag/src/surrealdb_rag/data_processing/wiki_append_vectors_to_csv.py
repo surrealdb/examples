@@ -12,6 +12,16 @@ import tqdm
 
 
 def append_wiki_vectors() -> None:
+
+    """
+    Appends GloVe and FastText embedding vectors to the Wikipedia data CSV file.
+
+    This function loads Wikipedia data, computes sentence embeddings using GloVe and FastText models,
+    adds these embeddings as new columns to the DataFrame, backs up the original CSV, and saves the
+    updated DataFrame to a new CSV file.
+    """
+
+    
     logger = loggers.setup_logger("DownloadData")
 
     if not os.path.exists(constants.DEFAULT_WIKI_PATH):

@@ -4,19 +4,29 @@ from surrealdb import Surreal
 from surrealdb_rag.helpers import loggers
 
 
-from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
+from surrealdb_rag.helpers.constants import ArgsLoader
+from surrealdb_rag.helpers.params import DatabaseParams, ModelParams, SurrealParams
+
 import surrealdb_rag.helpers.constants as constants
 # Initialize parameter objects and argument loader
 db_params = DatabaseParams()
 model_params = ModelParams()
 args_loader = ArgsLoader("Input Embeddings Model",db_params,model_params)
 
-
 """
 Creates a SurrealDB database and namespace, and executes schema DDL.
 """
 def surreal_create_database() -> None:
-    """Create SurrealDB database for Wikipedia embeddings."""
+    """
+    Initializes and configures a SurrealDB database for Wikipedia embeddings.
+
+    This function performs the following steps:
+    1.  Parses command-line arguments using ArgsLoader.
+    2.  Establishes a connection to the SurrealDB server.
+    3.  Creates a namespace and database if they do not exist, or removes and recreates the database if it already exists.
+    4.  Executes schema definition language (DDL) queries from specified files to define tables and functions.
+    5.  Handles any errors encountered during database operations.
+    """
     logger = loggers.setup_logger("SurrealCreateDatabase")
 
     args_loader.LoadArgs() # Parse command-line arguments

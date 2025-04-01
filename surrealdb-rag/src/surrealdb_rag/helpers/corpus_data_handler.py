@@ -1,6 +1,8 @@
 
-from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader
-from surrealdb import AsyncSurreal
+
+from surrealdb_rag.helpers.params import DatabaseParams, ModelParams, SurrealParams
+from surrealdb import AsyncSurreal, Surreal
+from typing import Union
 import datetime
 from surrealdb_rag.helpers.ux_helpers import *
 
@@ -23,19 +25,29 @@ CORPUS_TABLE_SELECT = """
         """
 
 """
-Handles the retrieval of available LLM models and corpus tables.
-"""
+SurrealQL query to select corpus table information.
 
+This query retrieves information about corpus tables, including display names, table names,
+embedding models, additional data keys, and related graph tables. It also fetches the
+date range for the relation table.
+"""
 
 class CorpusTableListHandler():
     """
-        Initializes the ModelListHandler.
+    Provides methods for retrieving available corpus tables and their metadata.
+
+    This class interacts with the SurrealDB database to fetch information about available
+    corpus tables, including details about embedded models and associated graph tables.
+    """
+   
+    def __init__(self, connection:Union[AsyncSurreal, Surreal],model_params:ModelParams):
+        """
+        Initializes the CorpusTableListHandler.
 
         Args:
-            model_params (ModelParams): Model parameters.
             connection (AsyncSurreal): Asynchronous SurrealDB connection.
+            model_params (ModelParams): Model parameters.
         """
-    def __init__(self, connection:AsyncSurreal,model_params:ModelParams):
         self.CORPUS_TABLES = {}
         self.connection = connection
         self.model_params = model_params
@@ -45,6 +57,22 @@ class CorpusTableListHandler():
     
 
     def populate_corpus_tables(self,corpus_tables):
+
+        """
+        Populates the internal dictionary with corpus table information.
+
+        This method processes the raw data retrieved from the database, filtering out
+        OpenAI models based on the availability of the OpenAI API key and formatting
+        the data for easier access.
+
+        Args:
+            corpus_tables (list): A list of dictionaries, where each dictionary represents a corpus table.
+
+        Returns:
+            dict: A dictionary where keys are table names and values are dictionaries containing table metadata.
+        """
+
+
         # Filter out OpenAI models if API key is absent
         for corpus_table in corpus_tables:
             
@@ -82,13 +110,19 @@ class CorpusTableListHandler():
 
 
     
-    """
-    Retrieves a dictionary of available corpus tables.
-
-    Returns:
-        dict: Dictionary of available corpus tables.
-    """
     async def available_corpus_tables(self):
+
+        """
+        Asynchronously retrieves a dictionary of available corpus tables.
+
+        This method fetches corpus table information from the database and populates the
+        internal dictionary. If the data is already cached, it returns the cached data.
+
+        Returns:
+            dict: A dictionary where keys are table names and values are dictionaries containing table metadata.
+        """
+         
+
         if self.CORPUS_TABLES != {}:
             return self.CORPUS_TABLES 
         else:
@@ -100,7 +134,13 @@ class CorpusTableListHandler():
             
     def available_corpus_tables_sync(self):
         """
-        Synchronous version of available_corpus_tables.
+        Synchronously retrieves a dictionary of available corpus tables.
+
+        This method is a synchronous version of `available_corpus_tables`, suitable for
+        use in contexts where asynchronous operations are not supported.
+
+        Returns:
+            dict: A dictionary where keys are table names and values are dictionaries containing table metadata.
         """
         if self.CORPUS_TABLES != {}:
             return self.CORPUS_TABLES 
@@ -114,27 +154,45 @@ class CorpusTableListHandler():
         
 class CorpusDataHandler():
 
+    """
+    Provides methods for querying data within a specific corpus.
 
+    This class handles interactions with the SurrealDB database to retrieve information
+    about entities, relationships, and source documents within a given corpus.
+    It also includes methods for LLM integration.
+    """
 
     GEMINI_CHAT_COMPLETE = """RETURN fn::gemini_chat_complete($llm,$prompt_with_context,$input,$google_token);"""
+    """
+    SurrealQL query to complete a chat using the Gemini LLM.
+    """
 
     OPENAI_CHAT_COMPLETE = """RETURN fn::openai_chat_complete($llm,$prompt_with_context, $input, $temperature, $openai_token);"""
-
-
     """
-    Initializes the RAGChatHandler.
-
-    Args:
-        model_data (str): Model data.
-        model_params (ModelParams): Model parameters.
-        connection (AsyncSurreal): Asynchronous SurrealDB connection.
+    SurrealQL query to complete a chat using the OpenAI LLM.
     """
+
     def __init__(self,connection:AsyncSurreal,corpus_table_info:dict):
-        
+        """
+        Initializes the CorpusDataHandler.
+
+        Args:
+            connection (AsyncSurreal): Asynchronous SurrealDB connection.
+            corpus_table_info (dict): Metadata about the corpus table being handled.
+        """
         self.connection = connection
         self.corpus_table_info = corpus_table_info
 
     async def query_additional_data(self,additional_data_field:str):
+        """
+        Queries additional data for the corpus table.
+
+        Args:
+            additional_data_field (str): The field name to query within the additional_data.
+
+        Returns:
+            list: A list of results from the query.
+        """
         return await self.connection.query(
                 """RETURN fn::select_additional_data($corpus_table,$key)""",params = {"corpus_table":self.corpus_table_info["table_name"],"key":additional_data_field}    
             )
@@ -142,6 +200,20 @@ class CorpusDataHandler():
 
 
     async def relation_detail(self,corpus_table_detail:dict,identifier_in:str,identifier_out:str,relationship:str):
+
+        """
+        Retrieves details about a specific relationship between two entities.
+
+        Args:
+            corpus_table_detail (dict): Metadata about the corpus table.
+            identifier_in (str): Identifier of the source entity.
+            identifier_out (str): Identifier of the target entity.
+            relationship (str): The type of relationship.
+
+        Returns:
+            list: A list of results from the query, containing information about the relationship.
+        """
+
         corpus_graph_tables = corpus_table_detail.get("corpus_graph_tables")
         relation_info = await self.connection.query(
                 """
@@ -165,6 +237,19 @@ class CorpusDataHandler():
 
 
     async def entity_detail(self,corpus_table_detail:dict,identifier:str):
+
+        """
+        Retrieves details about a specific entity and its relations.
+
+        Args:
+            corpus_table_detail (dict): Metadata about the corpus table.
+            identifier (str): The identifier of the entity.
+
+        Returns:
+            dict: A dictionary containing information about the entity, its relations, and mentions.
+        """
+
+
         corpus_graph_tables = corpus_table_detail.get("corpus_graph_tables")
         
         entity_relations = await self.connection.query(
@@ -204,6 +289,19 @@ class CorpusDataHandler():
 
 
     async def source_document_details(self,corpus_table_detail:dict,url:str):
+
+        """
+        Retrieves details about a specific source document and its associated entities and relations.
+
+        Args:
+            corpus_table_detail (dict): Metadata about the corpus table.
+            url (str): The URL or identifier of the source document.
+
+        Returns:
+            dict: A dictionary containing information about the source document, its entities, and relations.
+        """
+
+
         corpus_graph_tables = corpus_table_detail.get("corpus_graph_tables")
 
         url = unformat_url_id(url)
@@ -234,6 +332,25 @@ class CorpusDataHandler():
 
     async def corpus_graph_data(self,corpus_table_detail:dict,graph_start_date:str = None,graph_end_date:str = None,
                                     identifier:str = None,relationship:str = None,name_filter:str = None,url:str = None,graph_size_limit:int = 100):
+
+
+        """
+        Retrieves graph data for a corpus, with filtering options.
+
+        Args:
+            corpus_table_detail (dict): Metadata about the corpus table.
+            graph_start_date (str, optional): Start date for filtering relationships. Defaults to None.
+            graph_end_date (str, optional): End date for filtering relationships. Defaults to None.
+            identifier (str, optional): Identifier of an entity to filter relations. Defaults to None.
+            relationship (str, optional): Type of relationship to filter. Defaults to None.
+            name_filter (str, optional): Filter entities by name. Defaults to None.
+            url (str, optional): Filter by source document URL. Defaults to None.
+            graph_size_limit (int, optional): Maximum number of relationships to return. Defaults to 100.
+
+        Returns:
+            dict: A dictionary containing graph data and metadata.
+        """
+
 
         corpus_graph_tables = corpus_table_detail.get("corpus_graph_tables")
         select_sql_string = """
@@ -329,6 +446,18 @@ class CorpusDataHandler():
         }
     
     async def source_document_detail(self,corpus_table_detail:dict,document_id):
+
+        """
+        Retrieves detailed information about a specific source document.
+
+        Args:
+            corpus_table_detail (dict): Metadata about the corpus table.
+            document_id: The ID of the source document.
+
+        Returns:
+            dict: A dictionary containing details about the source document.
+        """
+         
         document = await self.connection.query(
             """RETURN fn::load_document_detail($corpus_table,$document_id)""",params = {"corpus_table":corpus_table_detail["table_name"],"document_id":document_id}    
         )

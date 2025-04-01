@@ -17,10 +17,10 @@ def concatenate_text_files_in_folder(logger,folder_path, output_file_path):
     Avoids loading all files into memory at once and ensures UTF-8 encoding for output.
 
     Args:
+        logger (logging.Logger): Logger for logging information and errors.
         folder_path (str): Path to the folder containing text files (e.g., constants.EDGAR_FOLDER).
         output_file_path (str, optional): Path to the output corpus file. Defaults to "corpus.txt".
     """
-
     if os.path.exists(output_file_path):
         logger.info(f"File already exists... skipping (delete it if you want to regenerate): '{output_file_path}'.")
         return
@@ -57,7 +57,20 @@ def concatenate_text_files_in_folder(logger,folder_path, output_file_path):
 
 def train_model(logger,traning_data_file, model_bin_file):
 
-    # # Train the FastText model
+    """
+    Trains a FastText unsupervised model on the given training data.
+
+    If the model already exists, it loads the existing model. Otherwise, it trains a new
+    skipgram model and saves it. The training data file is then removed.
+
+    Args:
+        logger (logging.Logger): Logger for logging information and errors.
+        traning_data_file (str): Path to the training data file.
+        model_bin_file (str): Path to save the trained model (.bin file).
+
+    Returns:
+        fasttext.FastText._FastText: The trained FastText model.
+    """
     if os.path.exists(model_bin_file):
         logger.info(f"Model already exists delete if you want to regenerate '{model_bin_file}'")
         return fasttext.load_model(model_bin_file)
@@ -69,6 +82,20 @@ def train_model(logger,traning_data_file, model_bin_file):
         return model
     
 def write_model_to_text_file(logger,model,model_txt_file):
+
+    """
+    Writes the trained FastText model vectors to a text file.
+
+    This function extracts word vectors from the FastText model and saves them in a text
+    format, suitable for use with other embedding libraries.
+
+    Args:
+        logger (logging.Logger): Logger for logging information.
+        model (fasttext.FastText._FastText): The trained FastText model.
+        model_txt_file (str): Path to save the model in text format.
+    """
+
+
     logger.info(f"Writing model to {model_txt_file}")
     model_dim = model.get_dimension()
     with open(model_txt_file, "w") as f:
@@ -84,6 +111,17 @@ def write_model_to_text_file(logger,model,model_txt_file):
     
 
 def edgar_train_fastText() -> None:
+    """
+    Trains a FastText model on EDGAR data and saves it in both binary and text formats.
+
+    This function orchestrates the training process:
+    1.  Sets up logging.
+    2.  Defines file paths for training data and models.
+    3.  Concatenates text files from the EDGAR folder into a training corpus.
+    4.  Trains the FastText model.
+    5.  Writes the model vectors to a text file.
+    """
+    
     logger = loggers.setup_logger("Train FastText Embedding Model") 
 
 

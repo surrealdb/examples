@@ -1,4 +1,4 @@
-"""Download OpenAI Wikipedia data."""
+"""Download Filings from EDGAR."""
 
 import os
 
@@ -11,7 +11,8 @@ from surrealdb_rag.data_processing.embeddings import WordEmbeddingModel
 import tqdm
 import datetime
 
-from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader
+from surrealdb_rag.helpers.constants import ArgsLoader
+from surrealdb_rag.helpers.params import DatabaseParams, ModelParams, SurrealParams
 
 import csv
 import edgar
@@ -24,10 +25,33 @@ db_params = DatabaseParams()
 model_params = ModelParams()
 args_loader = ArgsLoader("Download SEC data with edgar",db_params,model_params)
 
-def file_name_from_url(url:str):
+def file_name_from_url(url:str): 
+    """
+    Generates a safe filename from a URL by replacing potentially problematic characters.
+
+    Args:
+        url (str): The URL to generate a filename from.
+
+    Returns:
+        str: A filename derived from the URL, suitable for file system usage.
+    """
     return url.replace("https://","").replace("http://","").replace(".","_").replace("/","_")
 
 def process_filing(filing:edgar.Filing,dict_writer:csv.DictWriter):
+
+    """
+    Processes a single EDGAR filing, extracts relevant data, and writes it to a CSV file.
+
+    This function attempts to download the filing's content, extract text, and gather company information.
+    It handles potential exceptions during the process, writing error information to the CSV if necessary.
+
+    Args:
+        filing (edgar.Filing): The EDGAR filing object to process.
+        dict_writer (csv.DictWriter): The CSV writer object for writing the processed data.
+
+    Returns:
+        dict: A dictionary containing the extracted data from the filing, or data with error information.
+    """
 
     try:
         #get the company for more details
@@ -98,6 +122,19 @@ def process_filing(filing:edgar.Filing,dict_writer:csv.DictWriter):
 #         :param accession_number: The accession number or list of accession numbers to filter by
 
 def download_edgar_data() -> None:
+    """
+    Downloads financial filings from the SEC's EDGAR database.
+
+    This function retrieves filings based on specified criteria such as date range, form type, and ticker.
+    It saves the extracted text content of the filings to files and maintains an index CSV file.
+    It also supports backing up existing index files before generating a new one.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
     
     logger = loggers.setup_logger("DownloadData")
     

@@ -14,6 +14,19 @@ from surrealdb_rag.data_processing.embeddings import WordEmbeddingModel
 
 
 def wiki_train_fastText() -> None:
+
+    """
+    Trains a FastText model on Wikipedia data and saves the model to files.
+
+    This function performs the following steps:
+    1.  Loads Wikipedia data from a CSV file.
+    2.  Combines the 'title' and 'text' columns into a single text.
+    3.  Saves the combined text to a training file.
+    4.  Trains a FastText unsupervised skipgram model.
+    5.  Saves the trained model in binary format.
+    6.  Writes the model vectors to a text file.
+    7.  Removes the training data file.
+    """
     logger = loggers.setup_logger("Train FastText Embedding Model") 
 
     usecols=[

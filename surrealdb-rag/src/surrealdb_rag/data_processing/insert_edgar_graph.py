@@ -14,7 +14,9 @@ from surrealdb_rag.helpers.llm_handler import RAGChatHandler,ModelListHandler
 from surrealdb_rag.data_processing.edgar_graph_extractor import get_public_companies
 
 
-from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams, SurrealDML
+from surrealdb_rag.helpers.constants import ArgsLoader
+from surrealdb_rag.helpers.params import DatabaseParams, ModelParams, SurrealParams
+from surrealdb_rag.helpers.surreal_dml import SurrealDML
 
 from surrealdb_rag.helpers.corpus_data_handler import CorpusTableListHandler
 
@@ -32,6 +34,23 @@ MAX_RETRY_COUNT = 3
 
 
 def insert_chunk_of_rows(insert_record_surql: str, batch_rows: list, retry_count = 0) -> None:
+
+    """
+    Inserts a batch of rows into SurrealDB, with retry logic for handling transient errors.
+
+    This function attempts to insert a chunk of data into the database. If an exception occurs,
+    it retries the insertion up to a maximum number of times.
+
+    Args:
+        insert_record_surql (str): The SurrealQL query for inserting records.
+        batch_rows (list): A list of dictionaries representing the rows to insert.
+        retry_count (int, optional): The current retry count. Defaults to 0.
+
+    Raises:
+        Exception: If the insertion fails after multiple retries.
+    """
+
+
     try:
         with Surreal(db_params.DB_PARAMS.url) as connection:
             connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
@@ -47,10 +66,24 @@ def insert_chunk_of_rows(insert_record_surql: str, batch_rows: list, retry_count
             
 
 
-def insert_rows(entity_table_name,relation_table_name,source_document_table_name,graph_data_df, company_index, company_metadata_lookup, using_glove, using_fasttext,incrimental_load):
-   # Iterate through chunks and insert records
-    #schema of the csv
+def insert_rows(entity_table_name,relation_table_name,source_document_table_name,graph_data_df, company_metadata_lookup, using_glove, using_fasttext,incrimental_load):
+    """
+    Inserts data from a DataFrame into SurrealDB tables (entities, relations, source documents).
 
+    This function processes the DataFrame in chunks, formatting the data and inserting it into the
+    appropriate SurrealDB tables. It handles different entity types (person, company, relation)
+    and incorporates metadata and embeddings.
+
+    Args:
+        entity_table_name (str): The name of the entity table in SurrealDB.
+        relation_table_name (str): The name of the relation table in SurrealDB.
+        source_document_table_name (str): The name of the source document table in SurrealDB.
+        graph_data_df (pd.DataFrame): The DataFrame containing the graph data to insert.
+        company_metadata_lookup (dict): A dictionary for detailed company metadata (key: CIK, value: company metadata dict).
+        using_glove (bool): Flag indicating whether GloVe embeddings are used.
+        using_fasttext (bool): Flag indicating whether FastText embeddings are used.
+        incremental_load (bool): Flag indicating whether to perform an incremental load.
+    """
     file_keys = {
         "url":"",
         "filer_cik":"",
@@ -72,15 +105,15 @@ def insert_rows(entity_table_name,relation_table_name,source_document_table_name
 
     insert_source_documents_surql = SurrealDML.UPSERT_SOURCE_DOCUMENTS(source_document_table_name)
 
-    insert_entity_record_surql = SurrealDML.UPSERT_GRAPH_ENTITY_RECORDS(entity_table_name,source_document_table_name)
-    insert_relation_record_surql = SurrealDML.UPSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name,source_document_table_name)
+    # insert_entity_record_surql = SurrealDML.UPSERT_GRAPH_ENTITY_RECORDS(entity_table_name,source_document_table_name)
+    # insert_relation_record_surql = SurrealDML.UPSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name,source_document_table_name)
 
-    # if incrimental_load:
-    #     insert_entity_record_surql = SurrealDML.UPSERT_GRAPH_ENTITY_RECORDS(entity_table_name,source_document_table_name)
-    #     insert_relation_record_surql = SurrealDML.UPSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name,source_document_table_name)
-    # else:
-    #     insert_entity_record_surql = SurrealDML.INSERT_GRAPH_ENTITY_RECORDS(entity_table_name,source_document_table_name)
-    #     insert_relation_record_surql = SurrealDML.INSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name,source_document_table_name)
+    if incrimental_load:
+        insert_entity_record_surql = SurrealDML.UPSERT_GRAPH_ENTITY_RECORDS(entity_table_name,source_document_table_name)
+        insert_relation_record_surql = SurrealDML.UPSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name,source_document_table_name)
+    else:
+        insert_entity_record_surql = SurrealDML.INSERT_GRAPH_ENTITY_RECORDS(entity_table_name,source_document_table_name)
+        insert_relation_record_surql = SurrealDML.INSERT_GRAPH_RELATION_RECORDS(entity_table_name,relation_table_name,source_document_table_name)
 
 
     total_rows=len(graph_data_df)
@@ -180,22 +213,19 @@ def insert_rows(entity_table_name,relation_table_name,source_document_table_name
         
 
 
-
-"""Main entrypoint to insert embeddings into SurrealDB."""
 def surreal_edgar_graph_insert() -> None:
+    """
+    Main function to insert EDGAR graph data into SurrealDB.
 
+    This function reads graph data from a CSV file, configures the SurrealDB connection,
+    and calls the `insert_rows` function to perform the data insertion. It also handles
+    command-line arguments for customization.
+    """
     input_file = constants.DEFAULT_EDGAR_GRAPH_PATH
     table_name = ""
     start_date_str = ""
     end_date_str = ""
     incrimental_load = True
-
-    # df = pd.read_csv("data/graph_database_edgar_data.csv")
-    # df.loc[df['entity_type'] == 'realtion', 'entity_type'] = 'relation'
-
-    
-    # df.to_csv("data/graph_database_edgar_data2.csv", index=False)
-    # return
 
 
     # Add command-line argument for embedding models
@@ -258,7 +288,6 @@ def surreal_edgar_graph_insert() -> None:
     logger.info(f"Executting DDL for {table_name}")
 
     logger.info("Getting public companies metadata")
-    company_index, company_metadata_lookup = get_public_companies(logger)
 
 
     using_fasttext = False
@@ -272,7 +301,6 @@ def surreal_edgar_graph_insert() -> None:
         
 
 
-        model_list = ModelListHandler(model_params,connection)
         corpus_list = CorpusTableListHandler(connection,model_params)
 
         
@@ -309,7 +337,7 @@ def surreal_edgar_graph_insert() -> None:
     source_document_table_name = f"{table_name}_source_document"
 
 
-    insert_rows(entity_table_name,relation_table_name,source_document_table_name, graph_data_df,company_index, company_metadata_lookup, using_glove, using_fasttext,incrimental_load)
+    insert_rows(entity_table_name,relation_table_name,source_document_table_name, graph_data_df, company_metadata_lookup, using_glove, using_fasttext,incrimental_load)
 
     if not incrimental_load:
         with Surreal(db_params.DB_PARAMS.url) as connection:

@@ -3,14 +3,18 @@ import re
 
 def extract_text_from_edgar_html(html_content, form_type):
     """
-    Extracts text from Edgar HTML, with improved table handling for FastText.
+    Extracts text from Edgar HTML filings, focusing on relevant sections and improving table handling.
+
+    This function parses HTML content from EDGAR filings, removes irrelevant tags (scripts, styles, etc.),
+    and extracts text from key sections based on the filing's form type (10-K, 10-Q, SC 13D, etc.).
+    It includes enhanced logic to process HTML tables into natural language sentences.
 
     Args:
-        html_content (str): HTML content.
-        form_type (str): Form type (e.g., "10-K").
+        html_content (str): The HTML content of the EDGAR filing.
+        form_type (str): The type of the filing (e.g., "10-K", "10-Q", "S-1").
 
     Returns:
-        str: Extracted text.
+        str: The extracted and processed text from the filing.
     """
     soup = BeautifulSoup(html_content, 'lxml')
 
@@ -116,7 +120,19 @@ def extract_text_from_edgar_html(html_content, form_type):
 
 
 def find_section(soup_obj, section_start):
-    """(Same as before - reused)"""
+    """
+    Finds the starting tag of a section within the BeautifulSoup object.
+
+    This function searches for a tag that contains the section start text, considering various tag types
+    (string, <b>, <span>, <p>) and case-insensitivity.
+
+    Args:
+        soup_obj (BeautifulSoup): The BeautifulSoup object representing the HTML.
+        section_start (str): The text that marks the beginning of the section.
+
+    Returns:
+        bs4.element.Tag or None: The starting tag of the section, or None if not found.
+    """
     section_start_lower = section_start.lower()
     start_tag = soup_obj.find(string=re.compile(r'^\s*' + re.escape(section_start_lower), re.IGNORECASE))
     if start_tag:
@@ -134,7 +150,19 @@ def find_section(soup_obj, section_start):
     return None
 
 def extract_text_between(start_tag, end_tag_text=None):
-    """Extracts text, with improved table handling."""
+    """
+    Extracts text from the HTML between a starting tag and an optional ending tag/text.
+
+    This function iterates through the tags following the start tag, extracting text and handling tables.
+    It stops when it encounters the end_tag_text (if provided) or reaches the end of the document.
+
+    Args:
+        start_tag (bs4.element.Tag): The tag where the extraction should begin.
+        end_tag_text (str, optional): The text that indicates the end of the extraction. Defaults to None.
+
+    Returns:
+        str: The extracted text.
+    """
     if not start_tag:
         return ""
 
@@ -155,6 +183,9 @@ def extract_text_between(start_tag, end_tag_text=None):
 def process_table_to_sentences(table_tag):
     """
     Converts an HTML table to a list of natural language sentences.
+
+    This function extracts data from the table, handling both tables with headers and those without.
+    It also performs basic cleanup of number and currency formatting.
 
     Args:
         table_tag (bs4.element.Tag): The <table> BeautifulSoup tag.

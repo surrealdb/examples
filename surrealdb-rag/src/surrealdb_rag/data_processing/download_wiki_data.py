@@ -11,7 +11,22 @@ import surrealdb_rag.helpers.constants as constants
 
 
 def download_wiki_data() -> None:
-    """Extract `vector_database_wikipedia_articles_embedded.csv` to `/data`."""
+    """
+    Downloads and extracts the Wikipedia articles dataset.
+
+    This function downloads a zipped file containing Wikipedia articles from a specified URL,
+    extracts the `vector_database_wikipedia_articles_embedded.csv` file, and places it in the `/data` directory.
+    It also includes error handling for file extraction.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Raises:
+        FileNotFoundError: If the extracted Wikipedia articles file is not found after extraction.
+    """
     logger = loggers.setup_logger("DownloadData")
 
     logger.info(f"Downloading Wikipedia from {constants.DEFAULT_WIKI_URL} to {constants.DEFAULT_WIKI_ZIP_PATH}")

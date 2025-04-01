@@ -16,7 +16,6 @@ import edgar
 from fuzzywuzzy import fuzz, process
 import unicodedata
 import re
-from surrealdb_rag.data_processing.embeddings import WordEmbeddingModel
 
 
 def fuzzy_merge_people(nlp, people_list, threshold=85):
@@ -314,6 +313,19 @@ def find_relationship_verb(source_token, target_token):
 
 
 def calculate_token_distance_relationship_confidence(source_token,target_token,verb_token):
+    """
+    Calculates a confidence score for a relationship based on the proximity of the
+    verb to the midpoint between the source and target tokens, and the proximity of
+    the source and target tokens to each other.
+
+    Args:
+        source_token (spacy.tokens.Token): The source entity token.
+        target_token (spacy.tokens.Token): The target entity token.
+        verb_token (spacy.tokens.Token): The verb token connecting the entities.
+
+    Returns:
+        float: A confidence score indicating the likelihood of a valid relationship.
+    """
     confidence = 0
 
     start = min(source_token.i, target_token.i)
@@ -338,8 +350,18 @@ def calculate_token_distance_relationship_confidence(source_token,target_token,v
 
 
 def add_directional_relationship(relationships, entity1, entity2, relationship_data, shared_contexts=None):
-    
-     
+    """
+    Adds a directional relationship to the relationships list, handling deduplication,
+    merging shared contexts, and incorporating confidence scores.
+
+    Args:
+        relationships (list): The list of relationship dictionaries.
+        entity1 (dict): The first entity in the relationship.
+        entity2 (dict): The second entity in the relationship.
+        relationship_data (dict): A dictionary containing the 'verb', 'source_is_actor',
+                                 and 'confidence' of the relationship.
+        shared_contexts (list, optional): A list of shared context strings. Defaults to None.
+    """
     if relationship_data["source_is_actor"] == False:
         ent1 = entity2
         ent2 = entity1
@@ -348,11 +370,6 @@ def add_directional_relationship(relationships, entity1, entity2, relationship_d
         ent2 = entity2
         
 
-
-
-    """
-    Adds a directional relationship to the relationships list, de-duplicating, merging shared_contexts, and adding confidence.
-    """
     if shared_contexts is None:
         shared_contexts = []
 
@@ -383,9 +400,20 @@ def write_file_data_to_csv(
             people,
             companies,
             relationships):
-    
+    """
+    Writes extracted entity and relationship data to a CSV file, including embedding vectors.
 
-#url,company_name,cik,form,accession_no,company.ticker_display,company.tickers,company.exchanges,company.description,company.category,company.industry,company.sic,company.website,filing_date,file_path,error
+    Args:
+        dict_writer (csv.DictWriter): The CSV writer object.
+        gloveEmbeddingModel (WordEmbeddingModel): The GloVe embedding model.
+        fastTextEmbeddingModel (WordEmbeddingModel): The FastText embedding model.
+        file_data (dict): Metadata about the current file being processed.
+        people (list): List of extracted people entities.
+        companies (list): List of extracted company entities.
+        relationships (list): List of extracted relationships.
+    """
+
+    #url,company_name,cik,form,accession_no,company.ticker_display,company.tickers,company.exchanges,company.description,company.category,company.industry,company.sic,company.website,filing_date,file_path,error
 
 
 
@@ -487,8 +515,28 @@ def clean_text(text):
     return text
 
 def extract_entities_and_relationships(logger, output_file_path ,files, company_metadata_lookup, company_index, nlp, use_fuzz_company_match = False, return_results = False):
-    """Main function to extract entities and relationships."""
+    """
+    Extracts entities (people and companies) and their relationships from a collection of text files.
 
+    This function processes each file, identifies entities using spaCy's Named Entity Recognition,
+    deduplicates entities, and then extracts relationships between them.  The results are either
+    written to a CSV file or returned as a dictionary.
+
+    Args:
+        logger (logging.Logger): Logger for logging information and errors.
+        output_file_path (str): Path to the output CSV file.
+        files (list): A list of dictionaries, where each dictionary contains file metadata.
+        company_metadata_lookup (dict): A dictionary mapping CIKs to company metadata.
+        company_index (dict): A dictionary for fast company lookup by name/ticker.
+        nlp (spacy.language.Language): The spaCy NLP pipeline.
+        use_fuzz_company_match (bool, optional): Whether to use fuzzy matching for company names. Defaults to False.
+        return_results (bool, optional): Whether to return the extraction results instead of writing to CSV. Defaults to False.
+
+    Returns:
+        dict (optional): If return_results is True, returns a dictionary where keys are file URLs and
+                       values are dictionaries containing 'people', 'companies', and 'relationships'.
+                       Otherwise, returns None.
+    """
 
     logger.info(f"Loading Glove embedding model {constants.DEFAULT_GLOVE_PATH}")
     try:
@@ -622,7 +670,21 @@ def get_name_of_entity_dict(entity):
         e1 = "??"
     return e1
 def get_public_companies(logger):
-    """Gets/creates public company metadata and returns BOTH index and lookup."""
+    """
+    Gets or creates public company metadata and returns both an index (for fast lookups)
+    and a lookup (for detailed information).
+
+    If the metadata file doesn't exist, it creates it by fetching company data from the SEC's EDGAR database.
+    It then loads the metadata into dictionaries for efficient access.
+
+    Args:
+        logger (logging.Logger): Logger for logging information and errors.
+
+    Returns:
+        tuple: A tuple containing two dictionaries:
+               - company_index (dict): A dictionary for fast company lookup (key: lowercase company name or ticker, value: CIK).
+               - company_metadata_lookup (dict): A dictionary for detailed company metadata (key: CIK, value: company metadata dict).
+    """
     if not os.path.exists(constants.EDGAR_PUBLIC_COMPANIES_LIST):
         logger.info(f"Creating {constants.EDGAR_PUBLIC_COMPANIES_LIST}...")
         sample_company = {
@@ -710,7 +772,13 @@ def print_entities_and_relationships(logger, results):
 
 
 def run_edgar_graph_extraction() -> None:
-   
+    """
+    Extracts entities and relationships from EDGAR filings and saves them to a CSV file.
+
+    This function processes EDGAR filings, extracts people, companies, and their relationships,
+    and saves the extracted data to a CSV file. It uses spaCy for natural language processing,
+    fuzzy matching for entity deduplication, and custom logic for relationship extraction.
+    """
 
     index_file = constants.DEFAULT_EDGAR_FOLDER_FILE_INDEX
     output_file = constants.DEFAULT_EDGAR_GRAPH_PATH

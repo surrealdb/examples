@@ -230,6 +230,32 @@ def convert_corpus_graph_to_ux_data(data):
 
 
 def organize_relations_for_ux(relations,parent_identifier):
+
+    """
+    Organizes relations data for user interface display.
+
+    This function takes a list of relations and a parent entity identifier and restructures the data
+    to group relations by the related entity. It determines the related entity (either "in" or "out")
+    based on the parent identifier and creates a dictionary where keys are related entity identifiers
+    and values are dictionaries containing entity information and a list of its relations to the parent.
+
+    Args:
+        relations (list): A list of relation dictionaries. Each relation dictionary is expected to
+                          have "in", "out", "confidence", "relationship", "source_document", and
+                          "contexts" keys. The "in" and "out" values are dictionaries containing
+                          "identifier", "name", and "entity_type" keys.
+        parent_identifier (str): The identifier of the parent entity for which the relations are being organized.
+
+    Returns:
+        dict: A dictionary where keys are related entity identifiers and values are dictionaries with the following structure:
+              {
+                  "identifier": str,
+                  "name": str,
+                  "entity_type": str,
+                  "relations": list of dicts (each dict contains "confidence", "relationship", "source_document", "contexts")
+              }
+    """
+    
     entity_relations_dict = {}
     for relation in relations:
         if relation["in"]["identifier"] == parent_identifier:

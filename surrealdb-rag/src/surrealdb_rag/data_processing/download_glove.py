@@ -11,7 +11,21 @@ import surrealdb_rag.helpers.constants as constants
 
 
 def download_glove_model() -> None:
-    """Extract `glove.6B.txt` to `/data`."""
+    """
+    Downloads and extracts the GloVe word embedding model.
+
+    This function downloads the GloVe model from a specified URL, extracts the `glove.6B.txt` file,
+    and places it in the `/data` directory. It also includes error handling for file extraction.
+
+    Args:
+        None
+
+    Returns:
+        None
+
+    Raises:
+        FileNotFoundError: If the extracted GloVe file is not found after extraction.
+    """
     logger = loggers.setup_logger("DownloadGloveModel")
 
     logger.info("Downloading Wikipedia")

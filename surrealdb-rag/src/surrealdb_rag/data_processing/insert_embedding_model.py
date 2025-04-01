@@ -8,7 +8,8 @@ import tqdm
 from surrealdb_rag.helpers import loggers
 
 
-from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
+from surrealdb_rag.helpers.constants import ArgsLoader
+from surrealdb_rag.helpers.params import DatabaseParams, ModelParams, SurrealParams
 from surrealdb_rag.data_processing.embeddings import WordEmbeddingModel
 
 
@@ -17,7 +18,18 @@ db_params = DatabaseParams()
 model_params = ModelParams()
 args_loader = ArgsLoader("Input Glove embeddings model",db_params,model_params)
 
-# SurrealQL queries for database operations
+"""
+SurrealQL query to insert word embeddings into the database.
+
+This query creates `embedding_model` records, associating each word with its
+embedding vector and the embedding model it belongs to.
+
+Args:
+    $model_trainer (str): The name of the training algorithm (e.g., 'GLOVE', 'FASTTEXT').
+    $model_version (str): The version of the model (e.g., '300d', 'custom wiki').
+    $embeddings (list): A list of dictionaries, where each dictionary represents a word and its embedding.
+                      Each dictionary should have 'word' (str) and 'embedding' (list) keys.
+"""
 INSERT_EMBEDDINGS = """
     LET $model = type::thing('embedding_model_definition',[$model_trainer,$model_version]);
     FOR $row IN $embeddings {
@@ -35,6 +47,19 @@ DELETE embedding_model WHERE model = $model;
 """
 
 
+
+"""
+SurrealQL query to update or insert an embedding model definition.
+
+This query updates the metadata of an embedding model or creates a new record if it doesn't exist.
+
+Args:
+    $model_trainer (str): The name of the training algorithm (e.g., 'GLOVE', 'FASTTEXT').
+    $model_version (str): The version of the model (e.g., '300d', 'custom wiki').
+    $dimensions (int): The dimensionality of the embedding vectors.
+    $corpus (str): Description of the training data.
+    $description (str): Description of the embedding model.
+"""
 UPDATE_EMBEDDING_MODEL_DEF = """
 LET $model = type::thing('embedding_model_definition',[$model_trainer,$model_version]);
 UPSERT embedding_model_definition:[$model_trainer,$model_version] CONTENT {
@@ -49,19 +74,28 @@ UPSERT embedding_model_definition:[$model_trainer,$model_version] CONTENT {
 
 
 CHUNK_SIZE = 1000 # Size of chunks for batch insertion
-
 """
-Inserts word embeddings from a model file into SurrealDB.
-
-Args:
-    model_trainer (str): Name of the training algorithm (e.g., 'GLOVE', 'FASTTEXT').
-    model_version (str): Version of the model (e.g., '300d', 'custom wiki').
-    model_path (str): Path to the model file.
-    description (str): Description of the embedding model.
-    corpus (str): Description of the training data.
-    logger (logging.Logger): Logger instance.
+The number of embedding vectors to insert in each batch. This can be adjusted to optimize
+performance based on the database server's capabilities and network conditions.
 """
+
+
 def surreal_model_insert(model_trainer,model_version,model_path,description,corpus,logger):
+    """
+    Inserts word embeddings from a model file into SurrealDB.
+
+    This function reads a word embedding model file, creates a DataFrame from the word-vector pairs,
+    and then inserts the embeddings into SurrealDB in batches. It also updates the embedding model
+    definition in the database.
+
+    Args:
+        model_trainer (str): Name of the training algorithm (e.g., 'GLOVE', 'FASTTEXT').
+        model_version (str): Version of the model (e.g., '300d', 'custom wiki').
+        model_path (str): Path to the model file.
+        description (str): Description of the embedding model.
+        corpus (str): Description of the training data.
+        logger (logging.Logger): Logger instance.
+    """
 
     logger.info(f"Reading {model_trainer} {model_version} model")
      # Load the embedding model

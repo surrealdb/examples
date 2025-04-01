@@ -10,7 +10,11 @@ from surrealdb_rag.helpers import loggers
 import surrealdb_rag.helpers.constants as constants
 
 
-from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams, SurrealDML
+from surrealdb_rag.helpers.llm_handler import EMBED_MODEL_DEFINITIONS
+from surrealdb_rag.helpers.constants import ArgsLoader
+from surrealdb_rag.helpers.params import DatabaseParams, ModelParams, SurrealParams
+from surrealdb_rag.helpers.surreal_dml import SurrealDML
+
 
 # Initialize database and model parameters, and argument loader
 db_params = DatabaseParams()
@@ -19,17 +23,30 @@ args_loader = ArgsLoader("Input wiki data",db_params,model_params)
 
 # Define table name and display name
 TABLE_NAME = "embedded_wiki"
+"""
+The name of the SurrealDB table where Wikipedia data will be inserted.
+"""
 DISPLAY_NAME = "Wikipedia"
+"""
+The display name for the Wikipedia corpus, used for presentation in user interfaces.
+"""
 
-
-# Chunk size for batch processing
 CHUNK_SIZE = 50
-
+"""
+The number of Wikipedia records to insert into SurrealDB in each batch.
+Adjust this value based on your system's performance capabilities.
+"""
 
 
 """Main entrypoint to insert Wikipedia embeddings into SurrealDB."""
 def surreal_wiki_insert() -> None:
-    # Add command-line argument for embedding models
+    """
+    Main function to insert Wikipedia data with embeddings into SurrealDB.
+
+    This function reads Wikipedia data from a CSV file, configures the SurrealDB connection,
+    and inserts the data into the specified SurrealDB table. It handles different embedding models
+    (GloVe, FastText, OpenAI) and updates corpus table metadata.
+    """
     args_loader.AddArg(
         "embed_models",
         "ems",
@@ -77,7 +94,7 @@ def surreal_wiki_insert() -> None:
             using_fasttext = True
         if embed_model=="GLOVE":
             using_glove = True
-        if embed_model not in SurrealDML.EMBED_MODEL_DEFINITIONS:
+        if embed_model not in EMBED_MODEL_DEFINITIONS:
               raise Exception(f"{embed_model} is invalid, You must specify at least one valid model of GLOVE,FASTTEXT,OPENAI with the -ems flag")
     
     #
@@ -85,9 +102,9 @@ def surreal_wiki_insert() -> None:
     # Create embedding model mappings
     embed_model_mappings = []
     for embed_model in embed_models:
-        if embed_model in SurrealDML.EMBED_MODEL_DEFINITIONS:
-            field_name = SurrealDML.EMBED_MODEL_DEFINITIONS[embed_model]["field_name"]
-            model_definition = SurrealDML.EMBED_MODEL_DEFINITIONS[embed_model]["model_definition"]
+        if embed_model in EMBED_MODEL_DEFINITIONS:
+            field_name = EMBED_MODEL_DEFINITIONS[embed_model]["field_name"]
+            model_definition = EMBED_MODEL_DEFINITIONS[embed_model]["model_definition"]
             # if custom fast text insert the version
             if embed_model == "FASTTEXT":
                 model_definition[1] = fs_version

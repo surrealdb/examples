@@ -1,4 +1,4 @@
-"""Train a fasttext with the wiki data """
+"""Append vectors to the EDGAR CSV file."""
 
 
 
@@ -9,7 +9,8 @@ import datetime
 import re
 import os
 import tqdm
-from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
+from surrealdb_rag.helpers.constants import ArgsLoader
+from surrealdb_rag.helpers.params import DatabaseParams, ModelParams, SurrealParams
 from surrealdb_rag.data_processing.embeddings import WordEmbeddingModel
 import csv
 
@@ -20,7 +21,17 @@ args_loader = ArgsLoader("Input wiki data",db_params,model_params)
 
 
 def has_array_overlap(row, array_field_name, filter_array):
-    """Checks if there's any overlap between the two arrays."""
+    """
+    Checks if there's any overlap between the two arrays in a DataFrame row.
+
+    Args:
+        row (pd.Series): A row from a pandas DataFrame.
+        array_field_name (str): The name of the column in the row containing an array.
+        filter_array (list): The array to check for overlap against.
+
+    Returns:
+        bool: True if there's any overlap, False otherwise.
+    """
     cell = row[array_field_name]
     if not cell:
         return False
@@ -37,6 +48,15 @@ def has_array_overlap(row, array_field_name, filter_array):
 
 # Preprocess the text (example - adjust as needed)
 def preprocess_text(text):
+    """
+    Preprocesses the input text by converting to lowercase, removing punctuation, and normalizing whitespace.
+
+    Args:
+        text (str): The text to preprocess.
+
+    Returns:
+        str: The preprocessed text.
+    """
     token = str(text).lower()
     token = re.sub(r'[^\w\s]', '', token)  # Remove punctuation
     token = re.sub(r'\s+', ' ', token)  # Normalize whitespace (replace multiple spaces, tabs, newlines with a single space)
@@ -83,7 +103,15 @@ def generate_chunks(input_text:str, chunk_size:int)-> list[str]:
 
 
 def create_csv_from_folder(logger,file_index_df: pd.DataFrame , output_file_path, chunk_size:int) -> None:
-    
+    """
+    Creates a CSV file from a folder of text files, embedding the content using GloVe and FastText models.
+
+    Args:
+        logger (logging.Logger): The logger object for logging messages.
+        file_index_df (pd.DataFrame): DataFrame containing file metadata.
+        output_file_path (str): The path to save the output CSV.
+        chunk_size (int): The size of chunks to break each file into.
+    """
 
 
     logger.info(f"Loading Glove embedding model {constants.DEFAULT_GLOVE_PATH}")
@@ -175,7 +203,10 @@ def create_csv_from_folder(logger,file_index_df: pd.DataFrame , output_file_path
 
 
 def generate_edgar_csv() -> None:
-    # Add command-line argument for embedding models
+    """
+    Generates a CSV file from EDGAR filing data, embedding the content using GloVe and FastText models.
+    This function processes filings based on specified criteria like date range, tickers, exchanges, SIC codes, and forms.
+    """
     
     ticker_str = ""
     exchange_str = ""

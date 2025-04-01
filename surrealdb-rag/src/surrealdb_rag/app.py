@@ -11,7 +11,9 @@ from surrealdb_rag.helpers.llm_handler import RAGChatHandler,ModelListHandler
 import uvicorn
 import ast
 from urllib.parse import urlencode
-from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
+
+from surrealdb_rag.helpers.constants import ArgsLoader
+from surrealdb_rag.helpers.params import DatabaseParams, ModelParams, SurrealParams
 
 from surrealdb_rag.helpers.ux_helpers import *
 
@@ -122,6 +124,7 @@ async def get_corpus_table_details(
 @app.get("/get_additional_data_query", response_class=responses.HTMLResponse)
 async def get_additional_data_query(
     request: fastapi.Request,corpus_table: str = fastapi.Query(...),additional_data_field: str = fastapi.Query(...)):
+    """Retrieve simple table from a corpus table."""
 
     corpus_table_detail = life_span["corpus_tables"].get(corpus_table)
     corpus_data_handler = CorpusDataHandler(life_span["surrealdb"],corpus_table_detail)
@@ -193,6 +196,8 @@ async def create_chat(request: fastapi.Request) -> responses.HTMLResponse:
 async def delete_chat(
     request: fastapi.Request, chat_id: str
 ) -> responses.HTMLResponse:
+    
+    """Delete a chat."""
 
     chat_handler = ChatHandler(life_span["surrealdb"])
     await chat_handler.delete_chat(chat_id)
@@ -204,6 +209,7 @@ async def load_chat(
     request: fastapi.Request, chat_id: str
 ) -> responses.HTMLResponse:
 
+    """Load a chat."""
 
     chat_handler = ChatHandler(life_span["surrealdb"])
     chat_detail = await chat_handler.chat_detail(chat_id)
@@ -224,6 +230,7 @@ async def load_message(
 ) -> responses.HTMLResponse:
     
 
+    """Load a message"""
 
     chat_handler = ChatHandler(life_span["surrealdb"])
     message_detail = await chat_handler.message_detail(message_id)
@@ -266,7 +273,7 @@ async def send_user_message(
     number_of_chunks: int = fastapi.Form(...),
     graph_mode: str | None = fastapi.Form(...)
 ) -> responses.HTMLResponse:
-    """Send user message."""
+    """Send user message. The UX will post then call a send_system_message to query the LLM."""
 
     embed_model = ast.literal_eval(embed_model)
     chat_handler = ChatHandler(life_span["surrealdb"])
@@ -299,7 +306,7 @@ async def send_system_message(
     prompt_template: str = fastapi.Form(...),
     number_of_chats: int = fastapi.Form(...)
 ) -> responses.HTMLResponse:
-    """Send system message."""
+    """Send system message. This queries the LLM with the relevant context and inputs"""
 
     
     chat_handler = ChatHandler(life_span["surrealdb"])
@@ -391,6 +398,7 @@ async def load_source_document(
     corpus_table: str = fastapi.Query(...), 
 ) -> responses.HTMLResponse:
     
+    """Load a source document and related info"""
 
     corpus_table_detail = life_span["corpus_tables"].get(corpus_table)
     corpus_data_handler = CorpusDataHandler(life_span["surrealdb"],corpus_table_detail)
@@ -422,7 +430,7 @@ async def load_corpus_graph(
     name_filter: str | None = fastapi.Query(None), 
     graph_size_limit: int | None = fastapi.Query(None)
 ) -> responses.HTMLResponse:
-    """Load a graph for data souece."""
+    """Load a graph for a data source with different filtering parameters."""
 
 
     if graph_size_limit is None:
@@ -461,6 +469,7 @@ async def load_document(
     request: fastapi.Request, document_id: str,
     corpus_table: str = fastapi.Query(...)
 ) -> responses.HTMLResponse:
+    """Load a document detail for a context search."""
     
     corpus_table_detail = life_span["corpus_tables"].get(corpus_table)
     corpus_data_handler = CorpusDataHandler(life_span["surrealdb"],corpus_table_detail)

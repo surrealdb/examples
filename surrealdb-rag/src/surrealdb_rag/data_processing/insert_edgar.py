@@ -9,9 +9,13 @@ import tqdm
 from surrealdb_rag.helpers import loggers
 import surrealdb_rag.helpers.constants as constants
 
+from surrealdb_rag.helpers.llm_handler import EMBED_MODEL_DEFINITIONS
 
 
-from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams, SurrealDML
+
+from surrealdb_rag.helpers.constants import ArgsLoader
+from surrealdb_rag.helpers.params import DatabaseParams, ModelParams, SurrealParams
+from surrealdb_rag.helpers.surreal_dml import SurrealDML
 
 # Initialize database and model parameters, and argument loader
 db_params = DatabaseParams()
@@ -25,7 +29,20 @@ BATCH_SIZE = 100
 
 
 def count_csv_rows_pandas_chunked(csv_filepath, chunk_size=1000): # Adjust chunk_size as needed
-    """Counts CSV rows accurately using pandas chunking, handling embedded newlines."""
+    """
+    Counts CSV rows accurately using pandas chunking, handling embedded newlines.
+
+    This function efficiently counts the number of rows in a CSV file by reading it in chunks.
+    It's designed to handle CSV files that may contain embedded newlines within fields, which
+    can cause incorrect row counts if read line by line.
+
+    Args:
+        csv_filepath (str): The path to the CSV file.
+        chunk_size (int, optional): The number of rows to read in each chunk. Defaults to 1000.
+
+    Returns:
+        int: The total number of rows in the CSV file.
+    """
     total_rows = 0
     csv_chunk_iterator = pd.read_csv(csv_filepath, chunksize=chunk_size)
     for chunk_df in csv_chunk_iterator:
@@ -34,6 +51,21 @@ def count_csv_rows_pandas_chunked(csv_filepath, chunk_size=1000): # Adjust chunk
 
 MAX_RETRY_COUNT = 3
 def insert_chunk_of_rows(insert_record_surql: str, batch_rows: list, retry_count = 0) -> None:
+
+    """
+    Inserts a batch of rows into SurrealDB, with retry logic for handling transient errors.
+
+    This function attempts to insert a chunk of data into the database. If an exception occurs,
+    it retries the insertion up to a maximum number of times.
+
+    Args:
+        insert_record_surql (str): The SurrealQL query for inserting records.
+        batch_rows (list): A list of dictionaries representing the rows to insert.
+        retry_count (int, optional): The current retry count. Defaults to 0.
+
+    Raises:
+        Exception: If the insertion fails after multiple retries.
+    """
     try:
         with Surreal(db_params.DB_PARAMS.url) as connection:
             connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
@@ -50,7 +82,21 @@ def insert_chunk_of_rows(insert_record_surql: str, batch_rows: list, retry_count
 
 
 def insert_rows(table_name, input_file, total_chunks, using_glove, using_fasttext,incrimental_load):
-   # Iterate through chunks and insert records
+    """
+    Inserts data from a CSV file into a SurrealDB table.
+
+    This function reads the CSV file in chunks, formats the data, and inserts it into the specified
+    SurrealDB table. It handles different embedding models (GloVe, FastText) and provides options
+    for incremental loading.
+
+    Args:
+        table_name (str): The name of the SurrealDB table to insert data into.
+        input_file (str): The path to the CSV file containing the data.
+        total_chunks (int): The total number of chunks to process (used for progress tracking).
+        using_glove (bool): Flag indicating whether GloVe embeddings are used.
+        using_fasttext (bool): Flag indicating whether FastText embeddings are used.
+        incremental_load (bool): Flag indicating whether to perform an incremental load.
+    """
     #schema of the csv
     file_keys = {
         "url":"",
@@ -132,7 +178,14 @@ def insert_rows(table_name, input_file, total_chunks, using_glove, using_fasttex
 
 """Main entrypoint to insert embeddings into SurrealDB."""
 def surreal_edgar_insert() -> None:
+    """
+    Main function to insert EDGAR data into SurrealDB.
 
+    This function reads data from a CSV file, configures the SurrealDB connection,
+    and calls the `insert_rows` function to perform the data insertion. It also handles
+    command-line arguments for customization, including specifying embedding models and
+    incremental loading.
+    """
     input_file = constants.DEFAULT_EDGAR_PATH
     table_name = ""
     display_name = ""
@@ -204,7 +257,7 @@ def surreal_edgar_insert() -> None:
                 raise Exception("You must specify at a FASTTEXT version with the -fsv flag")
         if embed_model=="GLOVE":
             using_glove = True
-        if embed_model not in SurrealDML.EMBED_MODEL_DEFINITIONS:
+        if embed_model not in EMBED_MODEL_DEFINITIONS:
               raise Exception(f"{embed_model} is invalid, You must specify at least one valid model of GLOVE,FASTTEXT,OPENAI with the -ems flag")
     
 
@@ -212,9 +265,9 @@ def surreal_edgar_insert() -> None:
     # Create embedding model mappings
     embed_model_mappings = []
     for embed_model in embed_models:
-        if embed_model in SurrealDML.EMBED_MODEL_DEFINITIONS:
-            field_name = SurrealDML.EMBED_MODEL_DEFINITIONS[embed_model]["field_name"]
-            model_definition = SurrealDML.EMBED_MODEL_DEFINITIONS[embed_model]["model_definition"]
+        if embed_model in EMBED_MODEL_DEFINITIONS:
+            field_name = EMBED_MODEL_DEFINITIONS[embed_model]["field_name"]
+            model_definition = EMBED_MODEL_DEFINITIONS[embed_model]["model_definition"]
             # if custom fast text insert the version
             if embed_model == "FASTTEXT":
                 model_definition[1] = fs_version
