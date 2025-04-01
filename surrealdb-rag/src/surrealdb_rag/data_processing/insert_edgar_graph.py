@@ -6,17 +6,17 @@ import pandas as pd
 from surrealdb import Surreal
 import tqdm
 
-from surrealdb_rag import loggers
-import surrealdb_rag.constants as constants
+from surrealdb_rag.helpers import loggers
+import surrealdb_rag.helpers.constants as constants
 import datetime
-from surrealdb_rag.llm_handler import RAGChatHandler,ModelListHandler
+from surrealdb_rag.helpers.llm_handler import RAGChatHandler,ModelListHandler
 
-from surrealdb_rag.edgar_graph_extractor import get_public_companies
+from surrealdb_rag.data_processing.edgar_graph_extractor import get_public_companies
 
 
-from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams, SurrealDML
+from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams, SurrealDML
 
-from surrealdb_rag.corpus_data_handler import CorpusTableListHandler
+from surrealdb_rag.helpers.corpus_data_handler import CorpusTableListHandler
 
 # Initialize database and model parameters, and argument loader
 db_params = DatabaseParams()
@@ -273,7 +273,7 @@ def surreal_edgar_graph_insert() -> None:
 
 
         model_list = ModelListHandler(model_params,connection)
-        corpus_list = CorpusTableListHandler(connection)
+        corpus_list = CorpusTableListHandler(connection,model_params)
 
         
         corpus_tables = corpus_list.available_corpus_tables_sync()

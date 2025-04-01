@@ -5,13 +5,11 @@ import pandas as pd
 from surrealdb import Surreal
 import tqdm
 
-from surrealdb_rag import loggers
+from surrealdb_rag.helpers import loggers
 
 
-from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
-from surrealdb_rag.embeddings import WordEmbeddingModel
-
-import surrealdb_rag.constants as constants
+from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
+from surrealdb_rag.data_processing.embeddings import WordEmbeddingModel
 
 
 # Initialize database and model parameters, and argument loader

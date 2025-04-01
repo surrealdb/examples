@@ -1,9 +1,7 @@
 
-from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader,SurrealParams
-from surrealdb import AsyncSurreal
-import datetime
-from surrealdb_rag.ux_helpers import *
-from surrealdb_rag.llm_handler import RAGChatHandler
+from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader,SurrealParams
+from surrealdb_rag.helpers.ux_helpers import *
+from surrealdb_rag.helpers.llm_handler import RAGChatHandler
 
 
 
@@ -18,8 +16,8 @@ class ChatHandler():
             """RETURN fn::create_chat();"""
         )
         return {
-                "chat_id": chat_record["id"],
-                "chat_title": chat_record["title"],
+                "id": chat_record["id"],
+                "title": chat_record["title"],
             }
         
     async def delete_chat(self,chat_id:str ):

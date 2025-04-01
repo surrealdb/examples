@@ -5,9 +5,9 @@ import zipfile
 import wget
 import os
 
-from surrealdb_rag import loggers
+from surrealdb_rag.helpers import loggers
 
-import surrealdb_rag.constants as constants
+import surrealdb_rag.helpers.constants as constants
 
 
 def download_glove_model() -> None:

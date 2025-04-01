@@ -5,7 +5,7 @@ from ollama import generate,GenerateResponse
 
 import google.generativeai as genai 
 
-from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader
+from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader
 from surrealdb import AsyncSurreal
 import re
 

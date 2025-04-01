@@ -44,7 +44,7 @@ def unformat_url_id(surrealdb_id: str) -> str:
     Returns:
         ID with ':' replaced by '-'.
     """
-def extract_id(surrealdb_id: RecordID) -> str:
+def extract_id(surrealdb_id) -> str:
     
     if RecordID == type(surrealdb_id):
     #return surrealdb_id.id

@@ -1,11 +1,11 @@
 
 from surrealdb import Surreal
 
-from surrealdb_rag import loggers
+from surrealdb_rag.helpers import loggers
 
 
-from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
-import surrealdb_rag.constants as constants
+from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
+import surrealdb_rag.helpers.constants as constants
 # Initialize parameter objects and argument loader
 db_params = DatabaseParams()
 model_params = ModelParams()

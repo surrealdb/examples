@@ -3,15 +3,13 @@
 
 import fasttext
 
-from surrealdb_rag import loggers
-import surrealdb_rag.constants as constants
-import pandas as pd
+from surrealdb_rag.helpers import loggers
+import surrealdb_rag.helpers.constants as constants
 import fasttext
-import re
 import os
 import tqdm
 
-from surrealdb_rag.embeddings import WordEmbeddingModel
+from surrealdb_rag.data_processing.embeddings import WordEmbeddingModel
 
 def concatenate_text_files_in_folder(logger,folder_path, output_file_path):
     """

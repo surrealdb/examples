@@ -3,14 +3,14 @@
 
 import fasttext
 
-from surrealdb_rag import loggers
-import surrealdb_rag.constants as constants
+from surrealdb_rag.helpers import loggers
+import surrealdb_rag.helpers.constants as constants
 import pandas as pd
 import fasttext
 import os
 import tqdm
 
-from surrealdb_rag.embeddings import WordEmbeddingModel
+from surrealdb_rag.data_processing.embeddings import WordEmbeddingModel
 
 
 def wiki_train_fastText() -> None:

@@ -6,20 +6,20 @@ from collections.abc import AsyncGenerator
 import fastapi
 from surrealdb import AsyncSurreal,RecordID
 from fastapi import responses, staticfiles, templating
-from surrealdb_rag.llm_handler import RAGChatHandler,ModelListHandler
+from surrealdb_rag.helpers.llm_handler import RAGChatHandler,ModelListHandler
 
 import uvicorn
 import ast
 from urllib.parse import urlencode
-from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
+from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
 
-from surrealdb_rag.ux_helpers import *
+from surrealdb_rag.helpers.ux_helpers import *
 
-from surrealdb_rag.prompt_templates import PROMPT_TEXT_TEMPLATES
+from surrealdb_rag.helpers.prompt_templates import PROMPT_TEXT_TEMPLATES
 
-from surrealdb_rag.corpus_data_handler import CorpusTableListHandler,CorpusDataHandler
+from surrealdb_rag.helpers.corpus_data_handler import CorpusTableListHandler,CorpusDataHandler
 
-from surrealdb_rag.chat_handler import ChatHandler
+from surrealdb_rag.helpers.chat_handler import ChatHandler
 
 
 # Load configuration parameters
@@ -54,7 +54,7 @@ async def lifespan(_: fastapi.FastAPI) -> AsyncGenerator:
 
     model_list = ModelListHandler(model_params,life_span["surrealdb"])
 
-    corpus_list = CorpusTableListHandler(life_span["surrealdb"])
+    corpus_list = CorpusTableListHandler(life_span["surrealdb"],model_params)
     
     
     life_span["llm_models"] = await model_list.available_llm_models()
@@ -125,7 +125,7 @@ async def get_additional_data_query(
 
     corpus_table_detail = life_span["corpus_tables"].get(corpus_table)
     corpus_data_handler = CorpusDataHandler(life_span["surrealdb"],corpus_table_detail)
-    query_results = await corpus_data_handler.get_additional_data_query(corpus_table_detail,additional_data_field)
+    query_results = await corpus_data_handler.query_additional_data(additional_data_field)
 
 
     return templates.TemplateResponse(
@@ -212,7 +212,7 @@ async def load_chat(
         "chat.html",
         {
             "request": request,
-            "messages": chat_detail["message_records"],
+            "messages": chat_detail["messages"],
             "chat": chat_detail["chat"]
         },
     )
@@ -282,7 +282,7 @@ async def send_user_message(
             "request": request,
             "chat_id": chat_id,
             "new_message": True,
-            "message" : message
+            "message" : message["message"]
         },
     )
 
@@ -431,7 +431,7 @@ async def load_corpus_graph(
     corpus_table_detail = life_span["corpus_tables"].get(corpus_table)
     corpus_data_handler = CorpusDataHandler(life_span["surrealdb"],corpus_table_detail)
 
-    corpus_graph_data = corpus_data_handler.corpus_graph_data(
+    corpus_graph_data = await corpus_data_handler.corpus_graph_data(
         corpus_table_detail,
         graph_start_date,
         graph_end_date,

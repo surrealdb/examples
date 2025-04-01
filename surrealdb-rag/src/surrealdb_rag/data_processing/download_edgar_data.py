@@ -2,21 +2,21 @@
 
 import os
 
-from surrealdb_rag import loggers
+from surrealdb_rag.helpers import loggers
 
-import surrealdb_rag.constants as constants
+import surrealdb_rag.helpers.constants as constants
 
-from surrealdb_rag.embeddings import WordEmbeddingModel
+from surrealdb_rag.data_processing.embeddings import WordEmbeddingModel
 
 import tqdm
 import datetime
 
-from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader
+from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader
 
 import csv
 import edgar
 
-from surrealdb_rag.fin_data_extractor import extract_text_from_edgar_html
+from surrealdb_rag.data_processing.fin_data_extractor import extract_text_from_edgar_html
 
 
 # Initialize database and model parameters, and argument loader

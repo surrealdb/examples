@@ -2,15 +2,15 @@
 
 
 
-from surrealdb_rag import loggers
-import surrealdb_rag.constants as constants
+from surrealdb_rag.helpers import loggers
+import surrealdb_rag.helpers.constants as constants
 import pandas as pd
 import datetime
 import re
 import os
 import tqdm
-from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
-from surrealdb_rag.embeddings import WordEmbeddingModel
+from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
+from surrealdb_rag.data_processing.embeddings import WordEmbeddingModel
 import csv
 
 # Initialize database and model parameters, and argument loader

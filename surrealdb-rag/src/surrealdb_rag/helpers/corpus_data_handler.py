@@ -1,8 +1,8 @@
 
-from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader
+from surrealdb_rag.helpers.constants import DatabaseParams, ModelParams, ArgsLoader
 from surrealdb import AsyncSurreal
 import datetime
-from surrealdb_rag.ux_helpers import *
+from surrealdb_rag.helpers.ux_helpers import *
 
 CORPUS_TABLE_SELECT = """
         SELECT 
@@ -35,9 +35,12 @@ class CorpusTableListHandler():
             model_params (ModelParams): Model parameters.
             connection (AsyncSurreal): Asynchronous SurrealDB connection.
         """
-    def __init__(self, connection):
+    def __init__(self, connection:AsyncSurreal,model_params:ModelParams):
         self.CORPUS_TABLES = {}
         self.connection = connection
+        self.model_params = model_params
+        
+        
     
     
 

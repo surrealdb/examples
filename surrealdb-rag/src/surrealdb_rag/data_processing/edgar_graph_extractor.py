@@ -1,11 +1,10 @@
 import edgar.company
 import spacy
 from tqdm import tqdm
-from surrealdb_rag import loggers  
-import surrealdb_rag.constants as constants
+from surrealdb_rag.helpers import loggers  
+import surrealdb_rag.helpers.constants as constants
 import pandas as pd
-from surrealdb_rag.constants import DatabaseParams, ModelParams, ArgsLoader, SurrealParams
-from surrealdb_rag.embeddings import WordEmbeddingModel
+from surrealdb_rag.data_processing.embeddings import WordEmbeddingModel
 import csv
 import ast
 import spacy
@@ -17,7 +16,7 @@ import edgar
 from fuzzywuzzy import fuzz, process
 import unicodedata
 import re
-from surrealdb_rag.embeddings import WordEmbeddingModel
+from surrealdb_rag.data_processing.embeddings import WordEmbeddingModel
 
 
 def fuzzy_merge_people(nlp, people_list, threshold=85):
