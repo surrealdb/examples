@@ -29,7 +29,12 @@ def surreal_create_database() -> None:
     """
     logger = loggers.setup_logger("SurrealCreateDatabase")
 
+    overwrite = False
+    args_loader.AddArg("overwrite","o","overwrite","Boolean to delete existing database if true. (default{0})",overwrite)
     args_loader.LoadArgs() # Parse command-line arguments
+
+    if args_loader.AdditionalArgs["overwrite"]["value"]:
+        overwrite = str(args_loader.AdditionalArgs["overwrite"]["value"]).lower()in ("true","yes","1")
 
     logger.info(args_loader.string_to_print())
     with Surreal(db_params.DB_PARAMS.url) as connection:
@@ -37,14 +42,25 @@ def surreal_create_database() -> None:
         connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
         logger.info("Creating database")
          # SurrealQL query to create namespace and database
-        query= f"""
+
+        if overwrite:
+            query= f"""
+                    
+                    DEFINE NAMESPACE IF NOT EXISTS {db_params.DB_PARAMS.namespace};
+                    USE NAMESPACE {db_params.DB_PARAMS.namespace};
+                    REMOVE DATABASE IF EXISTS {db_params.DB_PARAMS.database};
+                    DEFINE DATABASE {db_params.DB_PARAMS.database};
+                    USE DATABASE {db_params.DB_PARAMS.database};
+                """
+        else:
+            query= f"""
                 
-                DEFINE NAMESPACE IF NOT EXISTS {db_params.DB_PARAMS.namespace};
-                USE NAMESPACE {db_params.DB_PARAMS.namespace};
-                REMOVE DATABASE IF EXISTS {db_params.DB_PARAMS.database};
-                DEFINE DATABASE {db_params.DB_PARAMS.database};
-                USE DATABASE {db_params.DB_PARAMS.database};
-            """
+                    DEFINE NAMESPACE IF NOT EXISTS {db_params.DB_PARAMS.namespace};
+                    USE NAMESPACE {db_params.DB_PARAMS.namespace};
+                    DEFINE DATABASE IF NOT EXISTS {db_params.DB_PARAMS.database};
+                    USE DATABASE {db_params.DB_PARAMS.database};
+                """
+        
         logger.info(query)
 
         # Execute the query and check for errors

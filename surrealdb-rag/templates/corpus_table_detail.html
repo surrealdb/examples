@@ -27,7 +27,6 @@ $('.expand-contexts').click(function(){
     theElementToToggle.slideToggle('fast').focus();;
 });
 </script>
-
 {% if corpus_table_detail['corpus_graph_tables'] %}
     <h5>Knowledge Graph
         <button hx-get="/load_graph" hx-target="main" id="loadGraphButton"

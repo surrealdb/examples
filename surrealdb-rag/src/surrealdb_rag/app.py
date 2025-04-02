@@ -7,6 +7,7 @@ import fastapi
 from surrealdb import AsyncSurreal,RecordID
 from fastapi import responses, staticfiles, templating
 from surrealdb_rag.helpers.llm_handler import RAGChatHandler,ModelListHandler
+from fastapi.exceptions import RequestValidationError
 
 import uvicorn
 import ast
@@ -22,6 +23,9 @@ from surrealdb_rag.helpers.prompt_templates import PROMPT_TEXT_TEMPLATES
 from surrealdb_rag.helpers.corpus_data_handler import CorpusTableListHandler,CorpusDataHandler
 
 from surrealdb_rag.helpers.chat_handler import ChatHandler
+
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException
 
 
 # Load configuration parameters
@@ -271,14 +275,17 @@ async def send_user_message(
     embed_model: str = fastapi.Form(...),
     corpus_table: str = fastapi.Form(...),
     number_of_chunks: int = fastapi.Form(...),
-    graph_mode: str | None = fastapi.Form(...)
+    graph_mode: str | None = fastapi.Form(None)
 ) -> responses.HTMLResponse:
     """Send user message. The UX will post then call a send_system_message to query the LLM."""
 
     embed_model = ast.literal_eval(embed_model)
     chat_handler = ChatHandler(life_span["surrealdb"])
   
-    
+    if not graph_mode:
+        graph_mode = ""
+
+        
     message = await chat_handler.create_user_message(
         chat_id, corpus_table, content, embed_model, number_of_chunks, graph_mode,model_params.openai_token
     )
@@ -485,8 +492,12 @@ async def load_document(
         },
     )
 
-
-
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: fastapi.Request, exc: RequestValidationError):
+	exc_str = f'{exc}'.replace('\n', ' ').replace('   ', ' ')
+	#logging.error(f"{request}: {exc_str}")
+	content = {'status_code': 10422, 'message': exc_str, 'data': None}
+	return JSONResponse(content=content, status_code=fastapi.status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
 

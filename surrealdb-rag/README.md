@@ -129,10 +129,10 @@ The backend is built with FastAPI, the UI with Jinja2, and dynamic interactivity
 
     ```bash
     create_db -url http://localhost:8000
-    download_edgar -edsd 2024-01-01 -edf "10-K,10-Q"
+    download_edgar -edsd 2025-01-01 -edf "10-K,10-Q"
     train_edgar
     insert_edgar_fs -url http://localhost:8000
-    add_edgar_vectors -edsd 2024-01-01 -edf "10-K,10-Q" 
+    add_edgar_vectors -edsd 2025-01-01 -edf "10-K,10-Q" 
     insert_edgar -fsv "EDGAR Data" -ems GLOVE,FASTTEXT -tn embedded_edgar -dn "Latest SEC filings" -url http://localhost:8000 -il False
     ```
 
@@ -434,6 +434,33 @@ The backend is built with FastAPI, the UI with Jinja2, and dynamic interactivity
             * `-penv` or `--pass_env`: The environment variable name for the database password.
             * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
             * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
+
+##   Key Libraries
+
+This project leverages several powerful libraries to achieve its functionality:
+
+* **FastAPI:** A modern, fast (high-performance), web framework for building APIs with Python 3.7+ based on standard Python type hints.
+* **Jinja2:** A fast, expressive, and extensible templating engine. HTML, XML or other markup formats can be generated via templates.
+* **htmx:** Allows you to access AJAX, CSS Transitions, WebSockets and Server Sent Events directly in HTML, using attributes.
+* **SurrealDB:** A multi-model database system that supports SQL, graph queries, and real-time collaboration. [SurrealDB Installation](https://surrealdb.com/install)
+* **edgar:** A Python library to interact with the SEC EDGAR database.
+* **Transformers:** Provides general-purpose architectures for Natural Language Understanding (NLU) and Natural Language Generation (NLG).
+* **SpaCy:** A library for advanced Natural Language Processing in Python.
+* **FuzzyWuzzy:** A library for string matching and fuzzy string comparison.
+* **python-Levenshtein:** A Python extension for fast computation of the Levenshtein distance and string similarity.
+* **Ollama:** A tool for running Language Models locally. [Ollama](https://ollama.ai/) and [Ollama Model Library](https://ollama.ai/library)
+* **google.generativeai:** Google's library for interacting with their generative AI models (e.g., Gemini).
+* **openai:** OpenAI's Python library for accessing their models and APIs.
+* **wget:** A non-interactive network downloader.
+* **pandas:** A fast, powerful, flexible and easy to use open source data analysis and manipulation tool, built on top of the Python programming language.
+* **pandas-stubs:** Type hints for pandas.
+* **python-multipart:** A parser for multipart/form-data content in Python.
+
+##   UI Libraries
+
+* **Lightpick:** A lightweight, customizable date range picker. [https://wakirin.github.io/Lightpick/](https://wakirin.github.io/Lightpick/)
+* **VivaGraphJS:** A graph drawing library. [https://github.com/anvaka/VivaGraphJS/](https://github.com/anvaka/VivaGraphJS/)
+
 
 ##   Acknowledgments
 

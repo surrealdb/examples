@@ -83,11 +83,13 @@ class CorpusTableListHandler():
             self.CORPUS_TABLES[table_name]["table_name"] = corpus_table["table_name"]
             self.CORPUS_TABLES[table_name]["additional_data_keys"] = corpus_table["additional_data_keys"]
             self.CORPUS_TABLES[table_name]["embed_models"] = []
-            self.CORPUS_TABLES[table_name]["corpus_graph_tables"] = corpus_table["corpus_graph_tables"]
             #datetime not serializable
             if corpus_table["corpus_graph_tables"] and corpus_table["corpus_graph_tables"]["date_range"]:
+                self.CORPUS_TABLES[table_name]["corpus_graph_tables"] = corpus_table["corpus_graph_tables"]
                 self.CORPUS_TABLES[table_name]["corpus_graph_tables"]["date_range"]["min"] = str(corpus_table["corpus_graph_tables"]["date_range"]["min"])
                 self.CORPUS_TABLES[table_name]["corpus_graph_tables"]["date_range"]["max"] = str(corpus_table["corpus_graph_tables"]["date_range"]["max"])
+            else:
+                self.CORPUS_TABLES[table_name]["corpus_graph_tables"] = None
 
             for model in corpus_table["embed_models"]:
                 model_def =  model["model"]

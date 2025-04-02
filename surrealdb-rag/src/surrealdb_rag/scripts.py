@@ -7,6 +7,7 @@ import datetime
 URL = ""
 
 def run_process(command: list):
+    print(f"Running \n{command}")
     subprocess.run(command, check=True)
     print(f"Successfully executed command: \n{command}")
 
@@ -84,7 +85,7 @@ def insert_wiki(): # Alias definition IN this file
     """Runs the embedding model insertion for GLOVE."""
     command = [
         "python",
-        "./src/surrealdb_rag/insert_wiki.py", # Path to THIS script
+        "./src/surrealdb_rag/data_processing/insert_wiki.py", # Path to THIS script
         "-fsv",
         "wiki", # NO quotes needed
         "-ems",
@@ -116,14 +117,14 @@ def incriment_latest_edgar_graph():
 
 def setup_edgar_graph():
     edgar_graph_extraction()
-    insert_edgar_graph(il=False,delta_days=30)
+    insert_edgar_graph(il=False,delta_days=10)
 
 
 
 def edgar_graph_extraction():
     run_process(["python", "./src/surrealdb_rag/data_processing/edgar_graph_extractor.py"])
 
-def insert_edgar_graph(il=True,delta_days=30):
+def insert_edgar_graph(il=True,delta_days=10):
     end_date = datetime.date.today()
     start_date = end_date - datetime.timedelta(days=delta_days) 
     start_date_str = start_date.strftime('%Y-%m-%d')
@@ -156,7 +157,7 @@ def setup_edgar():
 
 
 # python ./src/surrealdb_rag/download_edgar_data.py
-def download_edgar(delta_days=90):
+def download_edgar(delta_days=10):
     end_date = datetime.date.today()
     start_date = end_date - datetime.timedelta(days=delta_days) 
     start_date_str = start_date.strftime('%Y-%m-%d')

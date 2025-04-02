@@ -119,10 +119,14 @@ def insert_rows(table_name, input_file, total_chunks, using_glove, using_fasttex
         "content_glove_vector":"",
         "content_fasttext_vector":"",
         }.keys()
-    if incrimental_load:
-        insert_record_surql = SurrealDML.UPSERT_RECORDS(table_name)
-    else:
-        insert_record_surql = SurrealDML.INSERT_RECORDS(table_name)
+    
+
+    insert_record_surql = SurrealDML.UPSERT_RECORDS(table_name)
+    
+    # if incrimental_load:
+    #     insert_record_surql = SurrealDML.UPSERT_RECORDS(table_name)
+    # else:
+    #     insert_record_surql = SurrealDML.INSERT_RECORDS(table_name)
 
     #with tqdm.tqdm(total=total_chunks, desc="Inserting Batches") as pbar: # Progress bar for batches
     with tqdm.tqdm(total=total_chunks,desc="Inserting Batches") as pbar: # Progress bar for batches
@@ -304,23 +308,16 @@ def surreal_edgar_insert() -> None:
             # Update corpus table information
             logger.info(f"Deleting any existing corpus table info for {table_name}")
             SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.DELETE_CORPUS_TABLE_INFO(table_name),params={"embed_models":embed_model_mappings}))
-    
+            # Update corpus table information
+            logger.info(f"Updating corpus table info for {table_name}")
+            SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.UPDATE_CORPUS_TABLE_INFO(table_name,display_name),params={"embed_models":embed_model_mappings}))
+
 
 
     logger.info("Inserting rows into SurrealDB")
     insert_rows(table_name, input_file, total_chunks, using_glove, using_fasttext, incrimental_load)
 
-    if not incrimental_load:
-        with Surreal(db_params.DB_PARAMS.url) as connection:
-            logger.info(f"Connecting to SurrealDB")
-            connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
-            connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
-            logger.info("Connected to SurrealDB")
-
-            # Update corpus table information
-            logger.info(f"Updating corpus table info for {table_name}")
-            SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.UPDATE_CORPUS_TABLE_INFO(table_name,display_name),params={"embed_models":embed_model_mappings}))
-
+            
 
 
 
