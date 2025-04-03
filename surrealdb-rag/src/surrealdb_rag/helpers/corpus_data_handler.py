@@ -332,8 +332,13 @@ class CorpusDataHandler():
         }
     
 
-    async def corpus_graph_data(self,corpus_table_detail:dict,graph_start_date:str = None,graph_end_date:str = None,
-                                    identifier:str = None,relationship:str = None,name_filter:str = None,url:str = None,graph_size_limit:int = 100):
+    async def corpus_graph_data(self,corpus_table_detail:dict,graph_start_date:str = None,
+                                graph_end_date:str = None,
+                                    identifier:str = None,relationship:str = None,
+                                    name_filter:str = None,url:str = None,
+                                    context_filter:str = None,
+                                    embed_model:any = None,
+                                    graph_size_limit:int = 100):
 
 
         """
@@ -347,6 +352,8 @@ class CorpusDataHandler():
             relationship (str, optional): Type of relationship to filter. Defaults to None.
             name_filter (str, optional): Filter entities by name. Defaults to None.
             url (str, optional): Filter by source document URL. Defaults to None.
+            context_filter (str, optional): Filter vector search on the relation contexts, will ignore other parameters if using. Defaults to None.
+            embed_model (str, optional): Required if using context_filter. Defaults to None.
             graph_size_limit (int, optional): Maximum number of relationships to return. Defaults to 100.
 
         Returns:
@@ -362,82 +369,161 @@ class CorpusDataHandler():
                     source_document,
                     out.{id,entity_type,name,source_document,identifier},
                     in.{id,entity_type,name,source_document,identifier}
-                    FROM type::table($relation_table_name)
             """ 
         
         params = {"relation_table_name":corpus_graph_tables.get("relation_table_name")} 
         
         graph_title = "Graph "
         where_clause = ""
-        if graph_start_date:
-            start_date = datetime.datetime.strptime(graph_start_date, '%Y-%m-%d')
+
+
+
+        vector_fetch_sql = ""
+
+        #context filter isn't working in combo right now.
+        if context_filter:
             if where_clause:
                 where_clause += " AND "
-            where_clause += """ <datetime>(type::field($relation_date_field)) >= $start_date"""
-            params["start_date"] = start_date
-            params["entity_date_field"] = corpus_graph_tables.get("entity_date_field")
-            params["relation_date_field"] = corpus_graph_tables.get("relation_date_field")
-            graph_title += f"from {start_date.strftime('%Y-%m-%d')} "
+
+                           
+
+            vector_fetch_sql = """
+                    LET $threshold = 0.7;
+                    LET $embedding_model = type::thing('embedding_model_definition',$embedding_model_id);
+                    LET $vector = IF $embedding_model.model_trainer == "OPENAI" THEN 
+                        fn::openai_embeddings_complete($embedding_model.version, $context_filter, $openai_token)
+                    ELSE
+                        fn::sentence_to_vector($context_filter,$embedding_model)
+                    END;
+                    """
+            
+
+            params["context_filter"] = context_filter
+            params["embedding_model_id"] = embed_model["model"]
+            params["corpus_table"] =  corpus_table_detail.get("table_name")
+            match embed_model["model_trainer"]:
+                case "GLOVE":
+                    context_vector_field = "context_glove_vector"
+                case "FASTTEXT":
+                    context_vector_field = "context_fasttext_vector"
+                case "OPENAI":
+                    context_vector_field = "context_openai_vector"
+                case _:
+                    raise Exception(f"Unknown model_trainer {embed_model['model_trainer']}")
+                
+            # Add the similarity score to the select statement
+            select_sql_string += f", vector::similarity::cosine({context_vector_field}, $vector) AS similarity_score "
+
+            where_clause += f"""
+                {context_vector_field} <|{graph_size_limit},{graph_size_limit}|> $vector
+                     """
+            
+
+
+
+
+            
+
+            graph_title += f" '{context_filter}'"
+
+
+        #context filter isn't working in combo right now.
         else:
-            start_date = None
+            if graph_start_date:
+                start_date = datetime.datetime.strptime(graph_start_date, '%Y-%m-%d')
+                if where_clause:
+                    where_clause += " AND "
+                where_clause += """ <datetime>(type::field($relation_date_field)) >= $start_date"""
+                params["start_date"] = start_date
+                params["entity_date_field"] = corpus_graph_tables.get("entity_date_field")
+                params["relation_date_field"] = corpus_graph_tables.get("relation_date_field")
+                graph_title += f"from {start_date.strftime('%Y-%m-%d')} "
+            else:
+                start_date = None
 
-        if graph_end_date:
-            end_date = datetime.datetime.strptime(graph_end_date, '%Y-%m-%d')
-            if where_clause:
-                where_clause += " AND "
-            where_clause += """ <datetime>(type::field($relation_date_field)) <= $end_date"""
-            params["end_date"] = end_date
-            params["entity_date_field"] = corpus_graph_tables.get("entity_date_field")
-            params["relation_date_field"] = corpus_graph_tables.get("relation_date_field")
-            graph_title += f"to {end_date.strftime('%Y-%m-%d')} "
-        else:
-            end_date = None
+            if graph_end_date:
+                end_date = datetime.datetime.strptime(graph_end_date, '%Y-%m-%d')
+                if where_clause:
+                    where_clause += " AND "
+                where_clause += """ <datetime>(type::field($relation_date_field)) <= $end_date"""
+                params["end_date"] = end_date
+                params["entity_date_field"] = corpus_graph_tables.get("entity_date_field")
+                params["relation_date_field"] = corpus_graph_tables.get("relation_date_field")
+                graph_title += f"to {end_date.strftime('%Y-%m-%d')} "
+            else:
+                end_date = None
 
-        if identifier:
-            if where_clause:
-                where_clause += " AND "
-            where_clause += """ (in.identifier = $identifier OR out.identifier = $identifier)"""
-            params["identifier"] = identifier
-            graph_title += f"for {identifier} "
-
-
-        if name_filter:
-            if where_clause:
-                where_clause += " AND "
-            where_clause += """ (in.name @1@ $name_filter or out.name  @2@ $name_filter)"""
-            params["name_filter"] = name_filter
-            graph_title += f""" "{name_filter}" """
+            if identifier:
+                if where_clause:
+                    where_clause += " AND "
+                where_clause += """ (in.identifier = $identifier OR out.identifier = $identifier)"""
+                params["identifier"] = identifier
+                graph_title += f"for {identifier} "
 
 
-        if relationship:    
-            if where_clause:
-                where_clause += " AND "
-            where_clause += """ relationship = $relationship"""
-            params["relationship"] = relationship
-            graph_title += f"with relationship {relationship} "
+            if name_filter:
+                if where_clause:
+                    where_clause += " AND "
+                where_clause += """ (in.name @1@ $name_filter or out.name  @2@ $name_filter)"""
+                params["name_filter"] = name_filter
+                graph_title += f""" "{name_filter}" """
 
-        if url:   
-            url = unformat_url_id(url)
-            if where_clause:
-                where_clause += " AND "
-            where_clause += """ (source_document.url = $url 
-                        OR in.source_document.url = $url 
-                        OR out.source_documen.url = $url)"""
-            params["url"] = url
-            graph_title += f"for {url} "
+
+            if relationship:    
+                if where_clause:
+                    where_clause += " AND "
+                where_clause += """ relationship = $relationship"""
+                params["relationship"] = relationship
+                graph_title += f"with relationship {relationship} "
+
+            if url:   
+                url = unformat_url_id(url)
+                if where_clause:
+                    where_clause += " AND "
+                where_clause += """ (source_document.url = $url 
+                            OR in.source_document.url = $url 
+                            OR out.source_documen.url = $url)"""
+                params["url"] = url
+                graph_title += f"for {url} "
+
+
+
+        # Add the from statment
+        select_sql_string += " FROM type::table($relation_table_name) "
 
         if where_clause:
             select_sql_string += " WHERE " + where_clause
+            
 
-        select_sql_string += f" LIMIT {graph_size_limit} FETCH in.source_document, out.source_document;"
-        
+        if vector_fetch_sql:
+            sql_to_execute = f"""
+                {vector_fetch_sql}
+                SELECT * FROM (
+                    {select_sql_string}
+                    FETCH in.source_document, out.source_document
+                )
+                WHERE similarity_score >= $threshold;
+            """
 
 
+            graph_data = SurrealParams.ParseResponseForErrors( await self.connection.query_raw(
+                sql_to_execute ,
+                params = params 
+                )
+            )
+            #there are 2 let statements before the query
+            graph_data = graph_data["result"][3]["result"]
+        else:
 
-        graph_data = await self.connection.query(
-            select_sql_string ,
-            params = params 
-        )
+            sql_to_execute = f"""
+                {select_sql_string}
+                LIMIT {graph_size_limit} FETCH in.source_document, out.source_document;
+            """
+
+            graph_data = await self.connection.query(
+                sql_to_execute ,
+                params = params 
+            )
         graph_size = len(graph_data)
 
         return {

@@ -30,7 +30,7 @@ $('.expand-contexts').click(function(){
 {% if corpus_table_detail['corpus_graph_tables'] %}
     <h5>Knowledge Graph
         <button hx-get="/load_graph" hx-target="main" id="loadGraphButton"
-            hx-include="#corpusTableSelect,#graphDateStart,#graphDateEnd,#graphSizeLimit,#relationship,#nameFilter">View
+            hx-include="#corpusTableSelect,#graphDateStart,#graphDateEnd,#graphSizeLimit,#relationship,#nameFilter,#contextFilter">View
             </button>
         </h5>
         <div class="sub_selection_details">
@@ -96,6 +96,8 @@ $('.expand-contexts').click(function(){
         </select>
         <input name="relationship" id="relationship" class="nav_input" placeholder="Relationship Filter">
         <input name="name_filter" id="nameFilter" class="nav_input" placeholder="Name Filter">
+        <br>OR:<br>
+        <input name="context_filter" id="contextFilter" class="nav_input" placeholder="Context Search">
     </div>
 {% endif %}
 

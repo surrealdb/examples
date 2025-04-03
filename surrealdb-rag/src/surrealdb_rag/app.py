@@ -435,7 +435,10 @@ async def load_corpus_graph(
     relationship: str | None = fastapi.Query(None), 
     url: str | None = fastapi.Query(None), 
     name_filter: str | None = fastapi.Query(None), 
-    graph_size_limit: int | None = fastapi.Query(None)
+    context_filter: str | None = fastapi.Query(None),
+    graph_size_limit: int | None = fastapi.Query(None),
+
+
 ) -> responses.HTMLResponse:
     """Load a graph for a data source with different filtering parameters."""
 
@@ -446,10 +449,12 @@ async def load_corpus_graph(
     corpus_table_detail = life_span["corpus_tables"].get(corpus_table)
     corpus_data_handler = CorpusDataHandler(life_span["surrealdb"],corpus_table_detail)
 
+    # let's grab the first for no other reason
+    embed_model = corpus_table_detail["embed_models"][0]
+
+
     if url:
         url = unformat_url_id(url)
-
-
 
     corpus_graph_data = await corpus_data_handler.corpus_graph_data(
         corpus_table_detail,
@@ -459,6 +464,8 @@ async def load_corpus_graph(
         relationship,
         name_filter,
         url,
+        context_filter,
+        embed_model,
         graph_size_limit
     )
     

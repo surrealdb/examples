@@ -2,3 +2,5 @@
 **/*.swp
 **/*.swo
 **/target
+adv-graph/*
+surrealml/*

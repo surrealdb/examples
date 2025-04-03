@@ -319,7 +319,6 @@ $openai_token: option<string>) {
 
     LET $threshold = 0.7;
     LET $confidence_threshold = 5;
-    LET $confidence_threshold = 5;
     LET $max_graph_size_per_doc = 100;
     LET $max_graph_size = 1000;
     
