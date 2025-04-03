@@ -16,6 +16,8 @@ import edgar
 from fuzzywuzzy import fuzz, process
 import unicodedata
 import re
+import subprocess
+import sys
 
 
 def fuzzy_merge_people(nlp, people_list, threshold=85):
@@ -716,6 +718,7 @@ def get_public_companies(logger):
                     logger.info(f"Error fetching data for CIK {cik_row['cik']}: {e}")
         logger.info("Company metadata file created.")
 
+    logger.info(f"Reading {constants.EDGAR_PUBLIC_COMPANIES_LIST}...")
     # Load metadata and build BOTH the index and the lookup
     company_metadata_lookup = {}
     company_index = {}
@@ -796,7 +799,27 @@ def run_edgar_graph_extraction() -> None:
 
 
     company_index, company_metadata_lookup = get_public_companies(logger)
-    nlp = spacy.load("en_core_web_lg")  # Load spaCy model *once*
+
+
+
+    model_name = "en_core_web_lg"
+
+    logger.info(f"Loading spaCy model '{model_name}'...")
+
+    try:
+        nlp = spacy.load(model_name)
+        print(f"spaCy model '{model_name}' loaded successfully.")
+    except OSError:
+        print(f"spaCy model '{model_name}' not found. Downloading...")
+        try:
+            subprocess.check_call([sys.executable, "-m", "spacy", "download", model_name])
+            nlp = spacy.load(model_name)
+            print(f"spaCy model '{model_name}' downloaded and loaded successfully.")
+        except subprocess.CalledProcessError as e:
+            print(f"Error downloading spaCy model: {e}")
+            sys.exit(1) #exit the program due to failure.
+
+
 
     files = file_index_df.to_dict(orient='records')
 

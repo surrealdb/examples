@@ -30,7 +30,7 @@ dependencies = [
     "torch",
     "fuzzywuzzy",
     "python-Levenshtein",
-    "spacy" # Base spacy
+    "spacy", # Base spacy
 ]
 
 [tool.poetry.group.apple]
@@ -39,6 +39,8 @@ dependencies = ["spacy[apple]"]
 [tool.poetry.group.apple.markers]
 platform_system = "Darwin"
 platform_machine = "arm64"
+
+
 
 [project.scripts]
 create_db = "surrealdb_rag.scripts:create_database"

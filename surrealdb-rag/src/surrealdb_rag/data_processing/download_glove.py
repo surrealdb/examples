@@ -28,9 +28,17 @@ def download_glove_model() -> None:
     """
     logger = loggers.setup_logger("DownloadGloveModel")
 
+
+    if os.path.exists(constants.DEFAULT_GLOVE_PATH):
+        logger.info(f"File already exists: {constants.DEFAULT_GLOVE_PATH}")
+        return
+
     logger.info("Downloading Wikipedia")
     if not os.path.exists("data"):
         os.makedirs("data")
+
+
+    
     wget.download(
         url=constants.DEFAULT_GLOVE_URL,
         out=constants.DEFAULT_GLOVE_ZIP_PATH,

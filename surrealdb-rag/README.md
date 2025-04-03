@@ -64,13 +64,13 @@ The backend is built with FastAPI, the UI with Jinja2, and dynamic interactivity
 * **Environment Variables:**
     * Set these in your shell configuration (e.g., `.bashrc`, `.zshrc`) or use a `.env` file.
     ```
-    SURREAL_RAG_USER  # SurrealDB username
-    SURREAL_RAG_PASS  # SurrealDB password
-    SURREAL_RAG_DB_URL # SurrealDB connection URL (e.g., http://localhost:8000)
-    SURREAL_RAG_DB_NS  # SurrealDB namespace
-    SURREAL_RAG_DB_DB  # SurrealDB database
+    SURREAL_RAG_USER=<SurrealDB username>
+    SURREAL_RAG_PASS=<SurrealDB password>
+    SURREAL_RAG_DB_URL=<SurrealDB connection URL> (e.g., ws://localhost:8000 or wss://xxx_cloud_id_xxx.surreal.cloud)
+    SURREAL_RAG_DB_NS=<SurrealDB namespace> (e.g. RAG_NS)
+    SURREAL_RAG_DB_DB=<SurrealDB namespace> (e.g. RAG_DB)
 
-    OPENAI_API_KEY     # OpenAI API Key
+    OPENAI_API_KEY     # OpenAI API Key (if using ChatGPT)
     GOOGLE_GENAI_API_KEY # Google Gemini API Key (if using Gemini)
     ```
     * **Crucially:** Ensure your OpenAI and Gemini keys are also added to the `surrealdb_rag/schema/common_function_ddl.surql` file. This allows SurrealDB functions to access them when making external API calls.
@@ -150,7 +150,7 @@ The backend is built with FastAPI, the UI with Jinja2, and dynamic interactivity
         insert_edgar -fsv "EDGAR Data" -ems GLOVE,FASTTEXT -tn embedded_edgar -dn "Latest SEC filings" -url http://localhost:8000 -il True
     ```
 
-    Running the following will incrementally load data from 10 days prior
+    Running the following will incrementally load data from 5 days prior
 
     ```bash
         incriment_latest_edgar
@@ -181,7 +181,7 @@ The backend is built with FastAPI, the UI with Jinja2, and dynamic interactivity
         insert_edgar_graph -il True -edsd <some date as of last load>
     ```
 
-    Running the following will incrementally load data from 10 days prior
+    Running the following will incrementally load data from 5 days prior
 
     ```bash
         incriment_latest_edgar_graph

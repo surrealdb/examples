@@ -337,6 +337,8 @@ def surreal_edgar_graph_insert() -> None:
     source_document_table_name = f"{table_name}_source_document"
 
 
+    company_index, company_metadata_lookup = get_public_companies(logger)
+    
     insert_rows(entity_table_name,relation_table_name,source_document_table_name, graph_data_df, company_metadata_lookup, using_glove, using_fasttext,incrimental_load)
 
     if not incrimental_load:
@@ -353,7 +355,7 @@ def surreal_edgar_graph_insert() -> None:
                 "relation_table_name": relation_table_name,
                 "source_document_table_name": source_document_table_name,
                 "entity_date_field": "additional_data.filing_date",
-                "relation_date_field": "additional_data.filing_date"
+                "relation_date_field": "source_document.additional_data.filing_date"
                 }))
 
 

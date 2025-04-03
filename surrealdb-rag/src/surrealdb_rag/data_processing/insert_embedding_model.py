@@ -72,6 +72,10 @@ UPSERT embedding_model_definition:[$model_trainer,$model_version] CONTENT {
 };
 """
 
+CHECK_IF_MODEL_EXISTS = """
+    RETURN embedding_model_definition:[$model_trainer,$model_version].* IS NOT NONE
+    AND array::len(SELECT * FROM embedding_model:[embedding_model_definition:[$model_trainer,$model_version],'the']) > 0;
+"""
 
 CHUNK_SIZE = 1000 # Size of chunks for batch insertion
 """
@@ -80,7 +84,7 @@ performance based on the database server's capabilities and network conditions.
 """
 
 
-def surreal_model_insert(model_trainer,model_version,model_path,description,corpus,logger):
+def surreal_model_insert(model_trainer,model_version,model_path,description,corpus,overwrite,logger):
     """
     Inserts word embeddings from a model file into SurrealDB.
 
@@ -97,18 +101,31 @@ def surreal_model_insert(model_trainer,model_version,model_path,description,corp
         logger (logging.Logger): Logger instance.
     """
 
-    logger.info(f"Reading {model_trainer} {model_version} model")
-     # Load the embedding model
-    embeddingModel = WordEmbeddingModel(model_path, model_trainer=="FASTTEXT") 
-    # Create DataFrame from model data.
-    embeddings_df = pd.DataFrame({'word': embeddingModel.dictionary.keys(), 'embedding': embeddingModel.dictionary.values()})
-    # Calculate number of chunks for batch processing.
-    total_rows = len(embeddings_df)
-    total_chunks = (total_rows + CHUNK_SIZE - 1) // CHUNK_SIZE  # Calculate number of chunks for batch processing
     with Surreal(db_params.DB_PARAMS.url) as connection:
+
+
         connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
         connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
         logger.info("Connected to SurrealDB")
+
+        if not overwrite:
+            # Check if the model already exists in the database.
+            result = connection.query(CHECK_IF_MODEL_EXISTS,params={"model_trainer":model_trainer,"model_version":model_version})
+            if result == True:
+                logger.info(f"Model {model_trainer} {model_version} already exists -- exiting. Use -ow to overwrite.")
+                return
+
+
+        logger.info(f"Reading {model_trainer} {model_version} model")
+        # Load the embedding model
+        embeddingModel = WordEmbeddingModel(model_path, model_trainer=="FASTTEXT") 
+        # Create DataFrame from model data.
+        embeddings_df = pd.DataFrame({'word': embeddingModel.dictionary.keys(), 'embedding': embeddingModel.dictionary.values()})
+        # Calculate number of chunks for batch processing.
+        total_rows = len(embeddings_df)
+        total_chunks = (total_rows + CHUNK_SIZE - 1) // CHUNK_SIZE  # Calculate number of chunks for batch processing
+
+
         logger.info(f"Deleting any rows from {model_trainer} {model_version}")
 
         # Delete existing embeddings for this particular model
@@ -155,7 +172,7 @@ def surreal_embeddings_insert() -> None:
 
     """Main entrypoint to insert glove embedding model into SurrealDB."""
     logger = loggers.setup_logger("SurrealEmbeddingsInsert")
-
+    overwrite = False
     # Add command-line arguments specific to embedding insertion.
     args_loader.AddArg(
         "model_trainer","emtr","model_trainer","The name of the training algorithm: 'GLOVE' or 'FASTTEXT' (Default{0})",None
@@ -172,7 +189,10 @@ def surreal_embeddings_insert() -> None:
     args_loader.AddArg(
         "corpus","cor","corpus","a description of the embedding model training data. (Default{0})",None
         )
+    
 
+    args_loader.AddArg("overwrite","ow","overwrite","If true delete the model and re-upload. Else exit if model and data exists. (default{0})",overwrite)
+    
     # Parse command-line arguments.
     args_loader.LoadArgs()
 
@@ -195,13 +215,16 @@ def surreal_embeddings_insert() -> None:
     if not description:
         raise Exception("You must supply a model corpus")
 
+    if args_loader.AdditionalArgs["overwrite"]["value"]:
+        overwrite = str(args_loader.AdditionalArgs["overwrite"]["value"]).lower()in ("true","yes","1")
+
 
     # Log the parsed arguments.
     logger.info(args_loader.string_to_print())
 
     
     # Insert the embedding model.
-    surreal_model_insert(model_trainer,model_version,model_path,description,corpus,logger)
+    surreal_model_insert(model_trainer,model_version,model_path,description,corpus,overwrite,logger)
 
     logger.info(f"Model loaded!")
 

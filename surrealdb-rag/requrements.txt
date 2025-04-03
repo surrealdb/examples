@@ -19,7 +19,6 @@ transformers
 fuzzywuzzy
 python-Levenshtein
 spacy  # Base spacy installation
-en-core-web-trf
 
 # Conditional dependency for Apple Silicon
 # This will likely NOT work directly with pip install -r requirements.txt

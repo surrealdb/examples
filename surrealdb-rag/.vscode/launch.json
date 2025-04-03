@@ -16,7 +16,7 @@
             "name": "Python: Insert Edgar (with args)", // A descriptive name for your configuration
             "type": "debugpy",
             "request": "launch",
-            "program": "/Users/sandro/git_repos/examples-1/surrealdb-rag/src/surrealdb_rag/insert_edgar.py", // Path to your script
+            "program": "/Users/sandro/git_repos/examples-1/surrealdb-rag/src/surrealdb_rag/data_processing/insert_edgar.py", // Path to your script
             "console": "integratedTerminal", // Or "internalConsole" if you prefer output in the Debug Console
             "justMyCode": true, // Set to false if you want to step into library code
             "python": "/Users/sandro/git_repos/examples-1/surrealdb-rag/.venv/bin/python", // Explicitly set your venv Python interpreter
@@ -33,7 +33,7 @@
             "name": "Python: Gen edgar (with args)", // A descriptive name for your configuration
             "type": "debugpy",
             "request": "launch",
-            "program": "/Users/sandro/git_repos/examples-1/surrealdb-rag/src/surrealdb_rag/edgar_build_csv_append_vectors.py", // Path to your script
+            "program": "/Users/sandro/git_repos/examples-1/surrealdb-rag/src/surrealdb_rag/data_processing/edgar_build_csv_append_vectors.py", // Path to your script
             "console": "integratedTerminal", // Or "internalConsole" if you prefer output in the Debug Console
             "justMyCode": true, // Set to false if you want to step into library code
             "python": "/Users/sandro/git_repos/examples-1/surrealdb-rag/.venv/bin/python", // Explicitly set your venv Python interpreter
@@ -45,7 +45,7 @@
             "name": "Python: Insert edgar graph (with args)", // A descriptive name for your configuration
             "type": "debugpy",
             "request": "launch",
-            "program": "/Users/sandro/git_repos/examples-1/surrealdb-rag/src/surrealdb_rag/insert_edgar_graph.py", // Path to your script
+            "program": "/Users/sandro/git_repos/examples-1/surrealdb-rag/src/surrealdb_rag/data_processing/insert_edgar_graph.py", // Path to your script
             "console": "integratedTerminal", // Or "internalConsole" if you prefer output in the Debug Console
             "justMyCode": true, // Set to false if you want to step into library code
             "python": "/Users/sandro/git_repos/examples-1/surrealdb-rag/.venv/bin/python", // Explicitly set your venv Python interpreter
@@ -61,7 +61,7 @@
             "name": "incriment insert edgar", // A descriptive name for your configuration
             "type": "debugpy",
             "request": "launch",
-            "program": "/Users/sandro/git_repos/examples-1/surrealdb-rag/src/surrealdb_rag/insert_edgar.py", // Path to your script
+            "program": "/Users/sandro/git_repos/examples-1/surrealdb-rag/src/surrealdb_rag/data_processing/insert_edgar.py", // Path to your script
             "console": "integratedTerminal", // Or "internalConsole" if you prefer output in the Debug Console
             "justMyCode": true, // Set to false if you want to step into library code
             "python": "/Users/sandro/git_repos/examples-1/surrealdb-rag/.venv/bin/python", // Explicitly set your venv Python interpreter
@@ -71,9 +71,34 @@
                 "-tn","embedded_edgar",
                 "-dn","Latest SEC filings",
                 "-url","",
-                "il",true
+                "il","true"
             ]
         }
+        ,
+        {
+            "name": "insert glove embeddings", // A descriptive name for your configuration
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/Users/sandro/git_repos/examples-1/surrealdb-rag/src/surrealdb_rag/data_processing/insert_embedding_model.py", // Path to your script
+            "console": "integratedTerminal", // Or "internalConsole" if you prefer output in the Debug Console
+            "justMyCode": true, // Set to false if you want to step into library code
+            "python": "/Users/sandro/git_repos/examples-1/surrealdb-rag/.venv/bin/python", // Explicitly set your venv Python interpreter
+            "args": [ // Array of command-line arguments
+                "-emtr",
+                "GLOVE",
+                "-emv",
+                "6b 300d",
+                "-emp",
+                "data/glove.6B.300d.txt",
+                "-des",
+                "Wikipedia 2014 + Gigaword 5 (6B tokens, 400K vocab, uncased) https://nlp.stanford.edu/projects/glove/",
+                "-cor",
+                "Wikipedia 2014 + Gigaword 5 (6B tokens, 400K vocab, uncased)", 
+            ]
+        }
+
+       
+        
 
 
 

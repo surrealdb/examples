@@ -285,7 +285,7 @@ async def send_user_message(
     if not graph_mode:
         graph_mode = ""
 
-        
+
     message = await chat_handler.create_user_message(
         chat_id, corpus_table, content, embed_model, number_of_chunks, graph_mode,model_params.openai_token
     )
@@ -446,14 +446,19 @@ async def load_corpus_graph(
     corpus_table_detail = life_span["corpus_tables"].get(corpus_table)
     corpus_data_handler = CorpusDataHandler(life_span["surrealdb"],corpus_table_detail)
 
+    if url:
+        url = unformat_url_id(url)
+
+
+
     corpus_graph_data = await corpus_data_handler.corpus_graph_data(
         corpus_table_detail,
         graph_start_date,
         graph_end_date,
         identifier,
         relationship,
-        url,
         name_filter,
+        url,
         graph_size_limit
     )
     

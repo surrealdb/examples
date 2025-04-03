@@ -110,21 +110,21 @@ def setup_wiki():
 
 
 def incriment_latest_edgar_graph():
-    download_edgar(10)
-    add_vectors_to_edgar(10)
+    download_edgar(5)
+    add_vectors_to_edgar(5)
     edgar_graph_extraction()
-    insert_edgar_graph(il=True,delta_days=10)
+    insert_edgar_graph(il=True,delta_days=5)
 
 def setup_edgar_graph():
     edgar_graph_extraction()
-    insert_edgar_graph(il=False,delta_days=10)
+    insert_edgar_graph(il=False,delta_days=5)
 
 
 
 def edgar_graph_extraction():
     run_process(["python", "./src/surrealdb_rag/data_processing/edgar_graph_extractor.py"])
 
-def insert_edgar_graph(il=True,delta_days=10):
+def insert_edgar_graph(il=True,delta_days=5):
     end_date = datetime.date.today()
     start_date = end_date - datetime.timedelta(days=delta_days) 
     start_date_str = start_date.strftime('%Y-%m-%d')
@@ -141,8 +141,8 @@ def insert_edgar_graph(il=True,delta_days=10):
 
 
 def incriment_latest_edgar():
-    download_edgar(10)
-    add_vectors_to_edgar(10)
+    download_edgar(5)
+    add_vectors_to_edgar(2)
     insert_edgar()
 
 def setup_edgar():
@@ -150,6 +150,8 @@ def setup_edgar():
     download_edgar()
     train_edgar()
     insert_edgar_fs()
+    download_glove()
+    insert_glove()
     add_vectors_to_edgar()
     insert_edgar(False)
 
@@ -157,7 +159,7 @@ def setup_edgar():
 
 
 # python ./src/surrealdb_rag/download_edgar_data.py
-def download_edgar(delta_days=10):
+def download_edgar(delta_days=5):
     end_date = datetime.date.today()
     start_date = end_date - datetime.timedelta(days=delta_days) 
     start_date_str = start_date.strftime('%Y-%m-%d')
@@ -192,7 +194,7 @@ def insert_edgar_fs(): # Alias definition IN this file
 
 
 # python ./src/surrealdb_rag/edgar_build_csv_append_vectors.py
-def add_vectors_to_edgar(delta_days=7):
+def add_vectors_to_edgar(delta_days=5):
     end_date = datetime.date.today()
     start_date = end_date - datetime.timedelta(days=delta_days) 
     start_date_str = start_date.strftime('%Y-%m-%d')
