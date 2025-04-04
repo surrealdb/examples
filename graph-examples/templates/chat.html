@@ -1,0 +1,102 @@
+<div class="chat-header nav">
+        <h3 id="{{ chat.id | extract_id }}_title">{{chat.title}}</h3> (ID: {{chat.id}}) 
+    
+        <h4>RAG Settings:
+
+                <div class="sub_selection_details">
+                    <select name="platformSelect" id="platformSelect" onchange="updateLlmModelSelect()">
+                        <option>GOOGLE</option>
+                        <option>OPENAI</option>
+                        <option>OLLAMA</option>
+                    </select>
+                    <select name="hostSelect" id="hostSelect" onchange="updateLlmModelSelect()">
+                        <option>API</option>
+                        <option>SQL</option>
+                        <option>OLLAMA</option>
+                    </select>
+                    <select id="llmModelSelect" name="llm_model">
+                    </select>
+                    <button id="togglePrompt">Prompt Settings</button>
+                </div>
+     
+            </h4>
+
+            <h5>
+                <span>
+            Content Length:
+            <select id="numberOfChunks" name="number_of_chunks">
+                {% for i in range(1, 100) %}
+                    <option value="{{ i }}"  {% if i == 10 %}selected{% endif %}>{{ i }} chunks</option>
+                {% endfor %}
+            </select>
+            </span>
+            <span>
+            Chat Memory Length:
+            <select id="numberOfChats" name="number_of_chats">
+                {% for i in range(1, 100) %}
+                    <option value="{{ i }}"  {% if i == 10 %}selected{% endif %}>{{ i }} messages</option>
+                {% endfor %}
+            </select>
+                </span>
+                <span>
+                
+            <div id="graphToggle">
+                Use knowledge graph:
+                <select name="graph_mode" id="graphModeSelect">
+                    <option value="document">Generate from included documents</option>
+                    <option value="context">Generate from relationship context</option>
+                    <option value="">Don't include</option>
+                </select>
+            </div>
+                </span>
+            </h5>
+    
+    </div>
+<div class="messages">
+    {% for message in messages %}
+
+    {% include 'message.html' %}
+    
+    {% endfor %}
+</div>
+
+<form id="messageform" hx-post="/chats/{{ chat.id }}/send-user-message" hx-target=".messages" hx-swap="beforeend" 
+hx-include="#llmModelSelect, #embedModelSelect, #corpusTableSelect, #numberOfChunks, #graphModeSelect">
+   
+    <input type="text" name="content" required />
+    <button>Send</button>
+</form>
+
+
+<script>
+    updateLlmModelSelect();
+    
+    
+    if (show_graph_toggle == false){
+        var graphToggle = document.getElementById('graphToggle');
+        graphToggle.style.display = 'none';
+        var graphModeSelect = document.getElementById('graphModeSelect');
+        graphModeSelect.disabled = true;
+    }else{
+
+        var graphToggle = document.getElementById('graphToggle');
+        graphToggle.style.display = 'block';
+        var graphModeSelect = document.getElementById('graphModeSelect');
+        graphModeSelect.disabled = false;
+
+    }
+
+    var togglePrompt = document.getElementById('togglePrompt');
+    var togglePromptArea = document.getElementById('togglePromptArea');
+
+    if (togglePrompt) {
+        togglePrompt.addEventListener('click', function() {
+            document.getElementById('myModal').style.display = 'block';
+            document.getElementById("promptArea").style.display = "block";
+        });
+    } else {
+        console.error("togglePrompt button not found.");
+    }
+
+        
+</script>

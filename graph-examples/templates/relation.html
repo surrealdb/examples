@@ -1,0 +1,20 @@
+
+
+
+{% for relation in relation_info %}
+
+<h1>{{relation["in"]["name"]}} -> {{relation["relationship"]}} -> {{relation["out"]["name"]}} </h1>
+<p>Confidence: {{relation["confidence"] | round(1)}}</p>
+<p>Source Document: <a hx-get="/source_documents/{{ relation["source_document"]["url"] | format_url_id  }}" class="doc" hx-target="node_detail"
+hx-include="#corpusTableSelect">{{relation["source_document"]["title"]}}</a>
+<pre style="white-space: pre-wrap;">{{relation["source_document"]["additional_data"]}}</pre>
+
+</p>
+<div class="sitesection">
+    Context
+    {%for context in relation["contexts"] %}
+        <pre style="white-space: pre-wrap;">{{context}}</pre>
+    {% endfor %}
+</div>
+
+{% endfor %}

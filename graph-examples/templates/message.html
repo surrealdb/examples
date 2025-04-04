@@ -1,0 +1,66 @@
+
+
+<div class="{{ message.role }} message"
+{% if new_message %}
+    {% if message.role=="user" %}
+        hx-trigger="load" hx-post="chats/{{ chat_id }}/send-system-message" hx-target=".messages"
+        hx-include="#promptTemplateText, #llmModelSelect, #embedModelSelect, #corpusTableSelect, #numberOfChats"
+    {% endif %}
+    hx-swap="beforeend" >
+{% else %}
+   >
+{% endif %}
+    <div class="message-header">
+    <span class="messenger-name">{{ message.role | capitalize }}</span>
+        
+
+            <span class=" message-time">{{ message.timestamp | convert_timestamp_to_date }}
+                <button hx-get="/messages/{{ message.id }}" id="message-{{ message.id | extract_id }}" class="message"
+                hx-swap="innerHTML" hx-target="message_detail">
+                    detail
+                </button> 
+
+            </span>
+        </div>
+
+
+        {% if new_message %}
+
+            {% if message.role=="user" %}
+                <script>document.getElementById('messageform').reset();</script>
+            {% endif %}
+        
+        
+        
+            {% if new_title %}
+        
+                <div id="update-button-data" data-new-title="{{ new_title }}"></div>
+                <script>
+                updateData = document.getElementById('update-button-data');
+                
+                if (updateData && updateData.dataset.newTitle) {
+                        newTitle = updateData.dataset.newTitle;
+                        
+                        
+                        button = document.querySelector('#{{ chat_id | extract_id }}'); 
+                    
+                        if (button) {
+                            button.textContent = newTitle;
+                            updateData.dataset.newTitle = "";
+                        }
+                        span = document.querySelector('#{{ chat_id | extract_id }}_title'); 
+                        if (span) {
+                            span.innerHTML = newTitle;
+                            updateData.dataset.newTitle = "";
+                        }
+                    }
+                    
+                </script>
+        
+            {% endif %}
+        {% endif %}
+        {% if message.think %}
+            <pre style='white-space: pre-wrap;'>{{ message.think }}</pre>
+        {% endif %}
+        <p class="message-content">{{ message.content | safe }}</p>
+    </div>

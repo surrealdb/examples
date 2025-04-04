@@ -1,0 +1,118 @@
+
+
+<h5>Embedding:
+<select id="embedModelSelect" name="embed_model" hx-get="/get_embed_model_details"
+hx-trigger="change"
+hx-target="#embedModelDetails"
+hx-include="this, #corpusTableSelect">
+{% for embed_model in corpus_table_detail['embed_models'] %}
+    <option value='{{embed_model["model"]}}'>{{' - '.join(embed_model["model"])}}</option>
+{% endfor %}
+</select>
+<button  class="expand-contexts">
+    +
+</button>
+<br>
+<div id="embedModelDetails" class="expand-contexts-content">
+    {% if default_embed_model %}
+        Dimensions: {{default_embed_model['dimensions']}}, Host: {{default_embed_model['host']}}<br> 
+        Corpus: {{default_embed_model['corpus']}}<br>  
+        Description: {{default_embed_model['description']}}
+    {% endif %}
+</div>
+</h5>
+<script>
+$('.expand-contexts').click(function(){
+    theElementToToggle = $(this).parent().find('> .expand-contexts-content');
+    theElementToToggle.slideToggle('fast').focus();;
+});
+</script>
+{% if corpus_table_detail['corpus_graph_tables'] %}
+    <h5>Knowledge Graph
+        <button hx-get="/load_graph" hx-target="main" id="loadGraphButton"
+            hx-include="#corpusTableSelect,#graphDateStart,#graphDateEnd,#graphSizeLimit,#relationship,#nameFilter,#contextFilter">View
+            </button>
+        </h5>
+        <div class="sub_selection_details">
+        {% if corpus_table_detail['corpus_graph_tables']['relation_date_field'] %}
+
+            <div class="graphDate">
+
+
+            <input name="graph_start_date" id="graphDateStart">
+            <input name="graph_end_date" id="graphDateEnd">
+            </div>
+            <script>
+                var max_date = "{{ corpus_table_detail['corpus_graph_tables']['date_range']['max']}}";
+                var min_date = "{{ corpus_table_detail['corpus_graph_tables']['date_range']['min']}}";
+
+                var default_days_back = 1 * 24 * 60 * 60 * 1000;
+                var default_start_date = new Date(new Date(max_date).getTime() - default_days_back).toISOString();
+                
+                document.getElementById('graphDateStart').value = default_start_date;
+                document.getElementById('graphDateEnd').value = max_date;
+                var picker = new Lightpick({
+                    field: document.getElementById('graphDateStart'),
+                    secondField: document.getElementById('graphDateEnd'),
+                    singleDate: false,
+                    selectBackward: true,
+                    numberOfMonths: 3,
+                    numberOfColumns: 3,
+                    minDays: 1,
+                    maxDays: 120,
+                    repick: true,
+                    orientation: "top left",
+                    minDate: min_date,
+                    maxDate: max_date,
+                    format: 'YYYY-MM-DD',
+                    onSelect: function(start, end){
+                        var str = '';
+                        str += start ? start.format('YYYY-MM-DD') + ' to ' : '';
+                        str += end ? end.format('YYYY-MM-DD') : '...';
+                        //console.log(str);
+                        // load_graph_button = document.getElementById('loadGraphButton');
+                        // if (load_graph_button) {
+                        //     load_graph_button.click();
+                        // }
+
+                    }
+                });
+                
+                show_graph_toggle = true;
+            
+            </script>
+        {% else %}
+            <script>
+
+                show_graph_toggle = false;
+                
+            </script>
+        {% endif %}
+        <select id="graphSizeLimit" name="graph_size_limit">
+            <option value='1000'>Max nodes: 1,000</option>
+            <option value='10000'>Max nodes: 10,000</option>
+            <option value='100000'>Max nodes: 100,000</option>
+            <option value='1000000'>Max nodes: 1,000,000</option>
+        </select>
+        <input name="relationship" id="relationship" class="nav_input" placeholder="Relationship Filter">
+        <input name="name_filter" id="nameFilter" class="nav_input" placeholder="Name Filter">
+        <br>OR:<br>
+        <input name="context_filter" id="contextFilter" class="nav_input" placeholder="Context Search">
+    </div>
+{% endif %}
+
+<h5>Additional Data <button id="toggleQuery">Query</button></h5>
+    
+
+<script>
+    toggleQuery = document.getElementById('toggleQuery');
+    if (toggleQuery) {
+        toggleQuery.addEventListener('click', function() {
+            document.getElementById('myModal').style.display = 'block';
+            document.getElementById("queryArea").style.display = "block";
+        });
+    } else {
+        console.error("toggleQuery button not found.");
+    }
+
+</script>

@@ -1,0 +1,254 @@
+
+<h4 class="graphTitle">{{graph_title}} ({{graph_size}} relations displayed)</h4>
+
+
+
+<div id="{{graph_id | safe}}" class="graphContainer"></div>
+
+
+{% if graph_size_limit<=graph_size %}
+<div class="graph_warning">
+    Maximum graph size reached.  Only displaying first {{graph_size_limit}} nodes and edges.
+</div>
+{% endif %}
+    <script>
+
+
+        the_data = {{ graph_data | tojson }};
+        corpus_table = "{{ corpus_table }}";
+        node_edge_count_min = the_data.node_edge_count_min;   
+        node_edge_count_max = the_data.node_edge_count_max;   
+        node_edge_count_mean = the_data.node_edge_count_mean;
+        
+        function renderGraph(graphData) {
+            var graphGenerator = Viva.Graph.generator();
+            var graph = graphGenerator.grid(3, 3);
+
+            // 1. Add nodes to the graph
+            graphData.nodes.forEach(node => {
+                graph.addNode(node.id, {
+                    label: node.label,
+                    type: node.type,
+                    source_document: node.source_document,
+                    link: "/entity_detail?corpus_table=" + corpus_table + "&identifier=" + node.id,
+                    edge_count: node.edge_count,
+                    entity_type:node.entity_type
+                });
+            });
+
+            
+            // 2. Add edges to the graph
+            graphData.edges.forEach(edge => {
+
+                if (!graph.hasLink(edge.source, edge.target)) {
+
+                    if (edge.source === edge.target) {
+                        console.warn("Zero-length link detected:", edge); // Log it
+                        // Option 1: Don't add the link to the graph at all
+                        // (usually the best option)
+
+                        // Option 2: Add a small offset to one of the nodes (hacky)
+                        // graph.addNode(edge.target + "_offset", { ... });
+                        // graph.addLink(edge.source, edge.target + "_offset", ...);
+
+                        //Option 3, log it and keep going
+                    } else {
+
+                        
+                        graph.addLink(edge.source, edge.target, {
+                            label: edge.label,
+                            confidence: edge.confidence,
+                            link: "/relation_detail?corpus_table=" + corpus_table 
+                                + "&identifier_in=" + edge.source
+                                + "&identifier_out=" + edge.target
+                                + "&relationship=" + edge.label
+                        });
+                    }
+                }
+            });
+
+
+
+            var graphics = Viva.Graph.View.svgGraphics();
+            graphics.node(function(node){
+                var label_str = ""
+                var edge_count = 0
+                var entity_type = ""
+                if( node.data ){
+                    label_str = node.data.label
+                    edge_count = node.data.edge_count
+                    entity_type = node.data.entity_type
+                    link = node.data.link
+                }
+
+
+                // Create the text element directly.  No need for a group or rectangle.
+                const label = Viva.Graph.svg('text')
+                    .attr('class', 'node-label')  // Keep the class for styling
+                    .text(label_str);
+
+                
+                switch(entity_type){
+                    case "company":
+                        label.attr('fill', `pink`);
+                        break;
+                    case "person":
+                        label.attr('fill', `purple`);
+                        break;
+                    default:
+                        label.attr('fill', `green`);
+                }
+                // --- KEY CHANGE: Dynamically set font-size based on edge_count ---
+
+                const fontSize = calculateFontSize(edge_count, node_edge_count_min, node_edge_count_max, 10, 100);
+                label.attr('font-size', `${fontSize}px`);
+
+                // Optional: Center the text vertically and horizontally (if desired)
+                label.attr('text-anchor', 'middle'); // Horizontal centering
+                label.attr('dy', '.35em');          // Vertical centering (approximate)
+
+
+                
+                label.addEventListener('click', function(event) {
+                    event.stopPropagation(); // Prevent the click from bubbling up
+                    if (node.data && node.data.link) { // Access node.data.link *here*
+                        document.getElementById('myModal').style.display = 'block';
+                        document.getElementById("node_detail").style.display = "block";
+                        htmx.ajax('GET', node.data.link, {
+                            target: '#node_detail',
+                            swap: 'innerHTML' // Correct way to specify swap with htmx.ajax
+                        });
+                    }
+                });
+
+                return label; // Return the text element directly
+            });
+
+                
+            
+
+// --- Customize Link Appearance and Add Labels ---
+            graphics.link(function(link) {
+                const ui = Viva.Graph.svg('g'); // Use a group for link + label
+
+
+                alpha = 0
+                width = 1
+                label_str = ""
+                if(link.data){
+                    confidence = link.data.confidence || 1;
+                    alpha = confidence / 10; // Normalize confidence to 0.1 - 1.0
+                    width = mapConfidenceToWidth(confidence);
+                    label_str = link.data.label;
+                }
+                color = `rgba(255, 255, 255, ${alpha.toFixed(2)})`;
+
+                const line = Viva.Graph.svg('path')
+                    .attr('stroke', color)
+                    .attr('stroke-width', width);
+
+                const label = Viva.Graph.svg('text')
+                    .attr('fill', color)
+                    .attr('class', 'edge-label') // Add class for styling
+                    .text(label_str);  // Use label from link data, default to empty
+
+
+                label.addEventListener('click', function(event) {
+                    event.stopPropagation(); // Prevent the click from bubbling up
+                    console.log(link);
+
+                    if (link.data && link.data.link) {
+                        
+                        console.log("click!", link.data.link); // Access node.data.link *here*
+                        document.getElementById('myModal').style.display = 'block';
+                        document.getElementById("node_detail").style.display = "block";
+                        htmx.ajax('GET', link.data.link, {
+                            target: '#node_detail',
+                            swap: 'innerHTML' // Correct way to specify swap with htmx.ajax
+                        });
+                    }
+
+                });
+                ui.append(line);
+                ui.append(label);
+                return ui;
+            });
+
+            // --- Position Edge Labels ---
+            graphics.placeLink(function(linkUI, fromPos, toPos) {
+                // "fromPos" and "toPos" are objects that have "x" and "y"
+                // attributes, which correspond to start and end points of the link.
+
+                var data = "M" + fromPos.x + "," + fromPos.y +
+                            "L" + toPos.x + "," + toPos.y;
+                // This SVG path command means:
+                // "Move to (fromPos.x, fromPos.y), then draw line to (toPos.x, toPos.y)"
+                // In other words, we are just moving link from its start/end points.
+                
+                let line = linkUI.childNodes[0];
+                line.attr("d", data);
+
+                // Position the label at the midpoint of the link
+                let label = linkUI.childNodes[1]; // Get Text Element
+                if (label) {
+                    const midX = (fromPos.x + toPos.x) / 2;
+                    const midY = (fromPos.y + toPos.y) / 2;
+                    label.attr('x', midX);
+                    label.attr('y', midY);
+                } else {
+                    console.error("No label found for link:", linkUI,fromPos,toPos);
+                }
+
+
+                    
+            });
+             
+
+            var idealLength = 90;
+            var layout = Viva.Graph.Layout.forceDirected(graph, {
+                springLength : 10,
+                springCoeff : 0.0005,
+                dragCoeff : 0.02,
+                gravity : -1.2,
+                springTransform: function (link, spring) {
+                    if(link.data){
+                        spring.length = idealLength * (10 - link.data.confidence);
+                    }
+                  }
+            });
+
+            
+            var container = document.getElementById('{{graph_id | safe}}');
+
+            // specify where it should be rendered:
+            var renderer = Viva.Graph.View.renderer(graph, {
+                container: container,
+                //layout: layout,
+                graphics: graphics
+                
+            });
+
+            renderer.run();
+
+
+           function calculateFontSize(edgeCount, minEdgeCount, maxEdgeCount, minFontSize, maxFontSize) {
+                if (maxEdgeCount === minEdgeCount) {
+                    return minFontSize;  // Avoid division by zero if all counts are the same
+                }
+                const normalizedCount = (edgeCount - minEdgeCount) / (maxEdgeCount - minEdgeCount);
+                const fontSize = minFontSize + normalizedCount * (maxFontSize - minFontSize);
+                return fontSize;
+            } 
+
+           function mapConfidenceToWidth(confidence) {
+                // Map confidence values (assumed to be between 0 and 10) to line widths.
+                const minWidth = 1;
+                const maxWidth = 3;
+                return (confidence / 10) * (maxWidth - minWidth) + minWidth;
+            }
+        }
+
+        renderGraph(the_data);
+    </script>
+
+
