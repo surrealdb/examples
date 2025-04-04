@@ -6,20 +6,38 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChatSurrealDB</title>
-    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}" />
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightpick@1.6.2/css/lightpick.min.css">
+
+
+    
     <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://code.jquery.com/ui/1.14.1/jquery-ui.js"></script>
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lightpick@1.6.2/lightpick.min.js"></script>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/vivagraphjs@latest/dist/vivagraph.js"></script>
+
+
+    <style type="text/css" media="screen">
+        html, body, svg { width: 100%; height: 100%;}
+    </style>
+
     <script>
-            
+        var show_graph_toggle = false;
+                
         document.addEventListener('htmx:afterRequest', function(evt) {
 
             if (evt.detail.successful) {
                 
                 if (evt.detail.elt.hasAttribute('hx-delete')) {
                     const targetId = evt.detail.elt.getAttribute('hx-target');
-                    console.log("delete " + targetId)
                     if (targetId) {
                         const targetElement = document.querySelector(targetId);
                         if (targetElement) {
@@ -49,7 +67,13 @@
         function clearAllModalHTML(){
             const messageDetail = document.getElementById('message_detail');
             const docDetail = document.getElementById('doc_detail');
+            const nodeDetail = document.getElementById('node_detail');
             const promptArea = document.getElementById('promptArea');
+            const queryArea = document.getElementById('queryArea');
+
+            if (nodeDetail) {
+                nodeDetail.innerHTML = '';
+            }
             if (messageDetail) {
                 messageDetail.innerHTML = '';
             }
@@ -58,6 +82,10 @@
             }
             if (promptArea) {
                 promptArea.style.display = 'none';
+            }
+
+            if (queryArea) {
+                queryArea.style.display = 'none';
             }
 
         }
@@ -88,19 +116,17 @@
                 console.error("Modal or close button not found.");
             }
         });
-        const available_llm_models_string = `{{ available_llm_models | safe }}`; // @ts-ignore - Ignore templating syntax
         let available_llm_models = {};
         try {
-            available_llm_models = JSON.parse(available_llm_models_string);
+            available_llm_models = {{ available_llm_models | tojson }};
         } catch (e) {
             console.error("Error parsing available_llm_models:", e);
         }
 
 
-        const available_corpus_tables_string = `{{ available_corpus_tables | safe }}`; // @ts-ignore - Ignore templating syntax
         let available_corpus_tables = {};
         try {
-            available_corpus_tables = JSON.parse(available_corpus_tables_string);
+            available_corpus_tables = {{ available_corpus_tables | tojson }};
         } catch (e) {
             console.error("Error parsing available_corpus_tables:", e);
         }
@@ -152,10 +178,11 @@
             llmModelSelect.dispatchEvent(new Event('change'));
         }   
 
-        function arrayToCsvString(arr) {
-            const quotedElements = arr.map(element => `"${element}"`);
-            return `[${quotedElements.join(',')}]`;
-        }
+        // function arrayToCsvString(arr) {
+        //     const quotedElements = arr.map(element => `"${element}"`);
+        //     console.log(`[${quotedElements.join(',')}]`);
+        //     return `[${quotedElements.join(',')}]`;
+        // }
         
         function updateCorpusDataTableOptions(){
             const embedModelSelect = document.getElementById("embedModelSelect");
@@ -167,22 +194,22 @@
 
             const corpusTable = available_corpus_tables[selectedCorpusTable];
 
-            embedModelSelect.innerHTML = "";
-            for (const embedModel in corpusTable.embed_models) {
-                const modelName = corpusTable.embed_models[embedModel].model.join(' - ');
-                const modelId = arrayToCsvString(corpusTable.embed_models[embedModel].model);
-                const option = document.createElement("option");
-                option.text = modelName;
-                option.value = modelId;
-                embedModelSelect.add(option);
-            }
+            // embedModelSelect.innerHTML = "";
+            // for (const embedModel in corpusTable.embed_models) {
+            //     const modelName = corpusTable.embed_models[embedModel].model.join(' - ');
+            //     const modelId = arrayToCsvString(corpusTable.embed_models[embedModel].model);
+            //     const option = document.createElement("option");
+            //     option.text = modelName;
+            //     option.value = modelId;
+            //     embedModelSelect.add(option);
+            // }
 
             additionalDataFieldSelect.innerHTML = "";
             const first_option = document.createElement("option");
             first_option.text = "total count";
             first_option.value = "";
             additionalDataFieldSelect.add(first_option);
-            for (const data_key of corpusTable.addional_data_keys) { // Use 'of' instead of 'in'
+            for (const data_key of corpusTable.additional_data_keys) { // Use 'of' instead of 'in'
                 const option = document.createElement("option");
                 option.text = data_key;
                 option.value = data_key;
@@ -190,14 +217,10 @@
             }
 
 
-
-
         }
         function populateCorpusTableSelect(){
             const corpusTableSelect = document.getElementById("corpusTableSelect");
-            
-            console.log("populateCorpusTableSelect")
-            console.log(available_corpus_tables)
+        
             
             // Clear existing options
             corpusTableSelect.innerHTML = "";
@@ -213,9 +236,6 @@
             corpusTableSelect.dispatchEvent(new Event('change'));
         }   
 
-        document.addEventListener("DOMContentLoaded", function() {
-            updateLlmModelSelect();
-        });
 
 
         document.addEventListener("DOMContentLoaded", function() {
@@ -226,43 +246,15 @@
             updateCorpusDataTableOptions();
             
         });
-        document.addEventListener("DOMContentLoaded", function() {
-            const togglePrompt = document.getElementById('togglePrompt');
-            const togglePromptArea = document.getElementById('togglePromptArea');
-
-            if (togglePrompt) {
-                togglePrompt.addEventListener('click', function() {
-                    document.getElementById('myModal').style.display = 'block';
-                    document.getElementById("promptArea").style.display = "block";
-                });
-            } else {
-                console.error("togglePrompt button not found.");
-            }
-
-        });
 
 
-        document.addEventListener("DOMContentLoaded", function() {
-            const toggleQuery = document.getElementById('toggleQuery');
-            const toggleQueryArea = document.getElementById('toggleQueryArea');
-
-            if (toggleQuery) {
-                toggleQuery.addEventListener('click', function() {
-                    document.getElementById('myModal').style.display = 'block';
-                    document.getElementById("queryArea").style.display = "block";
-                });
-            } else {
-                console.error("toggleQuery button not found.");
-            }
-
-        });
 
 
     </script>
 </head>
 
 <body>
-    <nav>
+    <nav class="nav">
         <button hx-post="/chats" hx-target="#chats" hx-swap="afterbegin">
             <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
             New Chat
@@ -271,65 +263,18 @@
 
       
         <div id="modelSelector" class="model_selector">
-            Data Set:
-            <select id="corpusTableSelect" name="corpus_table"
-                    hx-include="this"  onchange="updateCorpusDataTableOptions()"
-                    hx-get="/get_corpus_table_details"
-                    hx-target="#corpusTableDetails">
-            </select>
-            <div id="corpusTableDetails">
-                {% if default_corpus_table %}
-                Table: {{default_corpus_table['table_name']}}
-                {% endif %}
+            <h4>Data Set:
+                    <select id="corpusTableSelect" name="corpus_table"
+                            hx-include="this"  onchange="updateCorpusDataTableOptions()"
+                            hx-get="/get_corpus_table_details"
+                            hx-target="#corpusTableDetails">
+                    </select>
+            </h4>
+            <div class="sub_selection_details">
+                <div id="corpusTableDetails">
+                    
 
-            </div>
-            <br><br>
-            LLM:<br>
-            <select name="platformSelect" id="platformSelect" onchange="updateLlmModelSelect()">
-                <option>GOOGLE</option>
-                <option>OPENAI</option>
-                <option>OLLAMA</option>
-            </select>
-            <select name="hostSelect" id="hostSelect" onchange="updateLlmModelSelect()">
-                <option>API</option>
-                <option>SQL</option>
-                <option>OLLAMA</option>
-            </select>
-            <select id="llmModelSelect" name="llm_model" hx-get="/get_llm_model_details"
-                    hx-trigger="change"
-                    hx-target="#llmModelDetails"
-                    hx-include="this">
-            </select>
-            <br>
-            <div id="llmModelDetails">
-                
-            </div>
-            <br>
-            Embedding:<br>
-            <select id="embedModelSelect" name="embed_model" hx-get="/get_embed_model_details"
-            hx-trigger="change"
-            hx-target="#embedModelDetails"
-            hx-include="this, #corpusTableSelect">
-               
-            </select>
-            <br>
-            <div id="embedModelDetails">
-                {% if default_embed_model %}
-                    Dimensions: {{default_embed_model['dimensions']}}, Host: {{default_embed_model['host']}}<br> 
-                    Corpus: {{default_embed_model['corpus']}}<br>  
-                    Description: {{default_embed_model['description']}}
-
-                {% endif %}
-            </div>
-            <br>
-            </div>
-            <br>
-            <div class="advanced-prompt">
-                <button id="togglePrompt">Advanced Prompt Settings</button>
-            </div>
-
-            <div class="query-prompt">
-                <button id="toggleQuery">Query additional Data</button>
+                </div>
             </div>
     </nav>
     <main>
@@ -339,30 +284,15 @@
         <div class="modal-content">
             <span class="close">&times;</span>
             <message_detail id="message_detail"></message_detail>
+            <node_detail id="node_detail"></node_detail>
             <doc_detail id="doc_detail"></doc_detail>
             <div id="promptArea" style="display: none;">
                 <textarea id="promptTemplateText" name="prompt_template" rows="30" cols="120">
                     {{ default_prompt_text }}
                 </textarea>
+                
                 <br>
-                <div>
-                    Content Length:
-                    <select id="numberOfChunks" name="number_of_chunks">
-                        {% for i in range(1, 100) %}
-                            <option value="{{ i }}"  {% if i == 10 %}selected{% endif %}>{{ i }} chunks</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    Chat Memory Length:
-                    <select id="numberOfChats" name="number_of_chats">
-                        {% for i in range(1, 100) %}
-                            <option value="{{ i }}"  {% if i == 10 %}selected{% endif %}>{{ i }} messages</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <br>
+        
                 <div>
                 {% for prompt_text in prompt_text_templates %}
                     <button onclick="document.getElementById('promptTemplateText').value = document.getElementById('promptTemplateText_{{ prompt_text }}').value">{{ prompt_text }}</button>
@@ -374,7 +304,6 @@
             </div>
 
             <div id="queryArea" style="display: none;">
-                                
                 <select id="additionalDataFieldSelect" name="additional_data_field"
                         hx-include="this, #corpusTableSelect">
                 </select>
@@ -385,6 +314,8 @@
                     
                 </div>
             </div>
+
+                                
         </div>
     </div>
 </body>

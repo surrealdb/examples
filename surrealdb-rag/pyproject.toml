@@ -26,10 +26,21 @@ dependencies = [
     "fasttext",
     "edgartools",
     "bs4",
-    "spacy",
     "transformers",
-    "torch"
+    "torch",
+    "fuzzywuzzy",
+    "python-Levenshtein",
+    "spacy", # Base spacy
 ]
+
+[tool.poetry.group.apple]
+optional = true
+dependencies = ["spacy[apple]"]
+[tool.poetry.group.apple.markers]
+platform_system = "Darwin"
+platform_machine = "arm64"
+
+
 
 [project.scripts]
 create_db = "surrealdb_rag.scripts:create_database"
@@ -54,3 +65,12 @@ add_large_edgar_vectors = "surrealdb_rag.scripts:add_vectors_to_large_chunk_edga
 insert_large_edgar = "surrealdb_rag.scripts:insert_large_chunk_edgar"
 add_large_edgar = "surrealdb_rag.scripts:add_large_chunk_edgar_data"
 app = "surrealdb_rag.scripts:app"
+incriment_latest_edgar_graph = "surrealdb_rag.scripts:incriment_latest_edgar_graph"
+setup_edgar_graph = "surrealdb_rag.scripts:setup_edgar_graph"
+edgar_graph_extraction = "surrealdb_rag.scripts:edgar_graph_extraction"
+insert_edgar_graph = "surrealdb_rag.scripts:insert_edgar_graph"
+incriment_latest_edgar = "surrealdb_rag.scripts:incriment_latest_edgar"
+
+
+
+

@@ -15,6 +15,14 @@ openai
 fasttext
 edgartools
 bs4
-spacy
 transformers
-torch
+fuzzywuzzy
+python-Levenshtein
+spacy  # Base spacy installation
+
+# Conditional dependency for Apple Silicon
+# This will likely NOT work directly with pip install -r requirements.txt
+# It's more of a hint for manual installation or scripting
+# -- Only install spacy[apple] if on Apple Silicon
+# platform_system == "Darwin" and platform_machine == "arm64"
+spacy[apple]

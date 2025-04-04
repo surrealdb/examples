@@ -2,6 +2,9 @@
 This file defines the SurrealQL for the chat functionality of this project. and functions that span either embedding model
 */
 
+DEFINE ANALYZER IF NOT EXISTS snowball_analyzer
+    TOKENIZERS class
+    FILTERS lowercase, snowball(english);
 
 # Define the `chat` table.
 DEFINE TABLE IF NOT EXISTS chat SCHEMAFULL;
@@ -43,6 +46,7 @@ DEFINE FIELD IF NOT EXISTS referenced_documents ON TABLE sent TYPE option<array<
 DEFINE FIELD IF NOT EXISTS llm_model ON TABLE sent TYPE option<string>;
 DEFINE FIELD IF NOT EXISTS embedding_model ON TABLE sent TYPE option<Record<embedding_model_definition>>;
 DEFINE FIELD IF NOT EXISTS prompt_text ON TABLE sent TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS knowledge_graph ON TABLE sent TYPE option<object>;
 
 
 
@@ -85,3 +89,16 @@ DEFINE TABLE IF NOT EXISTS embedding_model TYPE NORMAL SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS word ON embedding_model TYPE string;
 DEFINE FIELD IF NOT EXISTS model ON embedding_model TYPE Record<embedding_model_definition>;
 DEFINE FIELD IF NOT EXISTS embedding ON embedding_model TYPE array<float>;
+
+
+DEFINE TABLE IF NOT EXISTS corpus_graph_tables SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS corpus_table ON TABLE corpus_graph_tables TYPE Record<corpus_table>;
+DEFINE FIELD IF NOT EXISTS entity_table_name ON TABLE corpus_graph_tables TYPE string;
+DEFINE FIELD IF NOT EXISTS entity_display_name ON TABLE corpus_graph_tables TYPE string;
+DEFINE FIELD IF NOT EXISTS relation_table_name ON TABLE corpus_graph_tables TYPE string;
+DEFINE FIELD IF NOT EXISTS relation_display_name ON TABLE corpus_graph_tables TYPE string;
+DEFINE FIELD IF NOT EXISTS source_document_table_name ON TABLE corpus_graph_tables TYPE string;
+DEFINE FIELD IF NOT EXISTS source_document_display_name ON TABLE corpus_graph_tables TYPE string;
+DEFINE FIELD IF NOT EXISTS entity_date_field ON TABLE corpus_graph_tables TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS relation_date_field ON TABLE corpus_graph_tables TYPE option<string>;
+

@@ -60,6 +60,21 @@ DEFINE FUNCTION OVERWRITE fn::additional_data_keys($corpus_table: string){
     RETURN (SELECT VALUE IF additional_data = NONE THEN [] ELSE additional_data.keys() END FROM type::table($corpus_table) LIMIT 1)[0];
     
 };
+
+
+DEFINE FUNCTION OVERWRITE fn::get_datetime_range_for_corpus_table($table_name:option<string>,$date_field_name:option<string>){
+   IF $table_name IS NONE OR $date_field_name IS NONE {
+       RETURN NONE;
+   } ELSE{
+       
+        RETURN
+        (SELECT time::min(<datetime> type::field($date_field_name)) AS min,
+        time::max(<datetime> type::field($date_field_name)) as max
+        FROM type::table($table_name) GROUP ALL)[0];
+
+   }
+};
+
 DEFINE FUNCTION OVERWRITE fn::select_additional_data($corpus_table: string,$key:string){
     -- This function selects the values associated with a specified key within the 'additional_data' field of a table,
     -- and counts the occurrences of each unique value.
@@ -131,19 +146,40 @@ Args:
     prompt (string): The prompt template.
     documents (array<any>): The documents to include in the context.
     chat_history (Record<message>): The chat history to include.
+    include_graph (Option<bool>): Whether to include the knowledge graph.
 
 Returns:
     string: The generated prompt.
 */
-DEFINE FUNCTION OVERWRITE fn::get_prompt_with_context($prompt:string, $documents: array<any>, $chat_history: array<Record<message>>) {
+
+DEFINE FUNCTION OVERWRITE fn::get_prompt_with_context($prompt:string, $documents: array<any>, $chat_history: array<Record<message>>, $knowledge_graph:Option<object>) {
+
     
     LET $context = (SELECT VALUE "\n ------------- \n URL: " + url + "\nTitle: " + title + "\n Content:\n" + text as content
         FROM $documents).join("\n");
     LET $chat_history = (SELECT VALUE "\n ------------- \n Role: " + role + "\n Content:\n" + content as content
         FROM $chat_history).join("\n"); 
 
-    RETURN string::replace(string::replace($prompt, '$context', $context),'$chat_history', $chat_history);
+    IF $knowledge_graph IS NOT NONE{
+        
+
+        LET $entities = array::group(SELECT VALUE entities FROM $knowledge_graph);
+        LET $relations = array::group(SELECT VALUE relations FROM $knowledge_graph);
+        LET $knowledge_graph_string = 
+            "{\nentities:[" + $entities.join(",\n") + "],\nrelations:[" + $relations.join(",\n") + "]\n}";
+        RETURN string::replace(
+                string::replace(
+                    string::replace($prompt, '$context', $context),'$chat_history', $chat_history),'$knowledge_graph', $knowledge_graph_string);
+     } ELSE {
+
+        RETURN string::replace(
+            string::replace($prompt, '$context', $context),'$chat_history', $chat_history);
+        
+    }
+    
 };
+
+
 
 
 /*
@@ -171,6 +207,7 @@ Args:
     chat_id (string): The ID of the chat.
     prompt (string): The prompt template.
     message_memory_length (int): The number of messages to include in the history.
+    option<bool>: Whether to include the knowledge graph.
 
 Returns:
     object: An object containing the content, prompt, and timestamp of the last user message.
@@ -179,15 +216,16 @@ Returns:
 DEFINE FUNCTION OVERWRITE fn::get_last_user_message_input_and_prompt($chat_id: string,$prompt:string,$message_memory_length: int) {
 
         LET $chat_history = fn::get_message_history($chat_id,$message_memory_length);
+
         LET $message =  
-            SELECT content,fn::get_prompt_with_context($prompt,docs,chat_history) as prompt_text
+            SELECT content,fn::get_prompt_with_context($prompt,docs,$chat_history,knowledge_graph) as prompt_text
             FROM
                 (
                 SELECT
                     out.id,
                     out.content AS content,
                     referenced_documents.doc as docs,
-                    $chat_history as chat_history,
+                    knowledge_graph,
                     timestamp
                 FROM ONLY type::record($chat_id)->sent
                 WHERE out.role = "user"
@@ -198,6 +236,7 @@ DEFINE FUNCTION OVERWRITE fn::get_last_user_message_input_and_prompt($chat_id: s
         
         RETURN $message[0];
 };
+
 
 
 /*
@@ -220,6 +259,7 @@ DEFINE FUNCTION OVERWRITE fn::create_message(
     $role: string,
     $content: string,
     $documents: option<array<{ score:float ,doc:any }>>,
+    $knowledge_graph: option<object>,
     $embedding_model: option<Record<embedding_model_definition>>,
     $llm_model: option<string>,
     $prompt_text: option<string>
@@ -244,13 +284,15 @@ DEFINE FUNCTION OVERWRITE fn::create_message(
                 referenced_documents: $documents,
                 embedding_model: $embedding_model,
                 llm_model: $llm_model,
-                prompt_text: $prompt_text
+                prompt_text: $prompt_text,
+                knowledge_graph: $knowledge_graph
                  };
 
 
     RETURN fn::load_message_detail(<string>$message_id);
 
 };
+
 
 
 /*
@@ -266,9 +308,19 @@ Args:
 Returns:
     object: The created user message details.
 */
-DEFINE FUNCTION OVERWRITE fn::create_user_message($chat_id: string, $corpus_table: string, $content: string, $embedding_model: option<Record<embedding_model_definition>>,$openai_token: option<string>, $record_count: option<int>) {
+DEFINE FUNCTION OVERWRITE fn::create_user_message(
+$chat_id: string, 
+$corpus_table: string, 
+$content: string, 
+$embedding_model: Record<embedding_model_definition>,
+$record_count: option<int>,
+$graph_mode: option<string>,
+$openai_token: option<string>) {
 
     LET $threshold = 0.7;
+    LET $confidence_threshold = 5;
+    LET $max_graph_size_per_doc = 100;
+    LET $max_graph_size = 1000;
     
     LET $vector = IF $embedding_model.model_trainer == "OPENAI" THEN 
         fn::openai_embeddings_complete($embedding_model.version, $content, $openai_token)
@@ -277,9 +329,156 @@ DEFINE FUNCTION OVERWRITE fn::create_user_message($chat_id: string, $corpus_tabl
     END;
 
     LET $documents = fn::search_for_documents($corpus_table,$vector, $threshold ,$embedding_model,$record_count);
+
     
-    RETURN fn::create_message($chat_id, "user", $content, $documents,$embedding_model);
+    
+
+    LET $knowledge_graph = 
+        IF ($graph_mode = "document" AND array::len($documents) > 0) THEN
+            (SELECT VALUE fn::get_graph_detail_for_corpus_doc(
+                     $corpus_table,doc.url,$confidence_threshold,$max_graph_size_per_doc) FROM $documents)[0];
+        ELSE IF $graph_mode = "context" THEN
+            fn::search_for_relevant_graph(
+                 $corpus_table,$vector,$threshold,$confidence_threshold,$embedding_model,$max_graph_size); 
+        END;
+    RETURN fn::create_message($chat_id, "user", $content, $documents,$knowledge_graph,$embedding_model,None,None);
 };
+
+
+
+
+DEFINE FUNCTION OVERWRITE fn::search_for_relevant_graph($corpus_table: string, $input_vector: array<float>, $cosine_threshold: float, $confidence_threshold: float, $model: Record<embedding_model_definition>, $record_count: option<int>) {
+
+    LET $corpus_graph_table_info = SELECT * FROM corpus_graph_tables WHERE corpus_table = type::thing('corpus_table',$corpus_table);
+    LET $relate_table = type::table($corpus_graph_table_info.relation_table_name[0]);
+    LET $entity_table = type::table($corpus_graph_table_info.entity_table_name[0]);
+
+    LET $vector_field = IF $model.model_trainer = "GLOVE" THEN 'context_glove_vector'
+        ELSE IF $model.model_trainer = "FASTTEXT" THEN 'context_fasttext_vector'
+        ELSE IF $model.model_trainer = "OPENAI" THEN 'context_openai_vector'
+        ELSE NONE END;
+    
+    LET $relate_data =
+        (IF $model.model_trainer = "GLOVE" THEN
+            (
+                SELECT 
+                    in.{additional_data,entity_type,identifier,name},
+                    out.{additional_data,entity_type,identifier,name},
+                    confidence,relationship,contexts,
+                    vector::similarity::cosine(context_glove_vector, $input_vector) AS similarity_score
+                FROM $relate_table WHERE 
+                    context_glove_vector <|100,100|> $input_vector AND 
+                    confidence>$confidence_threshold 
+                ORDER BY similarity_score DESC
+            );
+        ELSE IF $model.model_trainer = "FASTTEXT" THEN
+            (
+                 SELECT 
+                    in.{additional_data,entity_type,identifier,name},
+                    out.{additional_data,entity_type,identifier,name},
+                    confidence,relationship,contexts,
+                    vector::similarity::cosine(context_fasttext_vector, $input_vector) AS similarity_score 
+                FROM $relate_table WHERE 
+                    context_fasttext_vector <|100,100|> $input_vector AND 
+                    confidence>$confidence_threshold 
+                ORDER BY similarity_score DESC
+            );
+        ELSE IF $model.model_trainer = "OPENAI" THEN
+            (
+                SELECT 
+                    in.{additional_data,entity_type,identifier,name},
+                    out.{additional_data,entity_type,identifier,name},
+                    confidence,relationship,contexts,
+                    vector::similarity::cosine(context_openai_vector, $input_vector) AS similarity_score 
+                FROM $relate_table WHERE 
+                    context_openai_vector <|100,100|> $input_vector AND 
+                    confidence>$confidence_threshold 
+                ORDER BY similarity_score DESC
+            
+            ) ;
+        END);
+    
+    LET $record_count = IF $record_count = None THEN 100 ELSE $record_count END;
+    
+    LET $additional_data = None;
+    LET $entities = 
+        SELECT in.additional_data AS addtional_data,in.name AS name,in.identifier AS identifier,in.entity_type AS entity_type 
+            FROM $relate_data 
+            WHERE similarity_score > $cosine_threshold;
+
+    
+    LET $relations = SELECT
+            in.identifier AS in_identifier,
+            out.identifier AS out_identifier,
+            confidence,relationship,contexts,
+            similarity_score FROM $relate_data WHERE similarity_score > $cosine_threshold
+    ORDER BY similarity_score DESC LIMIT $record_count;
+    
+    
+    
+    RETURN  {
+        additional_data:$additional_data,
+        relations:(SELECT * FROM $relations LIMIT $record_count),
+        entities:(SELECT * FROM $entities WHERE 
+            identifier IN (SELECT VALUE in_identifier FROM $relations)
+            OR identifier IN (SELECT VALUE out_identifier FROM $relations)
+        ),
+    }
+    
+    
+};
+
+
+DEFINE FUNCTION OVERWRITE fn::get_corpus_doc_from_extended_url($corpus_table: string, $url: string) {
+    LET $corpus_graph_table_info = SELECT * FROM corpus_graph_tables WHERE 
+        corpus_table = type::thing('corpus_table',$corpus_table);
+    LET $source_document_table = type::table($corpus_graph_table_info.source_document_table_name[0]);
+    RETURN (SELECT value id FROM $source_document_table WHERE string::starts_with($url,url))[0];
+};
+
+DEFINE FUNCTION OVERWRITE fn::get_graph_detail_for_corpus_doc($corpus_table: string, $source_document: any, $confidence_threshold: float, $record_count: option<int>) {
+
+        
+    LET $corpus_graph_table_info = SELECT * FROM corpus_graph_tables WHERE 
+        corpus_table = type::thing('corpus_table',$corpus_table);
+    LET $relate_table = type::table($corpus_graph_table_info.relation_table_name[0]);
+    LET $entity_table = type::table($corpus_graph_table_info.entity_table_name[0]);
+
+    LET $source_document_record = 
+        IF type::is::record($source_document) THEN 
+            $source_document
+        ELSE
+            fn::get_corpus_doc_from_extended_url($corpus_table,$source_document)
+        END;
+
+
+
+    LET $additional_data = (SELECT VALUE additional_data FROM $source_document_record)[0];
+    LET $entities = 
+        SELECT additional_data,name,identifier,entity_type FROM $entity_table 
+            WHERE source_document = $source_document_record;
+    LET $relations = 
+        SELECT 
+            in.identifier AS in_identifier,
+            out.identifier AS out_identifier,
+            confidence,relationship,contexts FROM $relate_table 
+            WHERE source_document = $source_document_record AND confidence >= $confidence_threshold
+        ORDER BY confidence DESC;
+    
+    LET $record_count = IF $record_count = None THEN 100 ELSE $record_count END;
+    
+    RETURN  {
+        additional_data:$additional_data,
+        relations:(SELECT * FROM $relations LIMIT $record_count),
+        entities:(SELECT * FROM $entities WHERE 
+            identifier IN (SELECT VALUE in_identifier FROM $relations)
+            OR identifier IN (SELECT VALUE out_identifier FROM $relations)
+        ),
+    }
+};
+
+
+
 
 
 /*
@@ -295,7 +494,7 @@ Returns:
     object: The created system message details.
 */
 DEFINE FUNCTION OVERWRITE fn::create_system_message($chat_id: string, $content: string, $llm_model: string,$prompt_text:string) {
-    RETURN fn::create_message($chat_id, "system", $content, None,None,$llm_model,$prompt_text);
+    RETURN fn::create_message($chat_id, "system", $content, None,None,None,$llm_model,$prompt_text);
 };
 
 
@@ -522,6 +721,20 @@ DEFINE FUNCTION OVERWRITE fn::load_document_detail($corpus_table:string,$documen
     RETURN SELECT * FROM type::thing($corpus_table,$document_id);
 };
     
+/*
+Loads the details of a documents with the same root url.
+
+Args:
+    corpus_table (string): The name of the corpus table.
+    url (string): root url to match.
+
+Returns:
+    array<object>: The documents detail.
+*/
+DEFINE FUNCTION OVERWRITE fn::load_documents_from_url_root($corpus_table:string,$url_root: string) {
+    RETURN SELECT * FROM type::table($corpus_table) WHERE string::starts_with(url,$url_root) = True
+};
+    
 
 /*
 Loads the details of a message, including related sent data.
@@ -533,7 +746,7 @@ Returns:
     object: The message details, including related sent data.
 */
 DEFINE FUNCTION OVERWRITE fn::load_message_detail($message_id: string) {
-    RETURN (SELECT *,<-sent.{referenced_documents,embedding_model,llm_model,timestamp,prompt_text} AS sent FROM  type::record($message_id))[0];
+    RETURN (SELECT *,<-sent.{referenced_documents,embedding_model,llm_model,timestamp,prompt_text,knowledge_graph} AS sent FROM  type::record($message_id))[0];
 };
 /*
 Retrieves the vectors for each word in a sentence using the specified embedding model.

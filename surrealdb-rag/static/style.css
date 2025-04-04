@@ -4,11 +4,15 @@ body {
     height: 100%;
     margin: 0;
     padding: 0;
-}
-
-body {
     font-family: sans-serif;
     display: flex;
+}
+
+button:hover {
+    background: #ff00a0;
+}
+nav button:last-child {
+    margin-bottom: 0;
 }
 
 nav {
@@ -23,6 +27,17 @@ nav {
     display: flex;
     flex-direction: column;
 }
+
+#sigma-container {
+    width: 100%;  /* Use full width */
+    height: 600px; /* Or any desired height */
+    border: 1px solid #ccc;
+}
+
+.expand-contexts, .expand-contexts a{
+    color:green;
+}
+
 /* Modal Styles */
 .modal {
     display: none; /* Hidden by default */
@@ -63,6 +78,17 @@ nav {
     text-decoration: none;
     cursor: pointer;
 }
+
+td {
+    vertical-align: top;
+}
+a {
+    color: #ff00a0;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+
 #chats {
     flex: 1; /* Allow chats to grow and take available space */
     overflow-y: auto; /* Enable scrolling within chats */
@@ -86,7 +112,7 @@ button {
     background: #000000;
     color: #fff;
     cursor: pointer;
-    border: 2px solid #000;
+    border: 1px solid #ff00a0;
     border-radius: 8px;
     font-size: 12px;
     transition: background-color 0.3s ease;
@@ -94,6 +120,15 @@ button {
 }
 
 button.chat {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+    width: calc(100%);
+    padding: 10px 20px;
+}
+
+a.chat {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -112,13 +147,6 @@ button.delete {
     align-items: center;
 }
 
-nav button:last-child {
-    margin-bottom: 0;
-}
-
-nav button:hover {
-    background: #ff00a0;
-}
 
 button img.surrealdb-logo {
     height: 40px;
@@ -222,4 +250,131 @@ a:-webkit-any-link {
 
 .system.message .messenger-name {
     color: #9600ff;
+}
+
+select {
+    background-color: black;
+    color: white;
+
+}
+.graphTitle{
+    color: #ff00a0;
+}
+.chat-header h5 span{
+
+    margin-left:30px;
+
+}
+
+#platformSelect{
+    text-overflow: ellipsis; width: calc(20%);
+}
+#hostSelect{
+    text-overflow: ellipsis; width: 150px;
+}
+#llmModelSelect{
+    text-overflow: ellipsis; width: calc(30%);
+}
+#embedModelSelect{
+    text-overflow: ellipsis; width: calc(40%);
+}
+#corpusTableSelect{
+    text-overflow: ellipsis; width: calc(60%);
+}
+#graphSizeLimit {
+    text-overflow: ellipsis; width: calc(88%);
+}
+
+
+.graph_warning {
+    position: fixed; /* Or absolute, depending on desired behavior */
+    top: 100px; /* Adjust vertical positioning */
+    left: 50%; /* Start at the horizontal center */
+    transform: translateX(-50%); /* Shift it back half its width */
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    border: 1px solid #ccc;
+    z-index: 1000;
+    color:red;
+    white-space: nowrap; /*prevent the text from wrapping, and allow the div to size itself correctly*/
+}
+.sub_selection_details{
+    margin-left: 10px;   
+}
+.graphDate {
+        width: calc(100%);
+}
+.graphDate input{
+        width: calc(41%);
+        background-color: black;
+        color: white;
+        border: 1px solid white;
+        
+}
+.nav_input{
+        width: calc(85%);
+        background-color: black;
+        color: white;
+        border: 1px solid white;   
+}
+.graphContainer {
+    width: calc(90%);
+    height: calc(90%);
+    height: 100%;
+}
+.graphContainer > svg {
+    width: calc(100%);
+    height: calc(100%);
+}
+#entity_graph{
+    width: calc(100%);
+    height: 500px;
+    background-color: black;
+}
+#document_graph{
+    width: calc(100%);
+    height: 500px;
+    background-color: black;
+}
+
+/* Optional: Style the labels */
+.node-label {
+    stroke: white;  /* Optional: Add a white outline for better readability */
+    stroke-width: 0.5px; /* Adjust outline width */
+    pointer-events: all;  /* THIS IS THE KEY */
+}
+.edge-label{ /*style edge labels */
+    fill: white;
+    font-size: 8px; /* Base font size for edge labels */
+    pointer-events: all; /*  */
+}
+.expand-contexts-content {
+    display:none;
+}
+p {
+
+    margin-block-start: 0px;
+    margin-block-end: 0px;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+}
+.nav h4, .nav h5 {
+    display: flex;
+    justify-content: space-between;
+    width: 100%; /* Make h5 fill its container */
+    align-items: center;
+}
+.nav h4 button , 
+.nav h5 button{
+    margin-left: auto;
+}
+.nav h4 select , 
+.nav h5 select{
+    margin-left: auto;
+}
+
+.relation_info, .entity_info {
+    display: inline-block;
+    vertical-align: top;
+    margin-left: 20px;
 }
