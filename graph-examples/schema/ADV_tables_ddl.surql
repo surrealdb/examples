@@ -27,6 +27,7 @@ DEFINE FIELD IF NOT EXISTS legal_name ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS city ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS state ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS country ON TABLE firm TYPE Option<string>;
+DEFINE FIELD IF NOT EXISTS chief_compliance_officer ON TABLE firm TYPE Option<Record<person>>;
 
 -- Define fields for section1
 DEFINE FIELD IF NOT EXISTS section1 ON TABLE firm TYPE Option<object>;
@@ -80,7 +81,7 @@ DEFINE FIELD IF NOT EXISTS section_5d.other_regulatory_assets ON TABLE firm TYPE
 DEFINE FIELD IF NOT EXISTS section_5d.other_details ON TABLE firm TYPE Option<string>;
 
 -- Define fields for section_5f
-DEFINE FIELD IF NOT EXISTS section_5f ON TABLE firm TYPE object;
+DEFINE FIELD IF NOT EXISTS section_5f ON TABLE firm TYPE Option<object>;
 DEFINE FIELD IF NOT EXISTS section_5f.discretionary_regulatory_assets ON TABLE firm TYPE Option<decimal>;
 DEFINE FIELD IF NOT EXISTS section_5f.nondiscretionary_regulatory_assets ON TABLE firm TYPE Option<decimal>;
 DEFINE FIELD IF NOT EXISTS section_5f.total_regulatory_assets ON TABLE firm TYPE Option<decimal>;
@@ -103,13 +104,25 @@ DEFINE INDEX IF NOT EXISTS firm_type_index ON firm
 
 
 
+DEFINE TABLE IF NOT EXISTS signed TYPE RELATION
+IN person OUT filing SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS execution_date ON TABLE signed TYPE datetime;
+DEFINE FIELD IF NOT EXISTS signitory_title ON TABLE signed TYPE Option<string>;
 
-DEFINE TABLE IF NOT EXISTS sma TYPE RELATION
+DEFINE TABLE IF NOT EXISTS is_compliance_officer TYPE RELATION
+IN person OUT firm SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS as_of_latest_filing_date ON TABLE is_compliance_officer TYPE datetime;
+DEFINE FIELD IF NOT EXISTS title_at_time_of_filing ON TABLE is_compliance_officer TYPE Option<string>;
+
+
+
+
+DEFINE TABLE IF NOT EXISTS custodian_for TYPE RELATION
 IN firm OUT firm SCHEMAFULL;
-DEFINE FIELD IF NOT EXISTS source_filing ON TABLE sma TYPE Record<filing>;
-DEFINE FIELD IF NOT EXISTS legal_entity_identifier ON TABLE sma TYPE Option<string>;
-DEFINE FIELD IF NOT EXISTS assets_under_management ON TABLE sma TYPE Option<decimal>;
-DEFINE FIELD IF NOT EXISTS related_person ON TABLE sma TYPE bool;
+DEFINE FIELD IF NOT EXISTS source_filing ON TABLE custodian_for TYPE Record<filing>;
+DEFINE FIELD IF NOT EXISTS legal_entity_identifier ON TABLE custodian_for TYPE Option<string>;
+DEFINE FIELD IF NOT EXISTS assets_under_management ON TABLE custodian_for TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS related_person ON TABLE custodian_for TYPE bool;
 
 
 
@@ -117,9 +130,7 @@ DEFINE TABLE IF NOT EXISTS filing SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS filing_id ON TABLE filing TYPE int;
 DEFINE FIELD IF NOT EXISTS filing_firm ON TABLE filing TYPE Record<firm>;
 DEFINE FIELD IF NOT EXISTS execution_type ON TABLE filing TYPE Record<ia_filing_execution_type>;
-DEFINE FIELD IF NOT EXISTS execution_date ON TABLE filing TYPE datetime;
 DEFINE FIELD IF NOT EXISTS signatory ON TABLE filing TYPE Record<person>;
-DEFINE FIELD IF NOT EXISTS signitory_title ON TABLE filing TYPE string;
 
 
 DEFINE TABLE IF NOT EXISTS ia_filing_execution_type SCHEMAFULL;
@@ -129,7 +140,9 @@ DEFINE FIELD IF NOT EXISTS execution_type ON TABLE ia_filing_execution_type TYPE
 
 DEFINE TABLE IF NOT EXISTS person SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS full_name ON TABLE person TYPE string;
+DEFINE FIELD IF NOT EXISTS firm ON TABLE person TYPE Record<firm>;
 DEFINE FIELD IF NOT EXISTS first_name ON TABLE person TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS last_name ON TABLE person TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS title ON TABLE person TYPE Option<string>;
+
 

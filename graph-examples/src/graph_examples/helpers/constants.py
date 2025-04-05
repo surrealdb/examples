@@ -1,7 +1,10 @@
 import argparse
 import os
+import datetime 
+import pandas as pd
 from graph_examples.helpers.params import DatabaseParams
-
+import subprocess
+import re
 # --- Configuration (Assuming these constants are defined elsewhere) ---
 # Make sure these paths are correctly defined in your constants file or here
 # Example definitions if constants not available:
@@ -19,62 +22,52 @@ ADV_TABLES_DDL= "./schema/ADV_tables_ddl.surql"
 ADV_FUNCTIONS_DDL= "./schema/ADV_functions_ddl.surql"
 
 
+def get_file_encoding(filepath):
+    """
+    Gets the encoding of a file using the 'file -I' command.
 
-field_mapping = [
-    {"field_display_name": "SEC Region", "dataframe_field_name": "SEC Region"},
-    {"field_display_name": "Organization CRD#", "dataframe_field_name": "Organization CRD#"},
-    {"field_display_name": "Firm Type", "dataframe_field_name": "Firm Type"},
-    {"field_display_name": "CIK#", "dataframe_field_name": "CIK#"},
-    {"field_display_name": "Primary Business Name", "dataframe_field_name": "Primary Business Name"},
-    {"field_display_name": "Legal Name", "dataframe_field_name": "Legal Name"},
-    {"field_display_name": "Main Office Street Address 1", "dataframe_field_name": "Main Office Street Address 1"},
-    {"field_display_name": "Main Office Street Address 2", "dataframe_field_name": "Main Office Street Address 2"},
-    {"field_display_name": "Main Office City", "dataframe_field_name": "Main Office City"},
-    {"field_display_name": "Main Office State", "dataframe_field_name": "Main Office State"},
-    {"field_display_name": "Main Office Country", "dataframe_field_name": "Main Office Country"},
-    {"field_display_name": "Main Office Postal Code", "dataframe_field_name": "Main Office Postal Code"},
-    {"field_display_name": "Chief Compliance Officer Name", "dataframe_field_name": "Chief Compliance Officer Name"},
-    {"field_display_name": "Chief Compliance Officer Other Titles", "dataframe_field_name": "Chief Compliance Officer Other Titles"},
-    {"field_display_name": "Latest ADV Filing Date", "dataframe_field_name": "Latest ADV Filing Date"},
-    {"field_display_name": "Website Address", "dataframe_field_name": "Website Address"},
-    {"field_display_name": "Approx. Amount of Assets", "dataframe_field_name": "1O - If yes, approx. amount of assets"},
-    {"field_display_name": "Individuals (other than high net worth) - Number of Clients", "dataframe_field_name": "5D(a)(1)"},
-    {"field_display_name": "Individuals (other than high net worth) - Regulatory Assets", "dataframe_field_name": "5D(a)(3)"},
-    {"field_display_name": "High net worth individuals - Number of Clients", "dataframe_field_name": "5D(b)(1)"},
-    {"field_display_name": "High net worth individuals - Regulatory Assets", "dataframe_field_name": "5D(b)(3)"},
-    {"field_display_name": "Banking or thrift institutions - Number of Clients", "dataframe_field_name": "5D(c)(1)"},
-    {"field_display_name": "Banking or thrift institutions - Regulatory Assets", "dataframe_field_name": "5D(c)(3)"},
-    {"field_display_name": "Investment companies - Number of Clients", "dataframe_field_name": "5D(d)(1)"},
-    {"field_display_name": "Investment companies - Regulatory Assets", "dataframe_field_name": "5D(d)(3)"},
-    {"field_display_name": "Business development companies - Number of Clients", "dataframe_field_name": "5D(e)(1)"},
-    {"field_display_name": "Business development companies - Regulatory Assets", "dataframe_field_name": "5D(e)(3)"},
-    {"field_display_name": "Pooled investment vehicles - Number of Clients", "dataframe_field_name": "5D(f)(1)"},
-    {"field_display_name": "Pooled investment vehicles - Regulatory Assets", "dataframe_field_name": "5D(f)(3)"},
-    {"field_display_name": "Pension and profit sharing plans - Number of Clients", "dataframe_field_name": "5D(g)(1)"},
-    {"field_display_name": "Pension and profit sharing plans - Regulatory Assets", "dataframe_field_name": "5D(g)(3)"},
-    {"field_display_name": "Charitable organizations - Number of Clients", "dataframe_field_name": "5D(h)(1)"},
-    {"field_display_name": "Charitable organizations - Regulatory Assets", "dataframe_field_name": "5D(h)(3)"},
-    {"field_display_name": "State or municipal government entities - Number of Clients", "dataframe_field_name": "5D(i)(1)"},
-    {"field_display_name": "State or municipal government entities - Regulatory Assets", "dataframe_field_name": "5D(i)(3)"},
-    {"field_display_name": "Other investment advisers - Number of Clients", "dataframe_field_name": "5D(j)(1)"},
-    {"field_display_name": "Other investment advisers - Regulatory Assets", "dataframe_field_name": "5D(j)(3)"},
-    {"field_display_name": "Insurance companies - Number of Clients", "dataframe_field_name": "5D(k)(1)"},
-    {"field_display_name": "Insurance companies - Regulatory Assets", "dataframe_field_name": "5D(k)(3)"},
-    {"field_display_name": "Sovereign wealth funds - Number of Clients", "dataframe_field_name": "5D(l)(1)"},
-    {"field_display_name": "Sovereign wealth funds - Regulatory Assets", "dataframe_field_name": "5D(l)(3)"},
-    {"field_display_name": "Corporations or other businesses - Number of Clients", "dataframe_field_name": "5D(m)(1)"},
-    {"field_display_name": "Corporations or other businesses - Regulatory Assets", "dataframe_field_name": "5D(m)(3)"},
-    {"field_display_name": "Other - Number of Clients", "dataframe_field_name": "5D(n)(1)"},
-    {"field_display_name": "Other - Regulatory Assets", "dataframe_field_name": "5D(n)(3)"},
-    {"field_display_name": "Other - Details", "dataframe_field_name": "5D(n)(3) - Other"},
-    {"field_display_name": "Discretionary Regulatory Assets", "dataframe_field_name": "5F(2)(a)"},
-    {"field_display_name": "Non-Discretionary Regulatory Assets", "dataframe_field_name": "5F(2)(b)"},
-    {"field_display_name": "Total Regulatory Assets", "dataframe_field_name": "5F(2)(c)"},
-    {"field_display_name": "Discretionary Accounts", "dataframe_field_name": "5F(2)(d)"},
-    {"field_display_name": "Non-Discretionary Accounts", "dataframe_field_name": "5F(2)(e)"},
-    {"field_display_name": "Total Accounts", "dataframe_field_name": "5F(2)(f)"},
-    {"field_display_name": "Non-US Regulatory Assets", "dataframe_field_name": "5F(3)"}
-]
+    Args:
+        filepath: The path to the file.
+
+    Returns:
+        The encoding string (e.g., 'us-ascii', 'iso-8859-1'), or a fallback if an error occurs.
+    """
+    try:
+        result = subprocess.run(['file', '-I', filepath], capture_output=True, text=True, check=True)
+        output = result.stdout.strip()
+        match = re.search(r'charset=([\w-]+)', output)
+        if match:
+            encoding = match.group(1).lower()
+            return encoding
+        else:
+            print(f"Warning: Could not determine encoding for {filepath}. Trying 'iso-8859-1'.")
+            return 'iso-8859-1'  # Try iso-8859-1 as a fallback
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: Command 'file -I' failed: {e}. Trying 'iso-8859-1'.")
+        return 'iso-8859-1'
+    except FileNotFoundError:
+        print(f"Warning: 'file' command not found. Trying 'iso-8859-1'.")
+        return 'iso-8859-1'
+    except Exception as e:
+        print(f"Warning: An unexpected error occurred while getting encoding for {filepath}: {e}. Trying 'iso-8859-1'.")
+        return 'iso-8859-1'
+
+def get_parsed_data_from_field_mapping(row, field_mapping:dict):
+    row_data = {}
+    for field in field_mapping:
+        if field["dataframe_field_name"] in row and row[field["dataframe_field_name"]] is not None:
+            casted_value = cast_value(row[field["dataframe_field_name"]], field["python_type"])
+            if casted_value is None:
+                continue
+            else:
+                if "." in field["surql_field_name"]:
+                    section, field_name = field["surql_field_name"].split(".")
+                    if section not in row_data:
+                        row_data[section] = {}
+                    row_data[section][field_name] = casted_value
+                else:
+                    row_data[field["surql_field_name"]] = casted_value
+    return row_data
 
 # Helper function to create directories
 def ensure_dir(directory):
@@ -83,6 +76,28 @@ def ensure_dir(directory):
 
     
 
+def cast_value(value, python_type):
+    """
+    Casts a value to a specified Python type.
+
+    Args:
+        value: The value to cast.
+        python_type: The Python type to cast to (e.g., str, int, float, datetime).
+
+    Returns:
+        The cast value, or None if casting fails.
+    """
+    if value is None:
+        return None
+
+    try:
+        if python_type == datetime:
+            # Handle datetime conversion (assuming ISO format or similar)
+            return pd.to_datetime(value).to_pydatetime()
+        return python_type(value)
+    except (ValueError, TypeError):
+        print(f"Warning: Could not cast value '{value}' to type {python_type}. Returning None.")
+        return None
 
 class ArgsLoader():
     """

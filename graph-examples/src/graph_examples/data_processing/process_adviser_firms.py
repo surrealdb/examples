@@ -7,7 +7,7 @@ import pandas as pd
 import os
 from surrealdb import Surreal
 from graph_examples.helpers.params import DatabaseParams, SurrealParams
-from datetime import datetime
+import datetime
 
 
 db_params = DatabaseParams()
@@ -69,29 +69,6 @@ FIELD_MAPPING = [
     {"dataframe_field_name": "5F(3)", "field_display_name": "Non-US Regulatory Assets", "surql_field_name": "section_5f.nonus_regulatory_assets", "python_type": float}
 ]
 
-def cast_value(value, python_type):
-    """
-    Casts a value to a specified Python type.
-
-    Args:
-        value: The value to cast.
-        python_type: The Python type to cast to (e.g., str, int, float, datetime).
-
-    Returns:
-        The cast value, or None if casting fails.
-    """
-    if value is None:
-        return None
-
-    try:
-        if python_type == datetime:
-            # Handle datetime conversion (assuming ISO format or similar)
-            return pd.to_datetime(value).to_pydatetime()
-        return python_type(value)
-    except (ValueError, TypeError):
-        print(f"Warning: Could not cast value '{value}' to type {python_type}. Returning None.")
-        return None
-
 def insert_data_into_surrealdb(logger,connection:Surreal,data):
     """
     Inserts data into SurrealDB.
@@ -116,22 +93,29 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
     params = {
         "name": data["section1"]["primary_business_name"],
         "identifier": data["section1"]["sec_number"],
-        "firm_type": data["section1"]["firm_type"],
-        "legal_name": data["section1"].get("legal_name"),
-        "city": data["section1"].get("main_office_city"),
-        "state": data["section1"].get("main_office_state"),
-        "country": data["section1"].get("main_office_country"),
-        "section1": data["section1"],
-        "section_5d": data.get("section_5d"),
-        "section_5f": data.get("section_5f")}
-  
+        "firm_type": data["section1"]["firm_type"],        
+        "section1": data["section1"]
+        }
+    
+    if "legal_name" in data["section1"]:
+        params["legal_name"] = data["section1"]["legal_name"]
+    if "main_office_city" in data["section1"]:
+        params["city"] = data["section1"]["main_office_city"]
+    if "main_office_state" in data["section1"]:
+        params["state"] = data["section1"]["main_office_state"]
+    if "main_office_country" in data["section1"]:
+        params["country"] = data["section1"]["main_office_country"]
+    if "section_5d" in data:
+        params["section_5d"] = data["section_5d"]
+    if "section_5f" in data:
+        params["section_5f"] = data["section_5f"]
 
     try:
         SurrealParams.ParseResponseForErrors(connection.query_raw(
             insert_surql,params=params
         ))
-    except:
-        logger.error(f"Error inserting data into SurrealDB: {data}")
+    except Exception as e:
+        logger.error(f"Error inserting data into SurrealDB: {data}: {e}")
         raise
 
 
@@ -149,23 +133,10 @@ def insert_dataframe_into_database(logger,connection:Surreal,df):
     """
     if df is not None and not df.empty:
         for index, row in tqdm.tqdm(df.iterrows(), desc="Processing rows", total=len(df), unit="row",position=2):
-            row_data = {}
-            for field in FIELD_MAPPING:
-                if field["dataframe_field_name"] in row and row[field["dataframe_field_name"]] is not None:
-                    casted_value = cast_value(row[field["dataframe_field_name"]], field["python_type"])
-                    if casted_value is None:
-                        continue
-                    else:
-                        if "." in field["surql_field_name"]:
-                            section, field_name = field["surql_field_name"].split(".")
-                            if section not in row_data:
-                                row_data[section] = {}
-                            row_data[section][field_name] = casted_value
-                        else:
-                            row_data[field["surql_field_name"]] = casted_value
+            row_data = get_parsed_data_from_field_mapping(row, FIELD_MAPPING)
             insert_data_into_surrealdb(logger,connection,row_data)
             
-def process_excel_file_and_extract(logger,connection:Surreal,filepath):
+def process_excel_file_and_extract(logger,connection:Surreal,filepath:str):
     """
     Processes an Excel file, extracts specified fields, and returns an array of objects.
 
@@ -185,7 +156,7 @@ def process_excel_file_and_extract(logger,connection:Surreal,filepath):
 
 def process_adviser_firms():
 
-    logger = loggers.setup_logger("SurrealCreateDatabase")
+    logger = loggers.setup_logger("SurrealProcessFirms")
     args_loader.LoadArgs() # Parse command-line arguments
     logger.info(args_loader.string_to_print())
 
