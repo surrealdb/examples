@@ -29,7 +29,8 @@ DEFINE FUNCTION OVERWRITE fn::compliance_officer_upsert(
 $firm:Record<firm>,
 $full_name:string,
 $latest_adv_filing_date:datetime,
-$title:Option<string>
+$title:Option<string>,
+$email:Option<string>
 )
 {
     LET $name_parts = fn::get_name_parts_from_full_name($full_name);
@@ -39,6 +40,7 @@ $title:Option<string>
                 $name_parts["first_name"],
                 $name_parts["last_name"],
                 $title,
+                $email
             ).id;
 
     RELATE $chief_compliance_officer->is_compliance_officer:[$chief_compliance_officer,$firm,$latest_adv_filing_date]->$firm  CONTENT{
@@ -79,7 +81,8 @@ DEFINE FUNCTION OVERWRITE fn::firm_upsert(
                         $firm,
                         $section1["chief_compliance_officer_name"],
                         $section1["latest_adv_filing_date"],
-                        $section1["chief_compliance_officer_other_titles"])
+                        $section1["chief_compliance_officer_other_titles"],
+                        $section1["chief_compliance_officer_e_mail"])
             ELSE
                 NONE
             END;
@@ -110,7 +113,8 @@ DEFINE FUNCTION OVERWRITE fn::person_upsert(
     $full_name: string,
     $first_name: Option<string>,
     $last_name: Option<string>,
-    $title: Option<string>)
+    $title: Option<string>,
+    $email: Option<string>)
     {   
         UPSERT type::thing("person",[$full_name,$firm]) CONTENT{
 
@@ -118,7 +122,8 @@ DEFINE FUNCTION OVERWRITE fn::person_upsert(
             full_name: $full_name,
             first_name: $first_name,
             last_name: $last_name,
-            title: $title
+            title: $title,
+            email: $email
         };
         RETURN  type::thing("person",[$full_name,$firm]);
     };
@@ -198,6 +203,7 @@ DEFINE FUNCTION OVERWRITE fn::filing_upsert(
 
     
 
+
 DEFINE FUNCTION OVERWRITE fn::custodian_get_or_upsert(
     $name: string,
     $legal_name: string,
@@ -206,77 +212,64 @@ DEFINE FUNCTION OVERWRITE fn::custodian_get_or_upsert(
     $city: Option<string>,
     $state: Option<string>,
     $country: Option<string>){
+        RETURN fn::firm_get_or_upsert(
+            $name,
+            $legal_name,
+            "Custodian",
+            $sec_number,
+            $legal_entity_identifier,
+            $city,
+            $state,
+            $country
+        );
     
-    IF $sec_number IS NOT NONE THEN {
-        LET $custodian_firm = type::thing("firm",$sec_number);
-        IF $custodian_firm["identifier"] IS NOT NONE THEN {
-            RETURN $custodian_firm;
-        } END;
-    } END;
+    };
+
+DEFINE FUNCTION OVERWRITE fn::firm_get_or_upsert(
+    $name: string,
+    $legal_name: string,
+    $firm_type_name_if_insert: string,
+    $sec_number: Option<string>,
+    $legal_entity_identifier: Option<string>,
+    $city: Option<string>,
+    $state: Option<string>,
+    $country: Option<string>){
     
-    SELECT id,name,
-math::max([search::score(1),search::score(2)]) 
-+
-((IF country == $country THEN 1 ELSE 0 END) + (IF state == $state THEN 1 ELSE 0 END) + (IF city == $city THEN 1 ELSE 0 END))/3.0 
-as score,
- 
+    LET $custodian_firm = 
+        fn::find_match_for_firm  (
+            $name,
+            $legal_name,
+            $sec_number,
+            $city,
+            $state,
+            $country
+        );
     
-    IF $sec_number IS NONE THEN {
-        IF $legal_entity_identifier IS NONE THEN {
-            RETURN fn::firm_upsert(
-                $name,
-                $legal_name,
-                "custodian",
-                $name,
-                $city,
-                $state,
-                $country,
-                NONE,
-                NONE,
-                NONE
-            ).id;  
-        } ELSE {
-            RETURN fn::firm_upsert(
-                $name,
-                $legal_entity_identifier,
-                "custodian",
-                $name,
-                $city,
-                $state,
-                $country,
-                NONE,
-                NONE,
-                NONE
-            ).id;
-        }END;
-    }
-    ELSE
-    {
-        LET $custodian_firm = type::thing("firm",$sec_number);
+        
+    IF $custodian_firm IS NOT NONE THEN{
         RETURN $custodian_firm;
-        IF $custodian_firm["identifier"] IS NOT NONE THEN {
-            RETURN $custodian_firm;
-        }
-        ELSE 
-        {
+    } ELSE {
+       
+        IF $sec_number IS NOT NONE THEN {
             RETURN fn::firm_upsert(
-                $name,
-                $sec_number,
-                "custodian",
-                $name,
-                $city,
-                $state,
-                $country,
-                {"sec_number":$sec_number},
-                NONE,
-                NONE
-            ).id;
-            
-        }
-        END;
+                        $name,$sec_number,$firm_type_name_if_insert,$name,$city,$state,$country,  {"sec_number":$sec_number}, NONE, NONE
+                    ).id; 
+        }ELSE{
+            IF $legal_entity_identifier IS NOT NONE THEN {
+                RETURN fn::firm_upsert(
+                                    $name,$legal_entity_identifier,$firm_type_name_if_insert,$name,$city,$state,$country, NONE, NONE, NONE
+                                ).id;
+            }ELSE {
+
+                RETURN fn::firm_upsert(
+                                $name,$legal_name,$firm_type_name_if_insert,$name,$city,$state,$country, NONE, NONE, NONE
+                            ).id;
+            } END;
+        }END;   
     }
     END;
 };
+
 
     
 DEFINE FUNCTION OVERWRITE fn::sma_upsert(
@@ -315,3 +308,62 @@ DEFINE FUNCTION OVERWRITE fn::sma_upsert(
             related_person: $related_person
         } RETURN NONE; 
     };
+
+
+DEFINE FUNCTION OVERWRITE fn::string_match_score($match:option<string>,$value:option<string>){
+    IF $value IS NONE AND $match IS NONE THEN {
+        RETURN 1;
+    }
+    ELSE{
+        IF ($value IS NOT NONE AND $match IS NOT NONE) AND 
+                ($value.lowercase() == $match.lowercase()) THEN {
+                RETURN 1;
+                }
+        END;
+    } END;
+    RETURN 0;
+};
+
+DEFINE FUNCTION OVERWRITE fn::firm_match_score($name_score_1:float,$name_score_2:float,
+$city_match:option<string>,$city:option<string>,
+$state_match:option<string>,$state:option<string>,
+$country_match:option<string>,$country:option<string>){
+    LET $ft_score = $name_score_1 + $name_score_2;
+    LET $city_score = fn::string_match_score($city_match,$city);
+    LET $state_score = fn::string_match_score($state_match,$state);
+    LET $country_score = fn::string_match_score($country_match,$country);
+    
+    LET $geo_factor = 4.0; #the higher the less weight to geo matching
+    RETURN $ft_score * ($geo_factor + $city_score + $state_score + $country_score) / $geo_factor;
+};
+
+
+DEFINE FUNCTION OVERWRITE fn::find_match_for_firm(
+    $name: string,
+    $legal_name: string,
+    $sec_number: Option<string>,
+    $city: Option<string>,
+    $state: Option<string>,
+    $country: Option<string>){
+
+    
+
+    IF $sec_number IS NOT NONE THEN {
+        LET $custodian_firm = type::thing("firm",$sec_number);
+        IF $custodian_firm["identifier"] IS NOT NONE THEN {
+            RETURN $custodian_firm;
+        } END;
+    } END;
+
+    LET $custodian_firm = SELECT VALUE id FROM(
+        SELECT id, fn::firm_match_score(
+            search::score(1),search::score(2),
+            $city,city,
+            $state,state,
+            $country,country
+        ) AS score FROM firm WHERE 
+                    (name @1@ $name OR name @2@ $legal_name) ORDER BY score DESC LIMIT 1);
+
+    RETURN $custodian_firm[0];
+};
+

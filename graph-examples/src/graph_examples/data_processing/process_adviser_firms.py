@@ -26,8 +26,12 @@ FIELD_MAPPING = [
     {"dataframe_field_name": "Main Office State", "field_display_name": "Main Office State", "surql_field_name": "section1.main_office_state", "python_type": str},
     {"dataframe_field_name": "Main Office Country", "field_display_name": "Main Office Country", "surql_field_name": "section1.main_office_country", "python_type": str},
     {"dataframe_field_name": "Main Office Postal Code", "field_display_name": "Main Office Postal Code", "surql_field_name": "section1.main_office_postal_code", "python_type": str},
+    
+    
     {"dataframe_field_name": "Chief Compliance Officer Name", "field_display_name": "Chief Compliance Officer Name", "surql_field_name": "section1.chief_compliance_officer_name", "python_type": str},
     {"dataframe_field_name": "Chief Compliance Officer Other Titles", "field_display_name": "Chief Compliance Officer Other Titles", "surql_field_name": "section1.chief_compliance_officer_other_titles", "python_type": str},
+    {"dataframe_field_name": "Chief Compliance Officer E-mail", "field_display_name": "Chief Compliance Officer E-mail", "surql_field_name": "section1.chief_compliance_officer_e_mail", "python_type": str},
+    
     {"dataframe_field_name": "Latest ADV Filing Date", "field_display_name": "Latest ADV Filing Date", "surql_field_name": "section1.latest_adv_filing_date", "python_type": datetime},
     {"dataframe_field_name": "Website Address", "field_display_name": "Website Address", "surql_field_name": "section1.website_address", "python_type": str},
     {"dataframe_field_name": "1O - If yes, approx. amount of assets", "field_display_name": "Approx. Amount of Assets", "surql_field_name": "section_5d.approx_amount_of_assets", "python_type": str},

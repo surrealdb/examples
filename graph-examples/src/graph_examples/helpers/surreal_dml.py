@@ -1,3 +1,7 @@
+from surrealdb import Surreal
+from graph_examples.helpers.constants import *
+import tqdm
+import numpy as np
 
 
 class SurrealDML():
@@ -7,7 +11,62 @@ class SurrealDML():
     These queries are used to interact with the SurrealDB database for data insertion,
     retrieval, and manipulation.
     """
+        
+    @staticmethod
+    def insert_dataframe_into_database(insert_data_function,field_mapping,logger,connection:Surreal,df):
+        """
+        Extracts specified fields from a pandas DataFrame and returns an array of objects.
+
+        Args:
+            df: The pandas DataFrame.
+            field_mapping: An array of objects, where each object has "field_display_name" and "dataframe_field_name".
+        Returns:
+            An array of objects, where each object contains the extracted field values.
+        """
+        if df is not None and not df.empty:
+            for index, row in tqdm.tqdm(df.iterrows(), desc="Processing rows", total=len(df), unit="row",position=2):
+                row_data = get_parsed_data_from_field_mapping(row, field_mapping)
+                insert_data_function(logger,connection,row_data)
+
+
     
+    @staticmethod                    
+    def process_excel_file_and_extract(insert_data_function,field_mapping,logger,connection:Surreal,filepath):
+        """
+        Processes an Excel file, extracts specified fields, and returns an array of objects.
+
+        Args:
+            filepath: The path to the Excel file.
+            field_mapping: An array of objects, where each object has "field_display_name" and "dataframe_field_name".
+
+        Returns:
+            An array of objects, or None if an error occurs.
+        """
+        encoding_hint = get_file_encoding(filepath)  # Get the encoding hint
+        # Prioritize latin1/ISO-8859-1
+        encodings_to_try = ['iso-8859-1', encoding_hint]  # Try iso-8859-1 first
+
+        df = None
+        for enc in encodings_to_try:
+            try:
+                df = pd.read_csv(filepath, encoding=enc, encoding_errors='replace')  # Use errors='replace'
+                #if enc != encoding_hint:
+                #    logger.warning(f"Successfully read {filepath} using {enc} instead of {encoding_hint}.")
+                break  # If successful, stop trying other encodings
+            except UnicodeDecodeError:
+                logger.warning(f"UnicodeDecodeError for {filepath} with {enc}.")
+            except Exception as e:
+                logger.error(f"An unexpected error occurred while processing {filepath}: {e}")
+                break  # Stop trying if a different error occurs
+
+        if df is not None:
+            df = df.replace([np.nan], [None])
+            SurrealDML.insert_dataframe_into_database(insert_data_function,field_mapping,logger,connection,df)
+
+
+
+
+
 
 
     def DELETE_CORPUS_TABLE_INFO(TABLE_NAME:str):

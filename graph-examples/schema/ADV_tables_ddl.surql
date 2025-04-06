@@ -45,6 +45,7 @@ DEFINE FIELD IF NOT EXISTS section1.main_office_country ON TABLE firm TYPE Optio
 DEFINE FIELD IF NOT EXISTS section1.main_office_postal_code ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS section1.chief_compliance_officer_name ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS section1.chief_compliance_officer_other_titles ON TABLE firm TYPE Option<string>;
+DEFINE FIELD IF NOT EXISTS section1.chief_compliance_officer_e_mail ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS section1.latest_adv_filing_date ON TABLE firm TYPE Option<datetime>;
 DEFINE FIELD IF NOT EXISTS section1.website_address ON TABLE firm TYPE Option<string>;
 -- Define fields for section_5d
@@ -144,5 +145,6 @@ DEFINE FIELD IF NOT EXISTS firm ON TABLE person TYPE Record<firm>;
 DEFINE FIELD IF NOT EXISTS first_name ON TABLE person TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS last_name ON TABLE person TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS title ON TABLE person TYPE Option<string>;
+DEFINE FIELD IF NOT EXISTS email ON TABLE person TYPE Option<string>;
 
 

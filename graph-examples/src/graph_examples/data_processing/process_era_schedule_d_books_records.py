@@ -1,4 +1,5 @@
 
+
 from graph_examples.helpers.constants import * 
 from graph_examples.helpers import loggers     
 import tqdm
@@ -147,9 +148,9 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
 
         
 
-def process_filing_5k3_data_files():
+def process_filing_books_records_data_files():
 
-    logger = loggers.setup_logger("SurrealProcessD-5Ks")
+    logger = loggers.setup_logger("SurrealProcessD-Books-Records")
     args_loader.LoadArgs() # Parse command-line arguments
     logger.info(args_loader.string_to_print())
 
@@ -160,7 +161,7 @@ def process_filing_5k3_data_files():
 
         logger.info(f"Processing part 1 adv base a firms data in directory {PART1_DIR}")
 
-        file_pattern = re.compile(r"^IA_Schedule_D_5K3_.*\.csv$")
+        file_pattern = re.compile(r".*_Schedule_D_Books_and_Records_.*\.csv$")
 
         matching_files = [
             filename
@@ -176,5 +177,5 @@ def process_filing_5k3_data_files():
 
 # --- Main execution block ---
 if __name__ == "__main__":
-    process_filing_5k3_data_files()
+    process_filing_books_records_data_files()
 # --- End main execution block ---

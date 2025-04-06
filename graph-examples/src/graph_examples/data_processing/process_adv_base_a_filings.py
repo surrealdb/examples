@@ -9,6 +9,7 @@ from surrealdb import Surreal
 from graph_examples.helpers.params import DatabaseParams, SurrealParams
 import datetime
 import re
+from graph_examples.helpers.surreal_dml import SurrealDML
 
 
 db_params = DatabaseParams()
@@ -30,84 +31,42 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
     Args:
         data: The data to be inserted.
     """
-    insert_surql = """ 
-    fn::filing_upsert(
-        $filing_id,
-        $sec_number,
-        $execution_type,
-        $execution_date,
-        $signatory_name,
-        $signitory_title)
-    """
+    # only insert data for regiestered firms
+    if ("filing_id" in data 
+        and "sec_number" in data
+        and "execution_type" in data
+        and "execution_date" in data
+        and "signatory_name" in data
+        and "signitory_title" in data):
+
+        insert_surql = """ 
+        fn::filing_upsert(
+            $filing_id,
+            $sec_number,
+            $execution_type,
+            $execution_date,
+            $signatory_name,
+            $signitory_title)
+        """
 
 
-    params = {
-        "filing_id": data["filing_id"],
-        "sec_number": data["sec_number"],
-        "execution_type": data["execution_type"],
-        "execution_date": data["execution_date"],
-        "signatory_name": data["signatory_name"],
-        "signitory_title": data["signitory_title"],
-        }
+        params = {
+            "filing_id": data["filing_id"],
+            "sec_number": data["sec_number"],
+            "execution_type": data["execution_type"],
+            "execution_date": data["execution_date"],
+            "signatory_name": data["signatory_name"],
+            "signitory_title": data["signitory_title"],
+            }
 
-    try:
-        SurrealParams.ParseResponseForErrors(connection.query_raw(
-            insert_surql,params=params
-        ))
-    except Exception as e:
-        logger.error(f"Error inserting data into SurrealDB: {data}")
-        raise
-
-
-
-
-def insert_dataframe_into_database(logger,connection:Surreal,df):
-    """
-    Extracts specified fields from a pandas DataFrame and returns an array of objects.
-
-    Args:
-        df: The pandas DataFrame.
-        field_mapping: An array of objects, where each object has "field_display_name" and "dataframe_field_name".
-    Returns:
-        An array of objects, where each object contains the extracted field values.
-    """
-    if df is not None and not df.empty:
-        for index, row in tqdm.tqdm(df.iterrows(), desc="Processing rows", total=len(df), unit="row",position=2):
-            row_data = get_parsed_data_from_field_mapping(row, FIELD_MAPPING)
-            insert_data_into_surrealdb(logger,connection,row_data)
-            
-def process_excel_file_and_extract(logger,connection:Surreal,filepath):
-    """
-    Processes an Excel file, extracts specified fields, and returns an array of objects.
-
-    Args:
-        filepath: The path to the Excel file.
-        field_mapping: An array of objects, where each object has "field_display_name" and "dataframe_field_name".
-
-    Returns:
-        An array of objects, or None if an error occurs.
-    """
-    encoding_hint = get_file_encoding(filepath)  # Get the encoding hint
-    # Prioritize latin1/ISO-8859-1
-    encodings_to_try = ['iso-8859-1', encoding_hint]  # Try iso-8859-1 first
-
-    df = None
-    for enc in encodings_to_try:
         try:
-            df = pd.read_csv(filepath, encoding=enc, encoding_errors='replace')  # Use errors='replace'
-            #if enc != encoding_hint:
-            #    logger.warning(f"Successfully read {filepath} using {enc} instead of {encoding_hint}.")
-            break  # If successful, stop trying other encodings
-        except UnicodeDecodeError:
-            logger.warning(f"UnicodeDecodeError for {filepath} with {enc}.")
+            SurrealParams.ParseResponseForErrors(connection.query_raw(
+                insert_surql,params=params
+            ))
         except Exception as e:
-            logger.error(f"An unexpected error occurred while processing {filepath}: {e}")
-            break  # Stop trying if a different error occurs
+            logger.error(f"Error inserting data into SurrealDB: {data}")
+            raise
 
-    if df is not None:
-        df = df.replace([np.nan], [None])
-        insert_dataframe_into_database(logger,connection,df)
-    
 
 def process_filings():
 
@@ -122,17 +81,18 @@ def process_filings():
 
         logger.info(f"Processing part 1 adv base a firms data in directory {PART1_DIR}")
 
-        file_pattern = re.compile(r"^IA_ADV_Base_A_.*\.csv$")
+        file_pattern1 = re.compile(r"^IA_ADV_Base_A_.*\.csv$")
+        file_pattern2 = re.compile(r"^ERA_ADV_Base_.*\.csv$")
 
         matching_files = [
             filename
             for filename in os.listdir(PART1_DIR)
-            if file_pattern.match(filename)
+            if file_pattern1.match(filename) or file_pattern2.match(filename)
         ]
 
         for filename in tqdm.tqdm(matching_files, desc="Processing files", unit="file",position=1):
             filepath = os.path.join(PART1_DIR, filename)
-            process_excel_file_and_extract(logger,connection,filepath)
+            SurrealDML.process_excel_file_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,filepath)
             
             
 
