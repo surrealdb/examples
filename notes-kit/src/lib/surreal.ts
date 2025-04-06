@@ -1,3 +1,4 @@
+import { browser } from "$app/environment";
 import {
 	PUBLIC_DB_DB,
 	PUBLIC_DB_ENDPOINT,
@@ -50,9 +51,12 @@ const connectToDatabase = async (config: DbConfig): Promise<Surreal> => {
 export const getDb = async (
 	config: DbConfig = DEFAULT_CONFIG,
 ): Promise<Surreal> => {
-	if (!connectionPromise) {
-		connectionPromise = connectToDatabase(config);
+	if (browser) {
+		if (!connectionPromise) {
+			connectionPromise = connectToDatabase(config);
+		}
+		return connectionPromise;
 	}
 
-	return connectionPromise;
+	return connectToDatabase(config);
 };
