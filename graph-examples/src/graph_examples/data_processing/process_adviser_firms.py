@@ -88,6 +88,7 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
         $legal_name,
         $city,
         $state,
+        $postal_code,
         $country,
         $section1,
         $section_5d,
@@ -110,6 +111,8 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
             params["city"] = data["section1"]["main_office_city"]
         if "main_office_state" in data["section1"]:
             params["state"] = data["section1"]["main_office_state"]
+        if "main_office_postal_code" in data["section1"]:
+            params["country"] = data["section1"]["main_office_postal_code"]
         if "main_office_country" in data["section1"]:
             params["country"] = data["section1"]["main_office_country"]
         if "section_5d" in data:

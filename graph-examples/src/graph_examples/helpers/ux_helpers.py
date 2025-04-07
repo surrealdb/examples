@@ -1,37 +1,7 @@
 
 from urllib.parse import quote
 from surrealdb import RecordID
-
-"""Format a SurrealDB RecordID for use in a URL.
-
-    Replaces '/' with '|' and URL-encodes the ID.
-
-    Args:
-        surrealdb_id: SurrealDB RecordID.
-
-    Returns:
-        Formatted string for use in a URL.
-    """
-def format_url_id(surrealdb_id: RecordID) -> str:
-
-    if RecordID == type(surrealdb_id):
-        str_to_format = surrealdb_id.id
-    else:
-        str_to_format = surrealdb_id
-    return quote(str_to_format).replace("/","|")
-    
-"""Unformat a URL-encoded SurrealDB RecordID.
-
-    Replaces '|' with '/'.
-
-    Args:
-        surrealdb_id: URL-encoded SurrealDB RecordID.
-
-    Returns:
-        Unformatted string.
-    """
-def unformat_url_id(surrealdb_id: str) -> str:
-    return surrealdb_id.replace("|","/")
+import datetime
 
 """Extract numeric ID from SurrealDB record ID.
 
@@ -66,6 +36,42 @@ def convert_timestamp_to_date(timestamp: str) -> str:
     # parsed_timestamp = datetime.datetime.fromisoformat(timestamp.rstrip("Z"))
     # return parsed_timestamp.strftime("%B %d %Y, %H:%M")
     return timestamp
+
+def format_value(value):
+    """Formats a value for display based on its type."""
+    if isinstance(value, float):
+        return "{:,.2f}".format(value)
+    elif isinstance(value, int):
+        return "{:,}".format(value)
+    elif isinstance(value, datetime.datetime):
+        return value.strftime("%Y-%m-%d")
+    return str(value)
+
+def extract_field_value(data, field_name):
+    """
+    Extracts the value of a specific field from a dictionary, handling dot notation.
+
+    Args:
+        data: The dictionary to extract the value from.
+        field_name: The name of the field to extract (can use dot notation).
+
+    Returns:
+        The value of the specified field, or None if any part of the path is missing or data is not a dict.
+    """
+    if not isinstance(data, dict) or not field_name:
+        return None
+
+    parts = field_name.split('.')
+    current_level = data
+
+    for part in parts:
+        if isinstance(current_level, dict) and part in current_level:
+            current_level = current_level[part]
+        else:
+            return None  # Return None if the path doesn't exist
+
+    return format_value(current_level)
+
 
 
 def convert_prompt_graph_to_ux_data(data):

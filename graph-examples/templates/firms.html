@@ -1,0 +1,51 @@
+
+<table id="firms_table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Firm Type</th>
+            <th>State</th>
+            <th>Country</th>
+            <th>Compliance Officer</th>
+        </tr>
+    </thead>
+    <tbody>
+        
+        {% for firm in firms %}
+             <tr>
+                <td>
+                    <a hx-get="/firms/{{firm["identifier"]}}"
+                        hx-target="#node_detail" hx-swap="innerHTML" class="model_open">
+                        {{firm["identifier"]}}
+                    </a>
+                </td> 
+                <td>
+                    {{firm["name"]}}
+                </td> 
+                <td>
+                    {{firm["firm_type"]}}
+                </td> 
+                <td>
+                    {{firm["state"]}}
+                </td> 
+                <td>
+                    {{firm["country"]}}
+                </td> 
+                <td>
+                    {% if firm["chief_compliance_officer"] %}
+                    <a hx-get="/firms/{{firm["identifier"]}}/people/{{firm["chief_compliance_officer"]}}"
+                        hx-target="#node_detail" hx-swap="innerHTML" class="model_open">
+                       {{firm["chief_compliance_officer"]}}
+                    </a>
+                    {% else %}
+                     N/A
+                    {% endif %}
+                </td> 
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>    
+<script>
+$('#firms_table').DataTable();
+</script>

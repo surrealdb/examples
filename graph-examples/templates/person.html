@@ -1,0 +1,82 @@
+
+<h1>
+<a hx-get="/firms/{{person["firm"]["identifier"]}}"
+                    hx-target="#node_detail" hx-swap="innerHTML">
+                    {{person["firm"]["name"]}}
+                </a> : {{person["full_name"]}} Detail
+
+</h1>
+
+    
+<span class="person_info" style="display: inline-block;" id="detail">   
+{% for field in field_mapping %}
+    <tr>
+        <td>{{field["field_display_name"]}}</td>
+        <td>{{person[field["surql_field_name"]]}}</td>
+    </tr>
+{% endfor %}
+</span>
+<span class="person_info" style="display: inline-block;" id="signed_list">
+    <h2>Is Compliance Officer For</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Firm</th>
+                <th>As of</th>
+                <th>Title</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for node in person_compliance_officer_for %}
+            <tr>
+                <td><a hx-get="/firms/{{node["firm_identifier"]}}"
+                    hx-target="#node_detail" hx-swap="innerHTML">
+                    {{node["firm_name"]}}
+                </a></td> 
+                <td>
+                    {{node["as_of_latest_filing_date"]}}
+                </td> 
+                <td>{{node["title_at_time_of_filing"]}}</td> 
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</span>
+    <h2>Is Signitory For</h2>
+    <span class="person_info" style="display: inline-block;" id="filing_list">
+    <table>
+        <thead>
+            <tr>
+                <th>Filing</th>
+                <th>Execution Date</th>
+                <th>Title</th>
+            </tr>
+        </thead>
+        <tbody>
+    {% for filing in person_filings %}
+            <tr>
+                <td>
+                    {{filing["firm_name"]}}: 
+                    <a hx-get="/filings/{{ filing["filing_id"] }}" hx-target="node_detail" 
+                    hx-swap="innerHTML">
+                    {{filing["execution_type"]}}
+                    </a>
+
+                </td>
+                <td> 
+                    {{filing["execution_date"]}}</td>
+                <td> 
+                <td> 
+                    {{filing["signatory_title"]}}</td>
+                <td> 
+                
+                
+            </tr>
+    {% endfor %}
+
+    </table>
+    </span>
+
+    <span class="person_info" style="display: inline-block;" id="person_graph">
+        Show graph here
+    </span>

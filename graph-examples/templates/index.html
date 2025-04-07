@@ -30,64 +30,12 @@
     </style>
 
     <script>
-        var show_graph_toggle = false;
-                
-        document.addEventListener('htmx:afterRequest', function(evt) {
-
-            if (evt.detail.successful) {
-                
-                if (evt.detail.elt.hasAttribute('hx-delete')) {
-                    const targetId = evt.detail.elt.getAttribute('hx-target');
-                    if (targetId) {
-                        const targetElement = document.querySelector(targetId);
-                        if (targetElement) {
-                            targetElement.remove();
-                        }
-                        const mainElement = document.querySelector('main');
-                        if (mainElement) {
-                            mainElement.innerHTML = ''; // Clear the inner HTML
-                        }
-                    }
-                } else {
-                    const messagesDiv = document.querySelector('main .messages');
-                    if (messagesDiv) {
-                        const lastMessage = messagesDiv.lastElementChild;
-                        if (lastMessage) {
-                            lastMessage.focus();
-                            lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                        }
-                    }
-
-                }
-
-            }
-
-        });
 
         function clearAllModalHTML(){
-            const messageDetail = document.getElementById('message_detail');
-            const docDetail = document.getElementById('doc_detail');
             const nodeDetail = document.getElementById('node_detail');
-            const promptArea = document.getElementById('promptArea');
-            const queryArea = document.getElementById('queryArea');
-
             if (nodeDetail) {
                 nodeDetail.innerHTML = '';
             }
-            if (messageDetail) {
-                messageDetail.innerHTML = '';
-            }
-            if (docDetail) {
-                docDetail.innerHTML = '';
-            }
-            if (promptArea) {
-                promptArea.style.display = 'none';
-            }
-
-            if (queryArea) {
-                queryArea.style.display = 'none';
-            }
-
         }
         document.addEventListener("DOMContentLoaded", function() {
             const modal = document.getElementById("myModal");
@@ -95,7 +43,7 @@
 
             // Event delegation for dynamically created buttons
             document.body.addEventListener("click", function(event) {
-                if (event.target.classList.contains("message")) {
+                if (event.target.classList.contains("model_open")) {
                     modal.style.display = "block";
                 }
             });
@@ -116,206 +64,39 @@
                 console.error("Modal or close button not found.");
             }
         });
-        let available_llm_models = {};
-        try {
-            available_llm_models = {{ available_llm_models | tojson }};
-        } catch (e) {
-            console.error("Error parsing available_llm_models:", e);
-        }
-
-
-        let available_corpus_tables = {};
-        try {
-            available_corpus_tables = {{ available_corpus_tables | tojson }};
-        } catch (e) {
-            console.error("Error parsing available_corpus_tables:", e);
-        }
-
-        function unescapeHTML(html) {
-            var temp = document.createElement("div");
-            temp.innerHTML = html;
-            var result = temp.textContent || temp.innerText || "";
-            return result;
-        }
-       
-
-        function updateLlmModelSelect(){
-            const platformSelect = document.getElementById("platformSelect");
-            const hostSelect = document.getElementById("hostSelect");
-            const llmModelSelect = document.getElementById("llmModelSelect");
-
-            const selectedPlatform = platformSelect.value;
-            if(selectedPlatform=="OLLAMA"){
-                hostSelect.value = "OLLAMA";
-            } else {
-                if (hostSelect.value == "OLLAMA"){
-                    hostSelect.value = "API";
-                }
-            }
-            const selectedHost = hostSelect.value;
-            
-            // Clear existing options
-            llmModelSelect.innerHTML = "";
-
-
-
-            // Create a default "Select a Model" option
-            // const defaultOption = document.createElement("option");
-            // defaultOption.text = "Select a Model";
-            // defaultOption.value = ""; // You can set this to an empty string or a specific value
-            // llmModelSelect.add(defaultOption);
-
-            // Populate with matching models
-            for (const modelName in available_llm_models) {
-                const model = available_llm_models[modelName];
-                if (model.platform === selectedPlatform && model.host === selectedHost) {
-                    const option = document.createElement("option");
-                    option.text = model.model_version;
-                    option.value = modelName; // Or you can set this to a different identifier if needed
-                    llmModelSelect.add(option);
-                }
-            }
-            llmModelSelect.dispatchEvent(new Event('change'));
-        }   
-
-        // function arrayToCsvString(arr) {
-        //     const quotedElements = arr.map(element => `"${element}"`);
-        //     console.log(`[${quotedElements.join(',')}]`);
-        //     return `[${quotedElements.join(',')}]`;
-        // }
-        
-        function updateCorpusDataTableOptions(){
-            const embedModelSelect = document.getElementById("embedModelSelect");
-            const additionalDataFieldSelect = document.getElementById("additionalDataFieldSelect");
-
-            
-            const corpusTableSelect = document.getElementById("corpusTableSelect");
-            const selectedCorpusTable = corpusTableSelect.value;
-
-            const corpusTable = available_corpus_tables[selectedCorpusTable];
-
-            // embedModelSelect.innerHTML = "";
-            // for (const embedModel in corpusTable.embed_models) {
-            //     const modelName = corpusTable.embed_models[embedModel].model.join(' - ');
-            //     const modelId = arrayToCsvString(corpusTable.embed_models[embedModel].model);
-            //     const option = document.createElement("option");
-            //     option.text = modelName;
-            //     option.value = modelId;
-            //     embedModelSelect.add(option);
-            // }
-
-            additionalDataFieldSelect.innerHTML = "";
-            const first_option = document.createElement("option");
-            first_option.text = "total count";
-            first_option.value = "";
-            additionalDataFieldSelect.add(first_option);
-            for (const data_key of corpusTable.additional_data_keys) { // Use 'of' instead of 'in'
-                const option = document.createElement("option");
-                option.text = data_key;
-                option.value = data_key;
-                additionalDataFieldSelect.add(option);
-            }
-
-
-        }
-        function populateCorpusTableSelect(){
-            const corpusTableSelect = document.getElementById("corpusTableSelect");
-        
-            
-            // Clear existing options
-            corpusTableSelect.innerHTML = "";
-            for (const corpusTableID in available_corpus_tables) {
-                const option = document.createElement("option");
-                option.text = available_corpus_tables[corpusTableID].display_name;
-                option.value = corpusTableID; // Or you can set this to a different identifier if needed
-                corpusTableSelect.add(option);
-            }
-            corpusTableSelect.add(document.createElement("option"));
-                
-            
-            corpusTableSelect.dispatchEvent(new Event('change'));
-        }   
-
-
-
-        document.addEventListener("DOMContentLoaded", function() {
-            populateCorpusTableSelect();
-        });
-
-        document.addEventListener("DOMContentLoaded", function() {
-            updateCorpusDataTableOptions();
-            
-        });
-
-
-
-
     </script>
 </head>
 
 <body>
-    <nav class="nav">
-        <button hx-post="/chats" hx-target="#chats" hx-swap="afterbegin">
+    <div class="nav">
+        <button hx-get="/firms" hx-target="main" hx-swap="innerHTML">
             <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
-            New Chat
+            Firms
         </button>
-        <div id="chats" hx-get="/chats" hx-trigger="load"></div>
-
-      
-        <div id="modelSelector" class="model_selector">
-            <h4>Data Set:
-                    <select id="corpusTableSelect" name="corpus_table"
-                            hx-include="this"  onchange="updateCorpusDataTableOptions()"
-                            hx-get="/get_corpus_table_details"
-                            hx-target="#corpusTableDetails">
-                    </select>
-            </h4>
-            <div class="sub_selection_details">
-                <div id="corpusTableDetails">
-                    
-
-                </div>
-            </div>
-    </nav>
+        <button hx-get="/filings" hx-target="main" hx-swap="innerHTML">
+            <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+            Filings
+        </button>
+        <button hx-get="/people" hx-target="main" hx-swap="innerHTML">
+            <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+            People
+        </button>
+        <button hx-get="/people" hx-target="main" hx-swap="innerHTML">
+            <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+            SMA Graph
+        </button>
+        <button hx-get="/people" hx-target="main" hx-swap="innerHTML">
+            <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+            Record Holder Graph
+        </button>
+    </div>
     <main>
 
     </main>
     <div id="myModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <message_detail id="message_detail"></message_detail>
-            <node_detail id="node_detail"></node_detail>
-            <doc_detail id="doc_detail"></doc_detail>
-            <div id="promptArea" style="display: none;">
-                <textarea id="promptTemplateText" name="prompt_template" rows="30" cols="120">
-                    {{ default_prompt_text }}
-                </textarea>
-                
-                <br>
-        
-                <div>
-                {% for prompt_text in prompt_text_templates %}
-                    <button onclick="document.getElementById('promptTemplateText').value = document.getElementById('promptTemplateText_{{ prompt_text }}').value">{{ prompt_text }}</button>
-                    <textarea style="display: none;" id="promptTemplateText_{{ prompt_text }}" name="prompt_template" rows="30" cols="120">
-                        {{ prompt_text_templates[prompt_text]["text"] }}
-                    </textarea>
-                {% endfor %}
-                </div>
-            </div>
-
-            <div id="queryArea" style="display: none;">
-                <select id="additionalDataFieldSelect" name="additional_data_field"
-                        hx-include="this, #corpusTableSelect">
-                </select>
-                <button id="query" hx-get="/get_additional_data_query" hx-target="#additionalDataQueryResults" 
-                hx-include="#corpusTableSelect,#additionalDataFieldSelect">Go</button>
-                
-                <div id="additionalDataQueryResults">
-                    
-                </div>
-            </div>
-
-                                
+            <node_detail id="node_detail" class="node-detail"></node_detail>
         </div>
     </div>
 </body>

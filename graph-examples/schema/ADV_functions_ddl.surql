@@ -192,6 +192,12 @@ DEFINE FUNCTION OVERWRITE fn::filing_upsert(
         ).id;
 
 
+        RELATE $firm->filed:[$firm,$filing]->$filing  CONTENT{
+            in: $firm,
+            out: $filing,
+            execution_date: $execution_date
+        } RETURN NONE; 
+
         UPSERT $filing CONTENT{
             filing_id: $filing_id,
             filing_firm: $firm,
@@ -420,6 +426,7 @@ DEFINE FUNCTION OVERWRITE fn::b_and_r_upsert(
 
             
         LET $filing = type::thing("filing",$filing_id);
+   
         LET $filing_firm = $filing["filing_firm"];
 
         LET $custodian_type = fn::custodian_type($type);

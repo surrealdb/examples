@@ -55,44 +55,44 @@ DEFINE FIELD IF NOT EXISTS section1.website_address ON TABLE firm TYPE Option<st
 DEFINE FIELD IF NOT EXISTS section_5d ON TABLE firm TYPE Option<object>;
 DEFINE FIELD IF NOT EXISTS section_5d.approx_amount_of_assets ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS section_5d.individuals_other_than_high_net_worth_number_of_clients ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5d.individuals_other_than_high_net_worth_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5d.individuals_other_than_high_net_worth_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5d.high_net_worth_individuals_number_of_clients ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5d.high_net_worth_individuals_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5d.high_net_worth_individuals_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5d.banking_or_thrift_institutions_number_of_clients ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5d.banking_or_thrift_institutions_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5d.banking_or_thrift_institutions_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5d.investment_companies_number_of_clients ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5d.investment_companies_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5d.investment_companies_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5d.business_development_companies_number_of_clients ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5d.business_development_companies_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5d.business_development_companies_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5d.pooled_investment_vehicles_number_of_clients ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5d.pooled_investment_vehicles_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5d.pooled_investment_vehicles_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5d.pension_and_profit_sharing_plans_number_of_clients ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5d.pension_and_profit_sharing_plans_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5d.pension_and_profit_sharing_plans_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5d.charitable_organizations_number_of_clients ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5d.charitable_organizations_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5d.charitable_organizations_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5d.state_or_municipal_government_entities_number_of_clients ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5d.state_or_municipal_government_entities_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5d.state_or_municipal_government_entities_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5d.other_investment_advisers_number_of_clients ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5d.other_investment_advisers_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5d.other_investment_advisers_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5d.insurance_companies_number_of_clients ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5d.insurance_companies_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5d.insurance_companies_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5d.sovereign_wealth_funds_number_of_clients ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5d.sovereign_wealth_funds_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5d.sovereign_wealth_funds_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5d.corporations_or_other_businesses_number_of_clients ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5d.corporations_or_other_businesses_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5d.corporations_or_other_businesses_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5d.other_number_of_clients ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5d.other_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5d.other_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5d.other_details ON TABLE firm TYPE Option<string>;
 
 -- Define fields for section_5f
 DEFINE FIELD IF NOT EXISTS section_5f ON TABLE firm TYPE Option<object>;
-DEFINE FIELD IF NOT EXISTS section_5f.discretionary_regulatory_assets ON TABLE firm TYPE Option<decimal>;
-DEFINE FIELD IF NOT EXISTS section_5f.nondiscretionary_regulatory_assets ON TABLE firm TYPE Option<decimal>;
-DEFINE FIELD IF NOT EXISTS section_5f.total_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5f.discretionary_regulatory_assets ON TABLE firm TYPE Option<float>;
+DEFINE FIELD IF NOT EXISTS section_5f.nondiscretionary_regulatory_assets ON TABLE firm TYPE Option<float>;
+DEFINE FIELD IF NOT EXISTS section_5f.total_regulatory_assets ON TABLE firm TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_5f.discretionary_accounts ON TABLE firm TYPE Option<int>;
 DEFINE FIELD IF NOT EXISTS section_5f.nondiscretionary_accounts ON TABLE firm TYPE Option<int>;
 DEFINE FIELD IF NOT EXISTS section_5f.total_accounts ON TABLE firm TYPE Option<int>;
-DEFINE FIELD IF NOT EXISTS section_5f.nonus_regulatory_assets ON TABLE firm TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS section_5f.nonus_regulatory_assets ON TABLE firm TYPE Option<float>;
 
 DEFINE INDEX IF NOT EXISTS name_text_index ON TABLE firm
     FIELDS name SEARCH ANALYZER snowball_analyzer BM25;
@@ -127,7 +127,7 @@ DEFINE FIELD IF NOT EXISTS source_filing ON TABLE custodian_for TYPE Record<fili
 DEFINE FIELD IF NOT EXISTS custodian_type ON TABLE custodian_for TYPE Record<custodian_type>;
 DEFINE FIELD IF NOT EXISTS legal_entity_identifier ON TABLE custodian_for TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS description ON TABLE custodian_for TYPE Option<string>;
-DEFINE FIELD IF NOT EXISTS assets_under_management ON TABLE custodian_for TYPE Option<decimal>;
+DEFINE FIELD IF NOT EXISTS assets_under_management ON TABLE custodian_for TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS related_person ON TABLE custodian_for TYPE Option<bool>;
 
 
@@ -137,6 +137,12 @@ DEFINE FIELD IF NOT EXISTS filing_id ON TABLE filing TYPE int;
 DEFINE FIELD IF NOT EXISTS filing_firm ON TABLE filing TYPE Record<firm>;
 DEFINE FIELD IF NOT EXISTS execution_type ON TABLE filing TYPE Record<ia_filing_execution_type>;
 DEFINE FIELD IF NOT EXISTS signatory ON TABLE filing TYPE Record<person>;
+
+
+DEFINE TABLE IF NOT EXISTS filed TYPE RELATION
+IN firm OUT filing SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS execution_date ON TABLE filed TYPE datetime;
+
 
 
 DEFINE TABLE IF NOT EXISTS ia_filing_execution_type SCHEMAFULL;

@@ -6,34 +6,36 @@ body {
     padding: 0;
     font-family: sans-serif;
     display: flex;
+    flex-direction: column;
+    color:white
+    
 }
 
 button:hover {
     background: #ff00a0;
 }
-nav button:last-child {
-    margin-bottom: 0;
-}
 
-nav {
-    width: calc(20%);
+.nav {
+    width: calc(100%);
     overflow-y: auto;
     padding: 20px;
     box-sizing: border-box;
     background: #000000;
     color: #f5f5f7;
-    height: 100%;
-    margin-bottom: 10px;
     display: flex;
-    flex-direction: column;
+    height: 150px;
+    flex-direction: row;
 }
 
-#sigma-container {
-    width: 100%;  /* Use full width */
-    height: 600px; /* Or any desired height */
-    border: 1px solid #ccc;
+table {
+    width: 100%;
+    height: 100%;
+    border-collapse: collapse;
+    
 }
-
+td {
+    padding: 10px;
+}
 .expand-contexts, .expand-contexts a{
     color:green;
 }
@@ -89,25 +91,6 @@ a {
 }
 
 
-#chats {
-    flex: 1; /* Allow chats to grow and take available space */
-    overflow-y: auto; /* Enable scrolling within chats */
-}
-.model_selector {
-
-    font-size: 12px;
-    margin-bottom: 10px;
-    
-}
-.model_selector select {
-
-    background: #000000;
-    color: #fff;
-    
-}
-.chat-header{
-    color: #fff;
-}
 button {
     background: #000000;
     color: #fff;
@@ -118,35 +101,6 @@ button {
     transition: background-color 0.3s ease;
     box-sizing: border-box;
 }
-
-button.chat {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-align: left;
-    width: calc(100%);
-    padding: 10px 20px;
-}
-
-a.chat {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-align: left;
-    width: calc(100%);
-    padding: 10px 20px;
-}
-
-button.delete {
-    text-align: center;
-    padding: 4px 8px;
-}
-
-#chats > div { /* Targets direct children divs of #chats */
-    display: flex;
-    align-items: center;
-}
-
 
 button img.surrealdb-logo {
     height: 40px;
@@ -204,54 +158,6 @@ a:-webkit-any-link {
     text-decoration: underline;
 }
 
-.messages {
-    overflow-y: auto;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 10px;
-}
-
-.message {
-    border-radius: 15px;
-    padding: 15px;
-    background: #151517;
-    margin-bottom: 15px;
-    color: #f5f5f7;
-    display: flex;
-    flex-direction: column;
-}
-
-.message .message-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.message .messenger-name {
-    font-weight: bold;
-    font-size: 1rem;
-    color: #ff00a0;
-}
-
-.message .message-time {
-    font-size: 0.85rem;
-    color: #f5f5f7;
-    display: flex; 
-}
-.message .message-time button {
-    padding: 4px 8px;
-}
-
-.message p.message-content {
-    margin: 0;
-}
-
-.system.message .messenger-name {
-    color: #9600ff;
-}
-
 select {
     background-color: black;
     color: white;
@@ -260,31 +166,10 @@ select {
 .graphTitle{
     color: #ff00a0;
 }
-.chat-header h5 span{
 
-    margin-left:30px;
-
-}
-
-#platformSelect{
-    text-overflow: ellipsis; width: calc(20%);
-}
-#hostSelect{
-    text-overflow: ellipsis; width: 150px;
-}
-#llmModelSelect{
-    text-overflow: ellipsis; width: calc(30%);
-}
-#embedModelSelect{
-    text-overflow: ellipsis; width: calc(40%);
-}
-#corpusTableSelect{
-    text-overflow: ellipsis; width: calc(60%);
-}
 #graphSizeLimit {
     text-overflow: ellipsis; width: calc(88%);
 }
-
 
 .graph_warning {
     position: fixed; /* Or absolute, depending on desired behavior */
@@ -377,4 +262,7 @@ p {
     display: inline-block;
     vertical-align: top;
     margin-left: 20px;
+}
+.node-detail {
+    color:black;
 }

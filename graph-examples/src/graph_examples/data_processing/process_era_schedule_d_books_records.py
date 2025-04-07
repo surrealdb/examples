@@ -141,7 +141,7 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
             ))
         except Exception as e:
             logger.error(f"Error inserting data into SurrealDB: {data}")
-            raise
+            
 
 
         
