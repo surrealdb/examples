@@ -83,17 +83,6 @@ async def index(request: fastapi.Request) -> responses.HTMLResponse:
             "request": request,"firms":firms})
 
 
-#  <li><a href="#detail">Detail</a></li>
-#         <li><a href="#custodian_list">Custodians ({{firm_custodians | length}})</a></li>
-#         <li><a href="#filing_list">filings ({{firm_filings | length}})</a></li>
-#         <li><a href="#firm_graph" hx-get="/load_graph/?firm_identifier={{firm_info['identifier']}}" 
-#         hx-target="#firm_graph" id="loadGraphButton">Graph</a></li>
-#     </ul>
-# </div>
-
-    
-# <span class="firm_info" style="display: inline-block;" id="detail">   
-# {% for field in field_mapping
 
 @app.get("/firms/{firm_id}", response_class=responses.HTMLResponse)
 async def index(request: fastapi.Request,firm_id: str) -> responses.HTMLResponse:
@@ -103,6 +92,19 @@ async def index(request: fastapi.Request,firm_id: str) -> responses.HTMLResponse
     return templates.TemplateResponse("firm.html", {
             "request": request,"firm":firm,
             "field_mapping": firm_field_mapping})
+
+
+@app.get("/firms/{firm_id}/people/{full_name}", response_class=responses.HTMLResponse)
+async def index(request: fastapi.Request,firm_id: str,full_name: str) -> responses.HTMLResponse:
+
+    data_handler = ADVDataHandler(life_span["surrealdb"])
+    person = await data_handler.get_person(firm_id,full_name)
+    return templates.TemplateResponse("person.html", {
+            "request": request,"person":person})
+
+
+
+
 
 
 @app.exception_handler(RequestValidationError)

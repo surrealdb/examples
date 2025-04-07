@@ -131,7 +131,6 @@ DEFINE FUNCTION OVERWRITE fn::person_upsert(
     };
 
 
-
 DEFINE FUNCTION OVERWRITE fn::signatory_upsert(
 $firm:Record<firm>,
 $filing:Record<filing>,
@@ -154,7 +153,7 @@ $title:Option<string>
         in: $signatory,
         out: $filing,
         execution_date: $execution_date,
-        signitory_title: $signititletory_title
+        signatory_title: $title
     } RETURN NONE; 
 
     RETURN $signatory;
@@ -176,7 +175,7 @@ DEFINE FUNCTION OVERWRITE fn::filing_upsert(
     $execution_type_name: string,
     $execution_date: datetime,
     $signatory_name: string,
-    $signitory_title: string)
+    $signatory_title: string)
     {
 
         LET $execution_type = fn::execution_type_upsert($execution_type_name);
@@ -188,7 +187,7 @@ DEFINE FUNCTION OVERWRITE fn::filing_upsert(
             $filing,
             $signatory_name,
             $execution_date,
-            $signitory_title
+            $signatory_title
         ).id;
 
 

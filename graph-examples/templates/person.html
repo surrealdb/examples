@@ -9,74 +9,69 @@
 
     
 <span class="person_info" style="display: inline-block;" id="detail">   
-{% for field in field_mapping %}
-    <tr>
-        <td>{{field["field_display_name"]}}</td>
-        <td>{{person[field["surql_field_name"]]}}</td>
-    </tr>
-{% endfor %}
+
 </span>
-<span class="person_info" style="display: inline-block;" id="signed_list">
-    <h2>Is Compliance Officer For</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Firm</th>
-                <th>As of</th>
-                <th>Title</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for node in person_compliance_officer_for %}
-            <tr>
-                <td><a hx-get="/firms/{{node["firm_identifier"]}}"
-                    hx-target="#node_detail" hx-swap="innerHTML">
-                    {{node["firm_name"]}}
-                </a></td> 
-                <td>
-                    {{node["as_of_latest_filing_date"]}}
-                </td> 
-                <td>{{node["title_at_time_of_filing"]}}</td> 
-            </tr>
+    {% if person["compliance_officer_for"] | length > 0%}
+        <span class="person_info" style="display: inline-block;" id="signed_list">
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>As of</th>
+                        <th>Title</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for node in person["compliance_officer_for"] %}
+                    <tr>
+                        <td>
+                            {{node["as_of_latest_filing_date"]}}
+                        </td> 
+                        <td>{{node["title_at_time_of_filing"]}}</td> 
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </span>
+    {%endif%}
+    {% if person["signed_filings"] | length > 0%}
+        <h2>Is signatory For</h2>
+        <span class="firm_info" style="display: inline-block;" id="filing_list">
+        <table>
+            <thead>
+                <tr>
+                    <th>Filing</th>
+                    <th>Execution Date</th>
+                    <th>Title</th>
+                </tr>
+            </thead>
+            <tbody>
+        {% for node in person["signed_filings"] %}
+                <tr>
+                    <td>
+                        <a hx-get="/filings/{{ node["out"] }}" hx-target="node_detail" 
+                        hx-swap="innerHTML">
+                        {{node["out"]}}
+                        </a>
+
+                    </td>
+                    <td> {{node["execution_date"]}}</td>
+                    
+                    <td> {{node["signatory_title"]}}</td>
+                </tr>
         {% endfor %}
-        </tbody>
-    </table>
-</span>
-    <h2>Is Signitory For</h2>
-    <span class="person_info" style="display: inline-block;" id="filing_list">
-    <table>
-        <thead>
-            <tr>
-                <th>Filing</th>
-                <th>Execution Date</th>
-                <th>Title</th>
-            </tr>
-        </thead>
-        <tbody>
-    {% for filing in person_filings %}
-            <tr>
-                <td>
-                    {{filing["firm_name"]}}: 
-                    <a hx-get="/filings/{{ filing["filing_id"] }}" hx-target="node_detail" 
-                    hx-swap="innerHTML">
-                    {{filing["execution_type"]}}
-                    </a>
 
-                </td>
-                <td> 
-                    {{filing["execution_date"]}}</td>
-                <td> 
-                <td> 
-                    {{filing["signatory_title"]}}</td>
-                <td> 
-                
-                
-            </tr>
-    {% endfor %}
+        </table>
+        </span>
+    {%endif%}
 
-    </table>
-    </span>
+
+
 
     <span class="person_info" style="display: inline-block;" id="person_graph">
         Show graph here
     </span>
+
+<script>
+$('#filing_list table').DataTable();
+</script>

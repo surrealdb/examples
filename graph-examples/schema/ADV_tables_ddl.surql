@@ -111,7 +111,7 @@ DEFINE INDEX IF NOT EXISTS firm_type_index ON firm
 DEFINE TABLE IF NOT EXISTS signed TYPE RELATION
 IN person OUT filing SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS execution_date ON TABLE signed TYPE datetime;
-DEFINE FIELD IF NOT EXISTS signitory_title ON TABLE signed TYPE Option<string>;
+DEFINE FIELD IF NOT EXISTS signatory_title ON TABLE signed TYPE Option<string>;
 
 DEFINE TABLE IF NOT EXISTS is_compliance_officer TYPE RELATION
 IN person OUT firm SCHEMAFULL;

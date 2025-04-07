@@ -46,7 +46,6 @@ class ADVDataHandler():
         )
         return firms
         
-    #firm,firm_custodians,firm_filings = await data_handler.get_firm(firm_id)
     async def get_firm(self,firm_id):
         """
         Creates a new chat session in the database.
@@ -78,4 +77,28 @@ class ADVDataHandler():
             params={"firm_id": firm_id}
         )
         return firm[0]
+        
+    async def get_person(self,firm_id,full_name):
+        """
+        Creates a new chat session in the database.
+
+        Returns:
+            dict: A dictionary containing the 'id' and 'title' of the newly created chat.
+        """
+        person = await self.connection.query(
+            """                                 
+                
+                            
+                SELECT 
+                    *,
+                ->signed as signed_filings,
+                ->is_compliance_officer as compliance_officer_for
+                    FROM type::thing("person",[$full_name,type::thing("firm",$firm_id)])
+
+                FETCH firm, signed_filings,compliance_officer_for;
+                    
+            """,
+            params={"firm_id": firm_id,"full_name": full_name}
+        )
+        return person[0]
         

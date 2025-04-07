@@ -3,12 +3,12 @@
 <a hx-get="/firms/{{filing["firm"]["identifier"]}}"
                     hx-target="#node_detail" hx-swap="innerHTML">
                     {{filing["firm"]["name"]}}
-                </a> : {{filing["signitory_id"]}} Detail
+                </a> : {{filing["signatory_id"]}} Detail
 
 </h1>
 
     
-<span class="signitory_info" style="display: inline-block;" id="detail">   
+<span class="signatory_info" style="display: inline-block;" id="detail">   
 {% for field in field_mapping %}
     <tr>
         <td>{{field["field_display_name"]}}</td>
@@ -16,7 +16,7 @@
     </tr>
 {% endfor %}
 </span>
-<span class="signitory_info" style="display: inline-block;" id="signed_list">
+<span class="signatory_info" style="display: inline-block;" id="signed_list">
     <h2>Compliance Officers</h2>
     <table>
         <thead>
@@ -30,37 +30,37 @@
         {% for node in compliance_officers %}
             <tr>
                 <td>
-                    <a hx-get="/firms/{{filing["firm"]["identifier"]}}/people/{{signitory["signitory"]["full_name"]}}"
+                    <a hx-get="/firms/{{filing["firm"]["identifier"]}}/people/{{signatory["signatory"]["full_name"]}}"
                         hx-target="#node_detail" hx-swap="innerHTML">
                         {{node["full_name"]}}
                     </a>
                 </td> 
                 <td>
-                    {{node["as_of_latest_signitory_date"]}}
+                    {{node["as_of_latest_signatory_date"]}}
                 </td> 
-                <td>{{node["title_at_time_of_signitory"]}}</td> 
+                <td>{{node["title_at_time_of_signatory"]}}</td> 
             </tr>
         {% endfor %}
         </tbody>
     </table>
 </span>
     <h2>Signitories</h2>
-    <span class="signitory_info" style="display: inline-block;" id="signitory_list">
+    <span class="signatory_info" style="display: inline-block;" id="signatory_list">
     <table>
         <thead>
             <tr>
-                <th>Signitory</th>
+                <th>signatory</th>
                 <th>Execution Date</th>
                 <th>Title</th>
             </tr>
         </thead>
         <tbody>
-    {% for node in signitory_signitories %}
+    {% for node in signatory_signitories %}
             <tr>
                 <td>
 
-                    {{node["signitory_title"]}} - 
-                    <a hx-get="/firms/{{filing["firm"]["identifier"]}}/people/{{node["signitory"]["full_name"]}}"
+                    {{node["signatory_title"]}} - 
+                    <a hx-get="/firms/{{filing["firm"]["identifier"]}}/people/{{node["signatory"]["full_name"]}}"
                         hx-target="#node_detail" hx-swap="innerHTML">
                         {{node["full_name"]}}
                     </a>
@@ -77,7 +77,7 @@
     </table>
     </span>
 
-    <span class="signitory_info" style="display: inline-block;" id="signitory_graph">
+    <span class="signatory_info" style="display: inline-block;" id="signatory_graph">
         Show graph here
     </span>
 <script>

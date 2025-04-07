@@ -4,9 +4,16 @@
 <div id="firm_tabs">
     <ul>
         <li><a href="#detail">Detail</a></li>
-        <li><a href="#custodian_list">Custodians ({{firm["firm_custodians"] | length}})</a></li>
-        <li><a href="#firm_custodian_of_list">Custodians Of ({{firm["firm_custodian_of"] | length}})</a></li>
-        <li><a href="#filing_list">filings ({{firm["firm_filings"] | length}})</a></li>
+        {% if (firm["firm_custodians"] | length) > 0 %}
+            <li><a href="#custodian_list">Custodians ({{firm["firm_custodians"] | length}})</a></li>
+        {% endif %}
+
+        {% if (firm["firm_custodian_of"] | length) > 0 %}
+           <li><a href="#firm_custodian_of_list">Custodians Of ({{firm["firm_custodian_of"] | length}})</a></li>
+        {% endif %}
+        {% if (firm["firm_filings"] | length) > 0 %}
+            <li><a href="#filing_list">filings ({{firm["firm_filings"] | length}})</a></li>
+        {% endif %}
         <li><a href="#firm_graph" hx-get="/load_graph/?firm_identifier={{firm['identifier']}}" 
         hx-target="#firm_graph" id="loadGraphButton">Graph</a></li>
     </ul>
@@ -106,7 +113,7 @@
             <tr>
                 <th>Filing</th>
                 <th>Execution Date</th>
-                <th>Signitory</th>
+                <th>signatory</th>
             </tr>
         </thead>
         <tbody>

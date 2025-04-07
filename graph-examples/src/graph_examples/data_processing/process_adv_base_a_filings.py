@@ -20,7 +20,7 @@ FIELD_MAPPING = [
 {"dataframe_field_name": "Execution Type", "field_display_name": "Execution Type", "surql_field_name": "execution_type", "python_type": str},
 {"dataframe_field_name": "Execution Date", "field_display_name": "Execution Date", "surql_field_name": "execution_date", "python_type": datetime},
 {"dataframe_field_name": "Signatory", "field_display_name": "Signatory", "surql_field_name": "signatory_name", "python_type": str},
-{"dataframe_field_name": "Title", "field_display_name": "Signatory Title", "surql_field_name": "signitory_title", "python_type": str},
+{"dataframe_field_name": "Title", "field_display_name": "Signatory Title", "surql_field_name": "signatory_title", "python_type": str},
 ]
 
 
@@ -37,7 +37,7 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
         and "execution_type" in data
         and "execution_date" in data
         and "signatory_name" in data
-        and "signitory_title" in data):
+        and "signatory_title" in data):
 
         insert_surql = """ 
         fn::filing_upsert(
@@ -46,7 +46,7 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
             $execution_type,
             $execution_date,
             $signatory_name,
-            $signitory_title)
+            $signatory_title)
         """
 
 
@@ -56,7 +56,7 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
             "execution_type": data["execution_type"],
             "execution_date": data["execution_date"],
             "signatory_name": data["signatory_name"],
-            "signitory_title": data["signitory_title"],
+            "signatory_title": data["signatory_title"],
             }
 
         try:
