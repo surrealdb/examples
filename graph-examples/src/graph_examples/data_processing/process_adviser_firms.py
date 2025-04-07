@@ -93,34 +93,37 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
         $section_5d,
         $section_5f)
     """
+    if ("section1" in data 
+        and "primary_business_name" in data["section1"]
+        and "sec_number" in data["section1"]
+        and "firm_type" in data["section1"]):
+        params = {
+            "name": data["section1"]["primary_business_name"],
+            "identifier": data["section1"]["sec_number"],
+            "firm_type": data["section1"]["firm_type"],        
+            "section1": data["section1"]
+            }
+        
+        if "legal_name" in data["section1"]:
+            params["legal_name"] = data["section1"]["legal_name"]
+        if "main_office_city" in data["section1"]:
+            params["city"] = data["section1"]["main_office_city"]
+        if "main_office_state" in data["section1"]:
+            params["state"] = data["section1"]["main_office_state"]
+        if "main_office_country" in data["section1"]:
+            params["country"] = data["section1"]["main_office_country"]
+        if "section_5d" in data:
+            params["section_5d"] = data["section_5d"]
+        if "section_5f" in data:
+            params["section_5f"] = data["section_5f"]
 
-    params = {
-        "name": data["section1"]["primary_business_name"],
-        "identifier": data["section1"]["sec_number"],
-        "firm_type": data["section1"]["firm_type"],        
-        "section1": data["section1"]
-        }
-    
-    if "legal_name" in data["section1"]:
-        params["legal_name"] = data["section1"]["legal_name"]
-    if "main_office_city" in data["section1"]:
-        params["city"] = data["section1"]["main_office_city"]
-    if "main_office_state" in data["section1"]:
-        params["state"] = data["section1"]["main_office_state"]
-    if "main_office_country" in data["section1"]:
-        params["country"] = data["section1"]["main_office_country"]
-    if "section_5d" in data:
-        params["section_5d"] = data["section_5d"]
-    if "section_5f" in data:
-        params["section_5f"] = data["section_5f"]
-
-    try:
-        SurrealParams.ParseResponseForErrors(connection.query_raw(
-            insert_surql,params=params
-        ))
-    except Exception as e:
-        logger.error(f"Error inserting data into SurrealDB: {data}: {e}")
-        raise
+        try:
+            SurrealParams.ParseResponseForErrors(connection.query_raw(
+                insert_surql,params=params
+            ))
+        except Exception as e:
+            logger.error(f"Error inserting data into SurrealDB: {data}: {e}")
+            raise
 
 
 

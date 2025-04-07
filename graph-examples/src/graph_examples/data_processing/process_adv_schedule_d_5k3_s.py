@@ -113,36 +113,39 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
     """
 
 
-    params = {
-        "filing_id": data["filing_id"],
-        "legal_name": data["legal_name"],
-        "primary_business_name": data["primary_business_name"],
-    }
+    if ("filing_id" in data 
+        and "legal_name" in data
+        and "primary_business_name" in data):
+        params = {
+            "filing_id": data["filing_id"],
+            "legal_name": data["legal_name"],
+            "primary_business_name": data["primary_business_name"],
+        }
 
 
-    if "office_city" in data:
-        params["office_city"] = data["office_city"]
-    if "office_state" in data:
-        params["office_state"] = data["office_state"]
-    if "office_country" in data:
-        params["office_country"] = data["office_country"]
-    if "is_related_person" in data:
-        params["is_related_person"] = data["is_related_person"]
-    if "legal_entity_identifier" in data:
-        params["legal_entity_identifier"] = data["legal_entity_identifier"]
-    if "regulatory_assets" in data:
-        params["regulatory_assets"] = data["regulatory_assets"]
-    if "sec_number" in data:
-        params["sec_number"] = data["sec_number"]
+        if "office_city" in data:
+            params["office_city"] = data["office_city"]
+        if "office_state" in data:
+            params["office_state"] = data["office_state"]
+        if "office_country" in data:
+            params["office_country"] = data["office_country"]
+        if "is_related_person" in data:
+            params["is_related_person"] = data["is_related_person"]
+        if "legal_entity_identifier" in data:
+            params["legal_entity_identifier"] = data["legal_entity_identifier"]
+        if "regulatory_assets" in data:
+            params["regulatory_assets"] = data["regulatory_assets"]
+        if "sec_number" in data:
+            params["sec_number"] = data["sec_number"]
 
 
-    try:
-        SurrealParams.ParseResponseForErrors(connection.query_raw(
-            insert_surql,params=params
-        ))
-    except Exception as e:
-        logger.error(f"Error inserting data into SurrealDB: {data}")
-        raise
+        try:
+            SurrealParams.ParseResponseForErrors(connection.query_raw(
+                insert_surql,params=params
+            ))
+        except Exception as e:
+            logger.error(f"Error inserting data into SurrealDB: {data}")
+            raise
 
 
         

@@ -13,78 +13,80 @@ import re
 from graph_examples.helpers.surreal_dml import SurrealDML
 
 
+
+# FilingID	
+# Name	
+# Street 1	
+# Street 2	
+# City	
+# State	
+# Country	
+# Postal Code	
+# Private Residence	
+# Phone	
+# Fax	
+# Type	
+# Description
+
+
 db_params = DatabaseParams()
 args_loader = ArgsLoader("Input Glove embeddings model",db_params)
 FIELD_MAPPING = [
     {
-        "dataframe_field_name": "Filing ID",
+        "dataframe_field_name": "FilingID",
         "field_display_name": "Filing ID",
         "surql_field_name": "filing_id",
         "python_type": int,  # Assuming Filing ID is an integer
         "description": "Unique identifier for the filing.",
     },
     {
-        "dataframe_field_name": "5K(3)(a)",
-        "field_display_name": "Legal name of custodian",
-        "surql_field_name": "legal_name",
+        "dataframe_field_name": "Name",
+        "field_display_name": "Name",
+        "surql_field_name": "name",
         "python_type": str,
-        "description": "Legal name of the custodian holding separately managed account assets.",
+        "description": "Name of the custodian holding books or records.",
     },
     {
-        "dataframe_field_name": "5K(3)(b)",
-        "field_display_name": "Primary business name of custodian",
-        "surql_field_name": "primary_business_name",
-        "python_type": str,
-        "description": "Primary business name of the custodian holding separately managed account assets.",
-    },
-    {
-        "dataframe_field_name": "5K(3)(c) City",
+        "dataframe_field_name": "City",
         "field_display_name": "Custodian Office City",
-        "surql_field_name": "office_city",
+        "surql_field_name": "city",
         "python_type": str,
-        "description": "City of the custodian's office responsible for custody of the assets.",
+        "description": "City of the custodian's office responsible for custody of the books or records.",
     },
     {
-        "dataframe_field_name": "5K(3)(c) State",
+        "dataframe_field_name": "State",
         "field_display_name": "Custodian Office State",
-        "surql_field_name": "office_state",
+        "surql_field_name": "state",
         "python_type": str,
-        "description": "State of the custodian's office responsible for custody of the assets.",
+        "description": "State of the custodian's office responsible for custody of the books or records.",
     },
     {
-        "dataframe_field_name": "5K(3)(c) Country",
+        "dataframe_field_name": "Postal Code",
+        "field_display_name": "Custodian Office Postal Code",
+        "surql_field_name": "postal_code",
+        "python_type": str,
+        "description": "Country of the custodian's office responsible for custody of the books or records.",
+    },
+    {
+        "dataframe_field_name": "Country",
         "field_display_name": "Custodian Office Country",
-        "surql_field_name": "office_country",
+        "surql_field_name": "country",
         "python_type": str,
-        "description": "Country of the custodian's office responsible for custody of the assets.",
+        "description": "Country of the custodian's office responsible for custody of the books or records.",
     },
     {
-        "dataframe_field_name": "5K(3)(d)",
-        "field_display_name": "Is custodian a related person",
-        "surql_field_name": "is_related_person",
+        "dataframe_field_name": "Type",
+        "field_display_name": "Type of Custodian",
+        "surql_field_name": "type",
         "python_type": str,
-        "description": "Indicates whether the custodian is a related person of the firm (Yes/No or Y/N).",
+        "description": "Nature of the custodian's relationship to the books or records.",
     },
     {
-        "dataframe_field_name": "5K(3)(e)",
-        "field_display_name": "Custodian SEC registration number",
-        "surql_field_name": "sec_number",
+        "dataframe_field_name": "Description",
+        "field_display_name": "Description",
+        "surql_field_name": "description",
         "python_type": str,
-        "description": "SEC registration number of the custodian (if it is a broker-dealer).",
-    },
-    {
-        "dataframe_field_name": "5K(3)(f)",
-        "field_display_name": "Custodian Legal Entity Identifier",
-        "surql_field_name": "legal_entity_identifier",
-        "python_type": str,
-        "description": "Legal Entity Identifier (LEI) of the custodian (if not a broker-dealer or no SEC number).",
-    },
-    {
-        "dataframe_field_name": "5K(3)(g)",
-        "field_display_name": "Regulatory assets at custodian",
-        "surql_field_name": "regulatory_assets",
-        "python_type": float,
-        "description": "Amount of regulatory assets under management attributable to separately managed accounts held at the ",
+        "description": "Description of the custodian's relationship to the books or records.",
     },
 ]
 
@@ -97,53 +99,49 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
         data: The data to be inserted.
     """
 
-
     insert_surql = """ 
-    fn::sma_upsert(
+    fn::b_and_r_upsert(
         $filing_id,
-        $primary_business_name,
-        $legal_name,
-        $sec_number,
-        $legal_entity_identifier,
-        $office_city,
-        $office_state,
-        $office_country,
-        $is_related_person,
-        $regulatory_assets,
+        $name,
+        $type,
+        $city,
+        $state,
+        $postal_code,
+        $country,
+        $description,
         )
     """
 
 
-    params = {
-        "filing_id": data["filing_id"],
-        "legal_name": data["legal_name"],
-        "primary_business_name": data["primary_business_name"],
-    }
+    if ("filing_id" in data 
+        and "name" in data
+        and "type" in data):
+        params = {
+            "filing_id": data["filing_id"],
+            "name": data["name"],
+            "type": data["type"],
+        }
 
 
-    if "office_city" in data:
-        params["office_city"] = data["office_city"]
-    if "office_state" in data:
-        params["office_state"] = data["office_state"]
-    if "office_country" in data:
-        params["office_country"] = data["office_country"]
-    if "is_related_person" in data:
-        params["is_related_person"] = data["is_related_person"]
-    if "legal_entity_identifier" in data:
-        params["legal_entity_identifier"] = data["legal_entity_identifier"]
-    if "regulatory_assets" in data:
-        params["regulatory_assets"] = data["regulatory_assets"]
-    if "sec_number" in data:
-        params["sec_number"] = data["sec_number"]
+        if "city" in data:
+            params["city"] = data["city"]
+        if "state" in data:
+            params["state"] = data["state"]
+        if "country" in data:
+            params["country"] = data["country"]
+        if "postal_code" in data:
+            params["postal_code"] = data["postal_code"]
+        if "description" in data:
+            params["description"] = data["description"]
 
 
-    try:
-        SurrealParams.ParseResponseForErrors(connection.query_raw(
-            insert_surql,params=params
-        ))
-    except Exception as e:
-        logger.error(f"Error inserting data into SurrealDB: {data}")
-        raise
+        try:
+            SurrealParams.ParseResponseForErrors(connection.query_raw(
+                insert_surql,params=params
+            ))
+        except Exception as e:
+            logger.error(f"Error inserting data into SurrealDB: {data}")
+            raise
 
 
         

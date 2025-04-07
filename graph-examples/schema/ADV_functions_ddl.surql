@@ -67,6 +67,7 @@ DEFINE FUNCTION OVERWRITE fn::firm_upsert(
     $legal_name: option<string>,
     $city: option<string>,
     $state: option<string>,
+    $postal_code: option<string>,
     $country: option<string>,
     $section1: option<object>,
     $section_5d: option<object>,
@@ -95,6 +96,7 @@ DEFINE FUNCTION OVERWRITE fn::firm_upsert(
             legal_name: $legal_name,
             city: $city,
             state: $state,
+            postal_code: $postal_code,
             country: $country,
             chief_compliance_officer: $chief_compliance_officer,
             section1: $section1,
@@ -215,11 +217,12 @@ DEFINE FUNCTION OVERWRITE fn::custodian_get_or_upsert(
         RETURN fn::firm_get_or_upsert(
             $name,
             $legal_name,
-            "Custodian",
+            "SMA Custodian",
             $sec_number,
             $legal_entity_identifier,
             $city,
             $state,
+            NONE,
             $country
         );
     
@@ -233,6 +236,7 @@ DEFINE FUNCTION OVERWRITE fn::firm_get_or_upsert(
     $legal_entity_identifier: Option<string>,
     $city: Option<string>,
     $state: Option<string>,
+    $postal_code: Option<string>,
     $country: Option<string>){
     
     LET $custodian_firm = 
@@ -252,17 +256,17 @@ DEFINE FUNCTION OVERWRITE fn::firm_get_or_upsert(
        
         IF $sec_number IS NOT NONE THEN {
             RETURN fn::firm_upsert(
-                        $name,$sec_number,$firm_type_name_if_insert,$name,$city,$state,$country,  {"sec_number":$sec_number}, NONE, NONE
+                        $name,$sec_number,$firm_type_name_if_insert,$name,$city,$state,$postal_code,$country,  {"sec_number":$sec_number}, NONE, NONE
                     ).id; 
         }ELSE{
             IF $legal_entity_identifier IS NOT NONE THEN {
                 RETURN fn::firm_upsert(
-                                    $name,$legal_entity_identifier,$firm_type_name_if_insert,$name,$city,$state,$country, NONE, NONE, NONE
+                                    $name,$legal_entity_identifier,$firm_type_name_if_insert,$name,$city,$state,$postal_code,$country, NONE, NONE, NONE
                                 ).id;
             }ELSE {
 
                 RETURN fn::firm_upsert(
-                                $name,$legal_name,$firm_type_name_if_insert,$name,$city,$state,$country, NONE, NONE, NONE
+                                $name,$legal_name,$firm_type_name_if_insert,$name,$city,$state,$postal_code,$country, NONE, NONE, NONE
                             ).id;
             } END;
         }END;   
@@ -303,6 +307,7 @@ DEFINE FUNCTION OVERWRITE fn::sma_upsert(
             in: $custodian_firm,
             out: $filing_firm,
             source_filing: $filing,
+            custodian_type: custodian_type:`SMA`,
             legal_entity_identifier: $legal_entity_identifier,
             assets_under_management: $assets_under_management,
             related_person: $related_person
@@ -366,4 +371,74 @@ DEFINE FUNCTION OVERWRITE fn::find_match_for_firm(
 
     RETURN $custodian_firm[0];
 };
+
+
+
+
+
+
+DEFINE FUNCTION OVERWRITE fn::b_and_r_custodian_get_or_upsert(
+    $name: string,
+    $city: Option<string>,
+    $state: Option<string>,
+    $postal_code: Option<string>,
+    $country: Option<string>){
+        RETURN fn::firm_get_or_upsert(
+            $name,
+            $name,
+            "Records Custodian",
+            NONE,
+            NONE,
+            $city,
+            $state,
+            $postal_code,
+            $country
+        );
+    
+    };
+
+
+
+
+DEFINE FUNCTION OVERWRITE fn::custodian_type($custodian_type_name:string){
+    LET $custodian_type = (UPSERT type::thing("custodian_type",$custodian_type_name)
+            CONTENT{"custodian_type": $custodian_type_name}).id[0];
+    RETURN $custodian_type;
+};
+
+
+DEFINE FUNCTION OVERWRITE fn::b_and_r_upsert(
+    $filing_id: int,
+    $name: string,
+    $type: string,
+    $city: Option<string>,
+    $state: Option<string>,
+    $postal_code: Option<string>,
+    $country: Option<string>,
+    $description: Option<string>)
+    {
+
+            
+        LET $filing = type::thing("filing",$filing_id);
+        LET $filing_firm = $filing["filing_firm"];
+
+        LET $custodian_type = fn::custodian_type($type);
+
+
+
+        LET $custodian_firm = fn::b_and_r_custodian_get_or_upsert(
+            $name,
+            $city,
+            $state,
+            $postal_code,
+            $country);
+
+        RELATE $custodian_firm->custodian_for:[$custodian_firm,$filing_firm]->$filing_firm  CONTENT{
+            in: $custodian_firm,
+            out: $filing_firm,
+            source_filing: $filing,
+            custodian_type: $custodian_type,
+            description: $description
+        } RETURN NONE; 
+    };
 

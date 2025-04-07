@@ -14,8 +14,10 @@ UPSERT firm_type:`ERA` CONTENT{
     firm_type : 'ERA'};
 UPSERT firm_type:`Registered` CONTENT{
     firm_type : 'Registered'};
-UPSERT firm_type:`Records Holder` CONTENT{
-    firm_type : 'Records Holder'};
+UPSERT firm_type:`Records Custodian` CONTENT{
+    firm_type : 'Records Custodian'};
+UPSERT firm_type:`SMA Custodian` CONTENT{
+    firm_type : 'SMA Custodian'};
 
 
 
@@ -27,6 +29,7 @@ DEFINE FIELD IF NOT EXISTS legal_name ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS city ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS state ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS country ON TABLE firm TYPE Option<string>;
+DEFINE FIELD IF NOT EXISTS postal_code ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS chief_compliance_officer ON TABLE firm TYPE Option<Record<person>>;
 
 -- Define fields for section1
@@ -121,9 +124,11 @@ DEFINE FIELD IF NOT EXISTS title_at_time_of_filing ON TABLE is_compliance_office
 DEFINE TABLE IF NOT EXISTS custodian_for TYPE RELATION
 IN firm OUT firm SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS source_filing ON TABLE custodian_for TYPE Record<filing>;
+DEFINE FIELD IF NOT EXISTS custodian_type ON TABLE custodian_for TYPE Record<custodian_type>;
 DEFINE FIELD IF NOT EXISTS legal_entity_identifier ON TABLE custodian_for TYPE Option<string>;
+DEFINE FIELD IF NOT EXISTS description ON TABLE custodian_for TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS assets_under_management ON TABLE custodian_for TYPE Option<decimal>;
-DEFINE FIELD IF NOT EXISTS related_person ON TABLE custodian_for TYPE bool;
+DEFINE FIELD IF NOT EXISTS related_person ON TABLE custodian_for TYPE Option<bool>;
 
 
 
@@ -139,6 +144,11 @@ DEFINE FIELD IF NOT EXISTS execution_type ON TABLE ia_filing_execution_type TYPE
 
 
 
+DEFINE TABLE IF NOT EXISTS custodian_type SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS custodian_type ON TABLE custodian_type TYPE string;
+UPSERT custodian_type:`SMA` CONTENT{
+    custodian_type : 'SMA'};
+
 DEFINE TABLE IF NOT EXISTS person SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS full_name ON TABLE person TYPE string;
 DEFINE FIELD IF NOT EXISTS firm ON TABLE person TYPE Record<firm>;
@@ -146,5 +156,6 @@ DEFINE FIELD IF NOT EXISTS first_name ON TABLE person TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS last_name ON TABLE person TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS title ON TABLE person TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS email ON TABLE person TYPE Option<string>;
+
 
 
