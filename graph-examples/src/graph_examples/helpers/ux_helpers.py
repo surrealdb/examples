@@ -3,6 +3,41 @@ from urllib.parse import quote
 from surrealdb import RecordID
 import datetime
 
+
+"""Format a SurrealDB RecordID for use in a URL.
+
+    Replaces '/' with '|' and URL-encodes the ID.
+
+    Args:
+        surrealdb_id: SurrealDB RecordID.
+
+    Returns:
+        Formatted string for use in a URL.
+    """
+def format_url_id(surrealdb_id: RecordID) -> str:
+
+    if RecordID == type(surrealdb_id):
+        str_to_format = surrealdb_id.id
+    else:
+        str_to_format = surrealdb_id
+    return quote(str_to_format).replace("/","|")
+    
+"""Unformat a URL-encoded SurrealDB RecordID.
+
+    Replaces '|' with '/'.
+
+    Args:
+        surrealdb_id: URL-encoded SurrealDB RecordID.
+
+    Returns:
+        Unformatted string.
+    """
+def unformat_url_id(surrealdb_id: str) -> str:
+    return surrealdb_id.replace("|","/")
+
+
+
+
 """Extract numeric ID from SurrealDB record ID.
 
     SurrealDB record ID comes in the form of `<table_name>:<unique_id>`.

@@ -1,0 +1,51 @@
+
+<table id="filings_table">
+    <thead>
+        <tr>
+            <th>Filing</th>
+            <th>Firm</th>
+            <th>Type</th>
+            <th>Signatory</th>
+            <th>Date</th>
+        </tr>
+    </thead>
+
+
+
+    <tbody>
+        
+        {% for filing in filings %}
+             <tr>
+                <td>
+                    <a hx-get="/filings/{{filing["filing_id"]}}"
+                        hx-target="#node_detail" hx-swap="innerHTML" class="model_open">
+                        {{filing["filing_id"]}}
+                    </a>
+                </td> 
+                <td>
+
+                    <a hx-get="/firms/{{filing["firm"]["identifier"]}}"
+                        hx-target="#node_detail" hx-swap="innerHTML" class="model_open">
+                        {{filing["firm"]["name"]}}
+                    </a>
+                </td> 
+                <td>
+                    {{filing["execution_type"]}}
+                </td> 
+                <td>
+                    <a hx-get="/firms/{{filing["firm"]["identifier"]}}/people/{{filing["signatory"]["full_name"]|format_url_id}}"
+                        hx-target="#node_detail" hx-swap="innerHTML" class="model_open">
+                       {{filing["signatory"]["full_name"]}}
+                    </a>
+                     - {{filing["signatory"]["title"]}}
+                </td> 
+                <td>
+                    {{filing["execution_date"]}}
+                </td> 
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>    
+<script>
+$('#filings_table').DataTable();
+</script>

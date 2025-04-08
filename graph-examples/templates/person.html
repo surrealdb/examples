@@ -42,20 +42,22 @@
                 <tr>
                     <th>Filing</th>
                     <th>Execution Date</th>
+                    <th>Execution Type</th>
                     <th>Title</th>
                 </tr>
             </thead>
             <tbody>
         {% for node in person["signed_filings"] %}
                 <tr>
-                    <td>
-                        <a hx-get="/filings/{{ node["out"] }}" hx-target="node_detail" 
+                    <td> 
+                        <a hx-get="/filings/{{ node["out"]["filing_id"] }}" hx-target="node_detail" 
                         hx-swap="innerHTML">
-                        {{node["out"]}}
+                        {{node["out"]["filing_id"]}}
                         </a>
 
                     </td>
                     <td> {{node["execution_date"]}}</td>
+                    <td> {{node["out"]["execution_type"]["execution_type"]}}</td>
                     
                     <td> {{node["signatory_title"]}}</td>
                 </tr>

@@ -1,0 +1,44 @@
+
+<table id="people_table">
+    <thead>
+        <tr>
+            <th>Person</th>
+            <th>Firm</th>
+            <th>CCO</th>
+        </tr>
+    </thead>
+    <tbody>
+        
+        {% for person in people %}
+             <tr>
+                <td>
+                
+                    <a hx-get="/firms/{{person["firm"]["identifier"]}}/people/{{person["full_name"]|format_url_id}}"
+                        hx-target="#node_detail" hx-swap="innerHTML" class="model_open">
+                        {{person["full_name"]}}
+                    </a> - {{person["title"]}}
+                </td> 
+                <td>
+
+                    <a hx-get="/firms/{{person["firm"]["identifier"]}}"
+                        hx-target="#node_detail" hx-swap="innerHTML" class="model_open">
+                        {{person["firm"]["name"]}}
+                    </a>
+                </td> 
+                <td>
+                    {% if person["is_compliance_officer"] %}
+                       {% for compliance_event in person["is_compliance_officer"] %}
+                         {{compliance_event["as_of_latest_filing_date"]}} -  
+                          {{compliance_event["title_at_time_of_filing"]}} <br>
+                       {% endfor%}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td> 
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>    
+<script>
+$('#people_table').DataTable();
+</script>

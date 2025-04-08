@@ -39,6 +39,7 @@ templates = templating.Jinja2Templates(directory="templates")
 templates.env.filters["extract_id"] = extract_id
 templates.env.filters["convert_timestamp_to_date"] = convert_timestamp_to_date
 templates.env.filters["extract_field_value"] = extract_field_value
+templates.env.filters["format_url_id"] = format_url_id
 
 
 life_span = {}
@@ -98,12 +99,38 @@ async def index(request: fastapi.Request,firm_id: str) -> responses.HTMLResponse
 async def index(request: fastapi.Request,firm_id: str,full_name: str) -> responses.HTMLResponse:
 
     data_handler = ADVDataHandler(life_span["surrealdb"])
+    full_name = unformat_url_id(full_name)
     person = await data_handler.get_person(firm_id,full_name)
     return templates.TemplateResponse("person.html", {
             "request": request,"person":person})
 
 
 
+
+@app.get("/people", response_class=responses.HTMLResponse)
+async def index(request: fastapi.Request) -> responses.HTMLResponse:
+    data_handler = ADVDataHandler(life_span["surrealdb"])
+    people = await data_handler.get_people()
+    return templates.TemplateResponse("people.html", {
+            "request": request,"people":people})
+
+@app.get("/filings", response_class=responses.HTMLResponse)
+async def index(request: fastapi.Request) -> responses.HTMLResponse:
+
+    data_handler = ADVDataHandler(life_span["surrealdb"])
+    filings = await data_handler.get_filings()
+    return templates.TemplateResponse("filings.html", {
+            "request": request,"filings":filings})
+
+
+
+@app.get("/filings/{filing_id}", response_class=responses.HTMLResponse)
+async def index(request: fastapi.Request,filing_id: int) -> responses.HTMLResponse:
+
+    data_handler = ADVDataHandler(life_span["surrealdb"])
+    filing = await data_handler.get_filing(filing_id)
+    return templates.TemplateResponse("filing.html", {
+            "request": request,"filing":filing})
 
 
 

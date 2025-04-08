@@ -42,40 +42,9 @@
         </tbody>
     </table>
 </span>
-<span class="firm_info" style="display: inline-block;" id="custodian_list">
-    <table>
-        <thead>
-            <tr>
-                <th>Relationship</th>
-                <th>Firm</th>
-                <th>Assets Managed</th>
-                <th>Description</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for node in firm["firm_custodians"] %}
-            <tr>
-                <td>{{node["custodian_type"]["custodian_type"]}}</td> 
-                <td>
-                    {{node["in"]["firm_type"]["firm_type"]}}:
-                        <a hx-get="/firms/{{node["in"]["identifier"]}}"
-                        hx-target="#node_detail" hx-swap="innerHTML">
-                        {{node["in"]["name"]}}
-                        </a>
-                </td> 
-                <td>
-                {%if node["assets_under_management"] %}
-                    {{ '%.0f' % node["assets_under_management"] }}
-                {%endif%}
-                </td> 
-                <td>{{node["description"]}}</td> 
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</span>
 
-    <span class="firm_info" style="display: inline-block;" id="firm_custodian_of_list">
+{% if (firm["firm_custodians"] | length) > 0 %}
+    <span class="firm_info" style="display: inline-block;" id="custodian_list">
         <table>
             <thead>
                 <tr>
@@ -86,7 +55,7 @@
                 </tr>
             </thead>
             <tbody>
-            {% for node in firm["firm_custodian_of"] %}
+            {% for node in firm["firm_custodians"] %}
                 <tr>
                     <td>{{node["custodian_type"]["custodian_type"]}}</td> 
                     <td>
@@ -107,6 +76,44 @@
             </tbody>
         </table>
     </span>
+{% endif %}
+
+
+{% if (firm["firm_custodian_of"] | length) > 0 %}
+    <span class="firm_info" style="display: inline-block;" id="firm_custodian_of_list">
+        <table>
+            <thead>
+                <tr>
+                    <th>Relationship</th>
+                    <th>Firm</th>
+                    <th>Assets Managed</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for node in firm["firm_custodian_of"] %}
+                <tr>
+                    <td>{{node["custodian_type"]["custodian_type"]}}</td> 
+                    <td>
+                        {{node["out"]["firm_type"]["firm_type"]}}:
+                            <a hx-get="/firms/{{node["out"]["identifier"]}}"
+                            hx-target="#node_detail" hx-swap="innerHTML">
+                            {{node["out"]["name"]}}
+                            </a>
+                    </td> 
+                    <td>
+                    {%if node["assets_under_management"] %}
+                        {{ '%.0f' % node["assets_under_management"] }}
+                    {%endif%}
+                    </td> 
+                    <td>{{node["description"]}}</td> 
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </span>
+{% endif %}
+{% if (firm["firm_filings"] | length) > 0 %}
     <span class="firm_info" style="display: inline-block;" id="filing_list">
     <table>
         <thead>
@@ -120,23 +127,25 @@
     {% for node in firm["firm_filings"] %}
             <tr>
                 <td>
-                    <a hx-get="/filings/{{ node["out"] }}" hx-target="node_detail" 
+                    <a hx-get="/filings/{{ node["out"]["filing_id"] }}" hx-target="node_detail" 
                     hx-swap="innerHTML">
-                    {{node["out"]}}
+                    {{node["out"]["filing_id"]}}
                     </a>
 
                 </td>
                 <td> {{node["execution_date"]}}</td>
                 <td>{{node["in"]["title"]}} - 
-                 <a hx-get="/firms/{{firm["identifier"]}}/people/{{node["in"]["full_name"]}}"
-                    hx-target="#node_detail" hx-swap="innerHTML">
-                    {{node["in"]["full_name"]}}
-                </a></td>
+                    <a hx-get="/firms/{{firm["identifier"]}}/people/{{node["in"]["full_name"]|format_url_id}}"
+                        hx-target="#node_detail" hx-swap="innerHTML">
+                        {{node["in"]["full_name"]}}
+                    </a>
+                </td>
             </tr>
     {% endfor %}
 
     </table>
     </span>
+{% endif %}
 
 </div>
     <span class="firm_info" style="display: inline-block;" id="firm_graph">

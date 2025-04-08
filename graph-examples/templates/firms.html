@@ -34,7 +34,7 @@
                 </td> 
                 <td>
                     {% if firm["chief_compliance_officer"] %}
-                    <a hx-get="/firms/{{firm["identifier"]}}/people/{{firm["chief_compliance_officer"]}}"
+                    <a hx-get="/firms/{{firm["identifier"]}}/people/{{firm["chief_compliance_officer"]|format_url_id}}"
                         hx-target="#node_detail" hx-swap="innerHTML" class="model_open">
                        {{firm["chief_compliance_officer"]}}
                     </a>

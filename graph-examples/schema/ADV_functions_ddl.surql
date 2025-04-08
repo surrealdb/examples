@@ -199,7 +199,7 @@ DEFINE FUNCTION OVERWRITE fn::filing_upsert(
 
         UPSERT $filing CONTENT{
             filing_id: $filing_id,
-            filing_firm: $firm,
+            firm: $firm,
             execution_type: $execution_type,
             signatory: $signatory,
         } RETURN NONE;
@@ -296,7 +296,7 @@ DEFINE FUNCTION OVERWRITE fn::sma_upsert(
 
             
         LET $filing = type::thing("filing",$filing_id);
-        LET $filing_firm = $filing["filing_firm"];
+        LET $firm = $filing["firm"];
         LET $custodian_firm = fn::custodian_get_or_upsert(
             $primary_business_name,
             $legal_name,
@@ -308,9 +308,9 @@ DEFINE FUNCTION OVERWRITE fn::sma_upsert(
 
         
         LET $related_person = IF $legal_entity_identifier IS NONE THEN FALSE ELSE $legal_entity_identifier.lowercase() in ["yes","true","1","y"] END;
-        RELATE $custodian_firm->custodian_for:[$custodian_firm,$filing_firm]->$filing_firm  CONTENT{
+        RELATE $custodian_firm->custodian_for:[$custodian_firm,$firm]->$firm  CONTENT{
             in: $custodian_firm,
-            out: $filing_firm,
+            out: $firm,
             source_filing: $filing,
             custodian_type: custodian_type:`SMA`,
             legal_entity_identifier: $legal_entity_identifier,
@@ -426,7 +426,7 @@ DEFINE FUNCTION OVERWRITE fn::b_and_r_upsert(
             
         LET $filing = type::thing("filing",$filing_id);
    
-        LET $filing_firm = $filing["filing_firm"];
+        LET $firm = $filing["firm"];
 
         LET $custodian_type = fn::custodian_type($type);
 
@@ -439,9 +439,9 @@ DEFINE FUNCTION OVERWRITE fn::b_and_r_upsert(
             $postal_code,
             $country);
 
-        RELATE $custodian_firm->custodian_for:[$custodian_firm,$filing_firm]->$filing_firm  CONTENT{
+        RELATE $custodian_firm->custodian_for:[$custodian_firm,$firm]->$firm  CONTENT{
             in: $custodian_firm,
-            out: $filing_firm,
+            out: $firm,
             source_filing: $filing,
             custodian_type: $custodian_type,
             description: $description

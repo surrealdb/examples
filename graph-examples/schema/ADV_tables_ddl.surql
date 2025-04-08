@@ -134,7 +134,7 @@ DEFINE FIELD IF NOT EXISTS related_person ON TABLE custodian_for TYPE Option<boo
 
 DEFINE TABLE IF NOT EXISTS filing SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS filing_id ON TABLE filing TYPE int;
-DEFINE FIELD IF NOT EXISTS filing_firm ON TABLE filing TYPE Record<firm>;
+DEFINE FIELD IF NOT EXISTS firm ON TABLE filing TYPE Record<firm>;
 DEFINE FIELD IF NOT EXISTS execution_type ON TABLE filing TYPE Record<ia_filing_execution_type>;
 DEFINE FIELD IF NOT EXISTS signatory ON TABLE filing TYPE Record<person>;
 
