@@ -10,10 +10,19 @@ class ADVDataHandler():
         self.connection = connection
     
 
-    async def get_custodian_graph(self, custodian_type = None):
-        surql_query = """
-            SELECT *,assets_under_management,in.{name,identifier},out.{name,identifier} FROM custodian_for;
-            """
+
+# SELECT assets_under_management,custodian_type,source_filing,in.identifier,in.name,out.identifier,out.name FROM custodian_for
+# WHERE custodian_type = custodian_type:SMA;
+# SELECT description,custodian_type,source_filing,in.identifier,in.name,out.identifier,out.name FROM custodian_for
+# WHERE custodian_type = custodian_type:⟨A third-party unaffiliated record keeper⟩
+# AND (description @1@ 'cloud' OR description @2@ 'data') AND in != out;
+
+
+    async def get_custodian_graph(self, custodian_type:str = None, 
+                                  description_matches:list[str] = None, 
+                                  order_by:str = None,
+                                  limit:int = None):
+        
         where_clause = ""
         params = {}
         if custodian_type:
@@ -22,11 +31,35 @@ class ADVDataHandler():
             where_clause += " custodian_type = type::thing('custodian_type',$custodian_type)"
             params["custodian_type"] = custodian_type
 
+        if description_matches:
+            if where_clause:
+                where_clause += " AND ("
+            match_index = 1
+            where_clause += f"description @{match_index}@ $description_matches[0]"
+            for match in description_matches[1:]:
+                where_clause += f" OR description @{match_index}@ $description_matches[{match_index}]"
+                match_index += 1
+            where_clause += ")"
+            params["description_matches"] = description_matches
+
+
+        surql_query = """
+        SELECT description,custodian_type.custodian_type AS custodian_type,assets_under_management,in.{name,identifier},out.{name,identifier} FROM custodian_for
+        """
+        
         if where_clause:
-            surql_query = f"""
-                SELECT *,assets_under_management,in.{{name,identifier}},out.{{name,identifier}} FROM custodian_for
-                WHERE {where_clause};
+            surql_query += f"""
+                WHERE {where_clause}
             """
+        if order_by:
+            surql_query += f"""
+                ORDER BY {order_by}
+            """
+        if limit:
+            surql_query += f"""
+                LIMIT {limit}
+            """
+        
 
         graph_data = await self.connection.query(
            surql_query,params=params
@@ -38,8 +71,8 @@ class ADVDataHandler():
         return self.get_custodian_graph(custodian_type = "SMA")
     
 
-    async def get_r_b_graph(self):
-        return self.get_custodian_graph(custodian_type = "A third-party unaffiliated record keeper")
+    async def get_cloud_graph(self):
+        return self.get_custodian_graph(custodian_type = "A third-party unaffiliated record keeper",description_matches = ["cloud","data"])
 
         
     async def get_people(self):

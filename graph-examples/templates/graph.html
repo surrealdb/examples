@@ -3,8 +3,9 @@
 
 
 
-<div id="{{graph_id | safe}}" class="graphContainer"></div>
+<div id="graph_container" class="graphContainer"></div>
 
+   
 
 {% if graph_size_limit<=graph_size %}
 <div class="graph_warning">
@@ -13,9 +14,8 @@
 {% endif %}
     <script>
 
-
+        corpus_table = '';
         the_data = {{ graph_data | tojson }};
-        corpus_table = "{{ corpus_table }}";
         node_edge_count_min = the_data.node_edge_count_min;   
         node_edge_count_max = the_data.node_edge_count_max;   
         node_edge_count_mean = the_data.node_edge_count_mean;
@@ -218,7 +218,7 @@
             });
 
             
-            var container = document.getElementById('{{graph_id | safe}}');
+            var container = document.getElementById('graph_container');
 
             // specify where it should be rendered:
             var renderer = Viva.Graph.View.renderer(graph, {

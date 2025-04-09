@@ -133,15 +133,47 @@ async def filing(request: fastapi.Request,filing_id: int) -> responses.HTMLRespo
             "request": request,"filing":filing})
 
 
-@app.get("/graph", response_class=responses.HTMLResponse)
-async def graph(request: fastapi.Request,filing_id: int) -> responses.HTMLResponse:
+@app.get("/firms/{firm_id}/graph", response_class=responses.HTMLResponse)
+async def firm_graph(request: fastapi.Request,firm_id: str) -> responses.HTMLResponse:
+    return
+    # data_handler = ADVDataHandler(life_span["surrealdb"])
+    # firm = await data_handler.get_firm(firm_id)
+    # return templates.TemplateResponse("graph.html", {
+    #         "request": request,"firm":firm,
+    #         "field_mapping": firm_field_mapping})
 
+@app.get("/filings/{filing_id}/graph", response_class=responses.HTMLResponse)
+async def filing_graph(request: fastapi.Request,filing_id: int) -> responses.HTMLResponse:
+    return
     data_handler = ADVDataHandler(life_span["surrealdb"])
     graph_data = await data_handler.get_custodian_graph()
     ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data)
     return templates.TemplateResponse("graph.html", {
             "request": request,"graph_data":ux_graph_data})
 
+
+@app.get("/sma_graph", response_class=responses.HTMLResponse)
+async def sma_graph(request: fastapi.Request) -> responses.HTMLResponse:
+
+    data_handler = ADVDataHandler(life_span["surrealdb"])
+    graph_data = await data_handler.get_custodian_graph(custodian_type="SMA",
+                                                        order_by="assets_under_management DESC",
+                                                        limit=GRAPH_SIZE_LIMIT)
+    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data)
+
+
+
+    return templates.TemplateResponse("graph.html", {
+            "request": request,"graph_data":ux_graph_data,"graph_size":len(graph_data),"graph_size_limit":GRAPH_SIZE_LIMIT})
+
+@app.get("/b_r_graph", response_class=responses.HTMLResponse)
+async def b_r_graph(request: fastapi.Request) -> responses.HTMLResponse:
+
+    data_handler = ADVDataHandler(life_span["surrealdb"])
+    graph_data = await data_handler.get_custodian_graph()
+    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data)
+    return templates.TemplateResponse("graph.html", {
+            "request": request,"graph_data":ux_graph_data})
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: fastapi.Request, exc: RequestValidationError):

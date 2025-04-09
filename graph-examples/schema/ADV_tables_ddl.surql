@@ -166,6 +166,8 @@ DEFINE FIELD IF NOT EXISTS assets_under_management ON TABLE custodian_for TYPE O
 DEFINE FIELD IF NOT EXISTS related_person ON TABLE custodian_for TYPE Option<bool>;
 
 
+DEFINE INDEX IF NOT EXISTS description_index ON TABLE custodian_for
+    FIELDS description SEARCH ANALYZER snowball_analyzer BM25;
 
 DEFINE TABLE IF NOT EXISTS filing SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS filing_id ON TABLE filing TYPE int;

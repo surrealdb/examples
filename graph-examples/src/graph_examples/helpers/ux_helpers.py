@@ -110,7 +110,8 @@ def extract_field_value(data, field_name):
 
 
 def convert_adv_custodian_graph_to_ux_data(data):
-   
+   #SELECT description,custodian_type,assets_under_management,in.{name,identifier},out.{name,identifier} FROM custodian_for;
+           
     if not data:
         return None
     
@@ -122,115 +123,53 @@ def convert_adv_custodian_graph_to_ux_data(data):
     node_edge_count_max = 0
 
     for row in data:
-        if row["in"]["identifier"] not in nodes:
-            node = {
-                "id": row["in"]["identifier"],
-                "label": f"{row['in']['name']}",  
-                "edge_count": 0
-            }
-            node_id = row["in"]["identifier"]
-            nodes[node_id] = node
-        else:
-            node_id = row["in"]["identifier"]
-            nodes[node_id] += 1
-        if row["out"]["identifier"] not in nodes:
-            node_id = row["out"]["identifier"]
-            node = {
-                "id": row["out"]["identifier"],
-                "label": f"{row['out']['name']}",  
-                "edge_count": 0
-            }
-        else:
-            nodes[row["out"]["identifier"]]["edge_count"] += 1
 
-
-
-        if nodes[node_id]["edge_count"]>node_edge_count_max:
-            node_edge_count_max = nodes[node_id]["edge_count"]
-        if nodes[node_id]["edge_count"]<node_edge_count_min:
-            node_edge_count_min = nodes[node_id]["edge_count"]
-
-
-        edge_id_counter += 1
-
-        edges.append({
-                        "id": f"e{edge_id_counter}",
-                        "source": row["in"]["identifier"],
-                        "target": row["out"]["identifier"],
-                        "label": row["custodian_type"],
-                        "description": row["description"],  
-                        "assets_under_management": row.get("assets_under_management"),  # Use .get() with default
-                    })
-
-
-# {
-# 		assets_under_management: NONE,
-# 		custodian_type: custodian_type:⟨A third-party unaffiliated record keeper⟩,
-# 		description: 'BANK TRUSTEE FOR CERTAIN CLOS MANAGED BY ADVISOR AND THIRD-PARTY LOAN ADMINISTRATOR THAT MAINTAINS CERTAIN BOOKS AND RECORDS, INCLUDING, BUT NOT LIMITED TO, TRADING SUPPORT AND POSITION SETTLEMENT.',
-# 		in: {
-# 			identifier: '028-01341',
-# 			name: 'WELLS FARGO BANK, NATIONAL ASSOCIATION'
-# 		},
-# 		out: {
-# 			identifier: '801-77039',
-# 			name: 'INVESTCORP CREDIT MANAGEMENT US LLC'
-# 		}
-# 	}
-
-
-    entities_dict = {entity['identifier']: entity for entity in data["entities"]}
-
-
-    for relation in data["relations"]:
-        edge_id_counter += 1
-        edges.append({
-                        "id": f"e{edge_id_counter}",
-                        "source": relation["in_identifier"],
-                        "target": relation["out_identifier"],
-                        "label": relation["relationship"],  # Relationship type
-                        "confidence": relation.get("confidence", 1),  # Use .get() with default
-                    })
-        
-
-        node_id = relation["in_identifier"]
-        entity = entities_dict.get(node_id)
-        if entity:
-            if node_id not in nodes:
+        in_id = row["in"]["identifier"] if row["in"] else None
+        out_id = row["out"]["identifier"] if row["out"] else None
+        if in_id and out_id:
+            if in_id not in nodes:
                 node = {
-                    "id": entity["identifier"],
-                    "label": f"{entity['name']}",  
-                    "entity_type": entity['entity_type'],
-                    "edge_count": 1
+                    "id": in_id,
+                    "label": f"{row['in']['name']}",  
+                    "edge_count": 0
                 }
-                nodes[node_id] = node
+                nodes[in_id] = node
             else:
-                nodes[node_id]["edge_count"] += 1
+                nodes[in_id]["edge_count"] += 1
 
-            if nodes[node_id]["edge_count"]>node_edge_count_max:
-                node_edge_count_max = nodes[node_id]["edge_count"]
-            if nodes[node_id]["edge_count"]<node_edge_count_min:
-                node_edge_count_min = nodes[node_id]["edge_count"]
 
-        node_id = relation["out_identifier"]
-        entity = entities_dict.get(node_id)
-        if entity:
-            if node_id not in nodes:
+            if nodes[in_id]["edge_count"]>node_edge_count_max:
+                node_edge_count_max = nodes[in_id]["edge_count"]
+            if nodes[in_id]["edge_count"]<node_edge_count_min:
+                node_edge_count_min = nodes[in_id]["edge_count"]
+
+            if out_id not in nodes:
+                
                 node = {
-                    "id": entity["identifier"],
-                    "label": f"{entity['name']}",  
-                    "entity_type": entity['entity_type'],
-                    "edge_count": 1
+                    "id": out_id,
+                    "label": f"{row['out']['name']}",  
+                    "edge_count": 0
                 }
-                nodes[node_id] = node
+                nodes[out_id] = node
             else:
-                nodes[node_id]["edge_count"] += 1
+                nodes[out_id]["edge_count"] += 1
+
+            if nodes[out_id]["edge_count"]>node_edge_count_max:
+                node_edge_count_max = nodes[out_id]["edge_count"]
+            if nodes[out_id]["edge_count"]<node_edge_count_min:
+                node_edge_count_min = nodes[out_id]["edge_count"]
 
 
-            if nodes[node_id]["edge_count"]>node_edge_count_max:
-                node_edge_count_max = nodes[node_id]["edge_count"]
-            if nodes[node_id]["edge_count"]<node_edge_count_min:
-                node_edge_count_min = nodes[node_id]["edge_count"]
+            edge_id_counter += 1
 
+            edges.append({
+                            "id": f"e{edge_id_counter}",
+                            "source": row["in"]["identifier"],
+                            "target": row["out"]["identifier"],
+                            "label": row["custodian_type"],
+                            "description": row.get("description"),  
+                            "assets_under_management": row.get("assets_under_management"),
+                        })
 
     node_edge_count_mean = edge_id_counter / len(nodes) if len(nodes)>0 else 0
     return {"nodes": list(nodes.values()), "edges": edges, 
