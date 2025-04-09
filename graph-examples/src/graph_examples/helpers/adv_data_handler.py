@@ -9,6 +9,39 @@ class ADVDataHandler():
     def __init__(self, connection: AsyncSurreal):
         self.connection = connection
     
+
+    async def get_custodian_graph(self, custodian_type = None):
+        surql_query = """
+            SELECT *,assets_under_management,in.{name,identifier},out.{name,identifier} FROM custodian_for;
+            """
+        where_clause = ""
+        params = {}
+        if custodian_type:
+            if where_clause:
+                where_clause += " AND "
+            where_clause += " custodian_type = type::thing('custodian_type',$custodian_type)"
+            params["custodian_type"] = custodian_type
+
+        if where_clause:
+            surql_query = f"""
+                SELECT *,assets_under_management,in.{{name,identifier}},out.{{name,identifier}} FROM custodian_for
+                WHERE {where_clause};
+            """
+
+        graph_data = await self.connection.query(
+           surql_query,params=params
+        )
+        return graph_data
+
+        
+    async def get_sma_graph(self):
+        return self.get_custodian_graph(custodian_type = "SMA")
+    
+
+    async def get_r_b_graph(self):
+        return self.get_custodian_graph(custodian_type = "A third-party unaffiliated record keeper")
+
+        
     async def get_people(self):
        
         people = await self.connection.query(

@@ -109,20 +109,8 @@ def extract_field_value(data, field_name):
 
 
 
-def convert_prompt_graph_to_ux_data(data):
-    """
-    Converts your specific JSON-like data structure to Sigma.js format.
-
-    Args:
-        data: A list of dictionaries, where each dictionary represents an entity
-              and its relationships.  Expected keys: 'id', 'entity_type',
-              'name', 'source_document', 'relationships' (list of dicts with
-              'confidence', 'relationship', 'in', 'out').
-
-    Returns:
-        A dictionary with 'nodes' and 'edges' lists, suitable for Sigma.js.
-    """
-
+def convert_adv_custodian_graph_to_ux_data(data):
+   
     if not data:
         return None
     
@@ -132,6 +120,62 @@ def convert_prompt_graph_to_ux_data(data):
 
     node_edge_count_min = 10000000
     node_edge_count_max = 0
+
+    for row in data:
+        if row["in"]["identifier"] not in nodes:
+            node = {
+                "id": row["in"]["identifier"],
+                "label": f"{row['in']['name']}",  
+                "edge_count": 0
+            }
+            node_id = row["in"]["identifier"]
+            nodes[node_id] = node
+        else:
+            node_id = row["in"]["identifier"]
+            nodes[node_id] += 1
+        if row["out"]["identifier"] not in nodes:
+            node_id = row["out"]["identifier"]
+            node = {
+                "id": row["out"]["identifier"],
+                "label": f"{row['out']['name']}",  
+                "edge_count": 0
+            }
+        else:
+            nodes[row["out"]["identifier"]]["edge_count"] += 1
+
+
+
+        if nodes[node_id]["edge_count"]>node_edge_count_max:
+            node_edge_count_max = nodes[node_id]["edge_count"]
+        if nodes[node_id]["edge_count"]<node_edge_count_min:
+            node_edge_count_min = nodes[node_id]["edge_count"]
+
+
+        edge_id_counter += 1
+
+        edges.append({
+                        "id": f"e{edge_id_counter}",
+                        "source": row["in"]["identifier"],
+                        "target": row["out"]["identifier"],
+                        "label": row["custodian_type"],
+                        "description": row["description"],  
+                        "assets_under_management": row.get("assets_under_management"),  # Use .get() with default
+                    })
+
+
+# {
+# 		assets_under_management: NONE,
+# 		custodian_type: custodian_type:⟨A third-party unaffiliated record keeper⟩,
+# 		description: 'BANK TRUSTEE FOR CERTAIN CLOS MANAGED BY ADVISOR AND THIRD-PARTY LOAN ADMINISTRATOR THAT MAINTAINS CERTAIN BOOKS AND RECORDS, INCLUDING, BUT NOT LIMITED TO, TRADING SUPPORT AND POSITION SETTLEMENT.',
+# 		in: {
+# 			identifier: '028-01341',
+# 			name: 'WELLS FARGO BANK, NATIONAL ASSOCIATION'
+# 		},
+# 		out: {
+# 			identifier: '801-77039',
+# 			name: 'INVESTCORP CREDIT MANAGEMENT US LLC'
+# 		}
+# 	}
 
 
     entities_dict = {entity['identifier']: entity for entity in data["entities"]}

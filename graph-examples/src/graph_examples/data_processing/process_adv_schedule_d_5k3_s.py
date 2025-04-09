@@ -173,9 +173,7 @@ def process_filing_5k3_data_files():
 
         for filename in tqdm.tqdm(matching_files, desc="Processing files", unit="file",position=1):
             filepath = os.path.join(PART1_DIR, filename)
-            SurrealDML.process_excel_file_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,filepath)
-            
-            
+            SurrealDML.process_excel_file_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,filepath,sort_by=["5K(3)(e)","5K(3)(f)"],ascending=False) 
 
 # --- Main execution block ---
 if __name__ == "__main__":

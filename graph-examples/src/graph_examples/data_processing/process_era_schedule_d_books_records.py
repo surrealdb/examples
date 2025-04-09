@@ -169,7 +169,7 @@ def process_filing_books_records_data_files():
 
         for filename in tqdm.tqdm(matching_files, desc="Processing files", unit="file",position=1):
             filepath = os.path.join(PART1_DIR, filename)
-            SurrealDML.process_excel_file_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,filepath)
+            SurrealDML.process_excel_file_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,filepath,sort_by="Name",key=lambda x: x.str.len())
             
             
 

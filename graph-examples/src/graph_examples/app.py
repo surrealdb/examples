@@ -76,7 +76,7 @@ async def index(request: fastapi.Request) -> responses.HTMLResponse:
 
 
 @app.get("/firms", response_class=responses.HTMLResponse)
-async def index(request: fastapi.Request) -> responses.HTMLResponse:
+async def firms(request: fastapi.Request) -> responses.HTMLResponse:
 
     data_handler = ADVDataHandler(life_span["surrealdb"])
     firms = await data_handler.get_firms()
@@ -86,7 +86,7 @@ async def index(request: fastapi.Request) -> responses.HTMLResponse:
 
 
 @app.get("/firms/{firm_id}", response_class=responses.HTMLResponse)
-async def index(request: fastapi.Request,firm_id: str) -> responses.HTMLResponse:
+async def firm(request: fastapi.Request,firm_id: str) -> responses.HTMLResponse:
 
     data_handler = ADVDataHandler(life_span["surrealdb"])
     firm = await data_handler.get_firm(firm_id)
@@ -96,7 +96,7 @@ async def index(request: fastapi.Request,firm_id: str) -> responses.HTMLResponse
 
 
 @app.get("/firms/{firm_id}/people/{full_name}", response_class=responses.HTMLResponse)
-async def index(request: fastapi.Request,firm_id: str,full_name: str) -> responses.HTMLResponse:
+async def person(request: fastapi.Request,firm_id: str,full_name: str) -> responses.HTMLResponse:
 
     data_handler = ADVDataHandler(life_span["surrealdb"])
     full_name = unformat_url_id(full_name)
@@ -108,14 +108,14 @@ async def index(request: fastapi.Request,firm_id: str,full_name: str) -> respons
 
 
 @app.get("/people", response_class=responses.HTMLResponse)
-async def index(request: fastapi.Request) -> responses.HTMLResponse:
+async def people(request: fastapi.Request) -> responses.HTMLResponse:
     data_handler = ADVDataHandler(life_span["surrealdb"])
     people = await data_handler.get_people()
     return templates.TemplateResponse("people.html", {
             "request": request,"people":people})
 
 @app.get("/filings", response_class=responses.HTMLResponse)
-async def index(request: fastapi.Request) -> responses.HTMLResponse:
+async def filings(request: fastapi.Request) -> responses.HTMLResponse:
 
     data_handler = ADVDataHandler(life_span["surrealdb"])
     filings = await data_handler.get_filings()
@@ -125,13 +125,22 @@ async def index(request: fastapi.Request) -> responses.HTMLResponse:
 
 
 @app.get("/filings/{filing_id}", response_class=responses.HTMLResponse)
-async def index(request: fastapi.Request,filing_id: int) -> responses.HTMLResponse:
+async def filing(request: fastapi.Request,filing_id: int) -> responses.HTMLResponse:
 
     data_handler = ADVDataHandler(life_span["surrealdb"])
     filing = await data_handler.get_filing(filing_id)
     return templates.TemplateResponse("filing.html", {
             "request": request,"filing":filing})
 
+
+@app.get("/graph", response_class=responses.HTMLResponse)
+async def graph(request: fastapi.Request,filing_id: int) -> responses.HTMLResponse:
+
+    data_handler = ADVDataHandler(life_span["surrealdb"])
+    graph_data = await data_handler.get_custodian_graph()
+    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data)
+    return templates.TemplateResponse("graph.html", {
+            "request": request,"graph_data":ux_graph_data})
 
 
 @app.exception_handler(RequestValidationError)

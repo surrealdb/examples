@@ -31,7 +31,7 @@ class SurrealDML():
 
     
     @staticmethod                    
-    def process_excel_file_and_extract(insert_data_function,field_mapping,logger,connection:Surreal,filepath):
+    def process_excel_file_and_extract(insert_data_function,field_mapping,logger,connection:Surreal,filepath,sort_by=None,key=None,ascending=True):
         """
         Processes an Excel file, extracts specified fields, and returns an array of objects.
 
@@ -60,6 +60,12 @@ class SurrealDML():
                 break  # Stop trying if a different error occurs
 
         if df is not None:
+            if sort_by:
+                if key:
+                    df = df.sort_values(by=sort_by, key=key, ascending=ascending)
+                else:
+                    df = df.sort_values(by=sort_by, ascending=ascending)
+
             df = df.replace([np.nan], [None])
             SurrealDML.insert_dataframe_into_database(insert_data_function,field_mapping,logger,connection,df)
 
