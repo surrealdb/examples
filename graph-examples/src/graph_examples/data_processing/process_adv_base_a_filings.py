@@ -58,7 +58,8 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
             "signatory_name": data["signatory_name"],
             "signatory_title": data["signatory_title"],
             }
-
+        if data["filing_id"] == 1863637:
+            a = 1
         try:
             SurrealParams.ParseResponseForErrors(connection.query_raw(
                 insert_surql,params=params
@@ -90,8 +91,10 @@ def process_filings():
             if file_pattern1.match(filename) or file_pattern2.match(filename)
         ]
 
-        for filename in tqdm.tqdm(matching_files, desc="Processing files", unit="file",position=1):
+        file_tqdm = tqdm.tqdm(matching_files, desc="Processing Files", position=1)
+        for filename in file_tqdm:
             filepath = os.path.join(PART1_DIR, filename)
+            file_tqdm.set_description(f"Processing {filename}")  
             SurrealDML.process_excel_file_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,filepath,sort_by="Signatory",key=lambda x: x.str.len())
             
             

@@ -167,7 +167,9 @@ def process_filing_books_records_data_files():
             if file_pattern.match(filename)
         ]
 
-        for filename in tqdm.tqdm(matching_files, desc="Processing files", unit="file",position=1):
+        file_tqdm = tqdm.tqdm(matching_files, desc="Processing Files", position=1)
+        for filename in file_tqdm:
+            file_tqdm.set_description(f"Processing {filename}")
             filepath = os.path.join(PART1_DIR, filename)
             SurrealDML.process_excel_file_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,filepath,sort_by="Name",key=lambda x: x.str.len())
             

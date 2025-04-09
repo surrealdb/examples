@@ -24,7 +24,7 @@ class SurrealDML():
             An array of objects, where each object contains the extracted field values.
         """
         if df is not None and not df.empty:
-            for index, row in tqdm.tqdm(df.iterrows(), desc="Processing rows", total=len(df), unit="row",position=2):
+            for index, row in tqdm.tqdm(df.iterrows(), desc="Processing rows", total=len(df), unit="row",position=2, leave=False):
                 row_data = get_parsed_data_from_field_mapping(row, field_mapping)
                 insert_data_function(logger,connection,row_data)
 

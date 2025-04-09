@@ -592,7 +592,7 @@ DEFINE FUNCTION OVERWRITE fn::sma_upsert(
     {
         LET $filing = type::thing("filing",$filing_id);
         LET $firm = $filing["firm"];
-        LET $firm = fn::sma_custodian_get_or_upsert(
+        LET $custodian_firm = fn::sma_custodian_get_or_upsert(
             $filing,
             $primary_business_name,
             $legal_name,
@@ -604,8 +604,8 @@ DEFINE FUNCTION OVERWRITE fn::sma_upsert(
 
         
         LET $related_person = IF $legal_entity_identifier IS NONE THEN FALSE ELSE $legal_entity_identifier.lowercase() in ["yes","true","1","y"] END;
-        RELATE $firm->custodian_for:[$firm,$firm]->$firm  CONTENT{
-            in: $firm,
+        RELATE $custodian_firm->custodian_for:[$custodian_firm,$firm]->$firm  CONTENT{
+            in: $custodian_firm,
             out: $firm,
             source_filing: $filing,
             custodian_type: custodian_type:`SMA`,
@@ -614,7 +614,6 @@ DEFINE FUNCTION OVERWRITE fn::sma_upsert(
             related_person: $related_person
         } RETURN NONE; 
     };
-
 
 
 
@@ -780,7 +779,7 @@ DEFINE FUNCTION OVERWRITE fn::b_and_r_upsert(
 
 
 
-        LET $firm = fn::b_and_r_custodian_get_or_upsert(
+        LET $custodian_firm = fn::b_and_r_custodian_get_or_upsert(
             $filing,
             $name,
             $city,
@@ -788,8 +787,8 @@ DEFINE FUNCTION OVERWRITE fn::b_and_r_upsert(
             $postal_code,
             $country);
 
-        RELATE $firm->custodian_for:[$firm,$firm]->$firm  CONTENT{
-            in: $firm,
+        RELATE $custodian_firm->custodian_for:[$custodian_firm,$firm]->$firm  CONTENT{
+            in: $custodian_firm,
             out: $firm,
             source_filing: $filing,
             custodian_type: $custodian_type,

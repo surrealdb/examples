@@ -176,7 +176,9 @@ def process_adviser_firms():
         connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
 
         logger.info(f"Processing adviser firms data in directory {INVESTMENT_ADVISER_FIRMS_DIR}")
-        for filename in tqdm.tqdm(os.listdir(INVESTMENT_ADVISER_FIRMS_DIR), desc="Processing files", unit="file",position=1):
+        file_tqdm = tqdm.tqdm(os.listdir(INVESTMENT_ADVISER_FIRMS_DIR), desc="Processing Files", position=1)
+        for filename in file_tqdm:
+            file_tqdm.set_description(f"Processing {filename}")
             if filename.endswith(".xlsx"):
                 filepath = os.path.join(INVESTMENT_ADVISER_FIRMS_DIR, filename)
                 process_excel_file_and_extract(logger,connection,filepath)
