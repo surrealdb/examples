@@ -91,7 +91,7 @@ async def firm(request: fastapi.Request,firm_id: str) -> responses.HTMLResponse:
     data_handler = ADVDataHandler(life_span["surrealdb"])
     firm = await data_handler.get_firm(firm_id)
     return templates.TemplateResponse("firm.html", {
-            "request": request,"firm":firm,
+            "request": request,"firm":firm,"firm_id":firm_id,
             "field_mapping": firm_field_mapping})
 
 
@@ -103,7 +103,6 @@ async def person(request: fastapi.Request,firm_id: str,full_name: str) -> respon
     person = await data_handler.get_person(firm_id,full_name)
     return templates.TemplateResponse("person.html", {
             "request": request,"person":person})
-
 
 
 
@@ -130,50 +129,109 @@ async def filing(request: fastapi.Request,filing_id: int) -> responses.HTMLRespo
     data_handler = ADVDataHandler(life_span["surrealdb"])
     filing = await data_handler.get_filing(filing_id)
     return templates.TemplateResponse("filing.html", {
-            "request": request,"filing":filing})
+            "request": request,"filing":filing,"filing_id":filing_id})
 
 
 @app.get("/firms/{firm_id}/graph", response_class=responses.HTMLResponse)
 async def firm_graph(request: fastapi.Request,firm_id: str) -> responses.HTMLResponse:
-    return
-    # data_handler = ADVDataHandler(life_span["surrealdb"])
-    # firm = await data_handler.get_firm(firm_id)
-    # return templates.TemplateResponse("graph.html", {
-    #         "request": request,"firm":firm,
-    #         "field_mapping": firm_field_mapping})
+    data_handler = ADVDataHandler(life_span["surrealdb"])
+    graph_data = await data_handler.get_custodian_graph(firm_id=firm_id)
+    source_node_weight_field = "edge_count"
+    target_node_weight_field = "edge_count"
+    edge_weight_field = "assets_under_management"
+    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data,source_node_weight_field,target_node_weight_field,edge_weight_field)
+    return templates.TemplateResponse("graph.html", {
+            "request": request,
+                "graph_data":ux_graph_data,
+                "edge_label_field":"assets_under_management",
+                "edge_weight_field":edge_weight_field,
+                "source_node_weight_field":source_node_weight_field,
+                "target_node_weight_field":target_node_weight_field,
+                "graph_size":len(graph_data),
+                "graph_size_limit":GRAPH_SIZE_LIMIT})
 
 @app.get("/filings/{filing_id}/graph", response_class=responses.HTMLResponse)
 async def filing_graph(request: fastapi.Request,filing_id: int) -> responses.HTMLResponse:
-    return
     data_handler = ADVDataHandler(life_span["surrealdb"])
-    graph_data = await data_handler.get_custodian_graph()
-    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data)
+    graph_data = await data_handler.get_custodian_graph(filing_id=filing_id)
+    source_node_weight_field = "edge_count"
+    target_node_weight_field = "edge_count"
+    edge_weight_field = "assets_under_management"
+    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data,source_node_weight_field,target_node_weight_field,edge_weight_field)
+
+
     return templates.TemplateResponse("graph.html", {
-            "request": request,"graph_data":ux_graph_data})
+            "request": request,
+                "graph_data":ux_graph_data,
+                "edge_label_field":"assets_under_management",
+                "edge_weight_field":edge_weight_field,
+                "source_node_weight_field":source_node_weight_field,
+                "target_node_weight_field":target_node_weight_field,
+                "graph_size":len(graph_data),
+                "graph_size_limit":GRAPH_SIZE_LIMIT})
 
-
+                
 @app.get("/sma_graph", response_class=responses.HTMLResponse)
-async def sma_graph(request: fastapi.Request) -> responses.HTMLResponse:
+async def sma_graph(request: fastapi.Request,
+    person_graph_filter: str = fastapi.Query(None),
+    firm_filter: str = fastapi.Query(None),
+    graph_size_limit: int = fastapi.Query(None)) -> responses.HTMLResponse:
 
     data_handler = ADVDataHandler(life_span["surrealdb"])
+    if not graph_size_limit:
+        graph_size_limit = GRAPH_SIZE_LIMIT
     graph_data = await data_handler.get_custodian_graph(custodian_type="SMA",
                                                         order_by="assets_under_management DESC",
-                                                        limit=GRAPH_SIZE_LIMIT)
-    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data)
-
+                                                        person_graph_filter=person_graph_filter,
+                                                        firm_filter=firm_filter,
+                                                        limit=graph_size_limit)
+                                                        
+    source_node_weight_field = "assets_under_management"
+    target_node_weight_field = "total_assets"
+    edge_weight_field = "assets_under_management"
+    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data,source_node_weight_field,target_node_weight_field,edge_weight_field)
 
 
     return templates.TemplateResponse("graph.html", {
-            "request": request,"graph_data":ux_graph_data,"graph_size":len(graph_data),"graph_size_limit":GRAPH_SIZE_LIMIT})
+            "request": request,
+                "graph_data":ux_graph_data,
+                "edge_label_field":"assets_under_management",
+                "edge_weight_field":edge_weight_field,
+                "source_node_weight_field":source_node_weight_field,
+                "target_node_weight_field":target_node_weight_field,
+                "graph_size":len(graph_data),
+                "graph_size_limit":GRAPH_SIZE_LIMIT})
 
 @app.get("/b_r_graph", response_class=responses.HTMLResponse)
-async def b_r_graph(request: fastapi.Request) -> responses.HTMLResponse:
+async def b_r_graph(request: fastapi.Request,
+    person_graph_filter: str = fastapi.Query(None),
+    firm_filter: str = fastapi.Query(None),
+    graph_size_limit: int = fastapi.Query(None)) -> responses.HTMLResponse:
 
+    if not graph_size_limit:
+        graph_size_limit = GRAPH_SIZE_LIMIT
+    
     data_handler = ADVDataHandler(life_span["surrealdb"])
-    graph_data = await data_handler.get_custodian_graph()
-    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data)
+    graph_data = await data_handler.get_custodian_graph(custodian_type='A third-party unaffiliated record keeper',
+                                                        description_matches = ["cloud","data"],
+                                                        person_graph_filter=person_graph_filter,
+                                                        firm_filter=firm_filter,
+                                                        limit=graph_size_limit)
+    source_node_weight_field = "edge_count"
+    target_node_weight_field = "total_assets"
+    edge_weight_field = "assets_under_management"
+    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data,source_node_weight_field,target_node_weight_field,edge_weight_field)
+
+
     return templates.TemplateResponse("graph.html", {
-            "request": request,"graph_data":ux_graph_data})
+            "request": request,
+                "graph_data":ux_graph_data,
+                "edge_label_field":"assets_under_management",
+                "edge_weight_field":edge_weight_field,
+                "source_node_weight_field":source_node_weight_field,
+                "target_node_weight_field":target_node_weight_field,
+                "graph_size":len(graph_data),
+                "graph_size_limit":GRAPH_SIZE_LIMIT})
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: fastapi.Request, exc: RequestValidationError):

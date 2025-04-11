@@ -14,8 +14,8 @@
         {% if (firm["firm_filings"] | length) > 0 %}
             <li><a href="#filing_list">filings ({{firm["firm_filings"] | length}})</a></li>
         {% endif %}
-        <li><a href="#firm_graph" hx-get="/load_graph/?firm_identifier={{firm['identifier']}}" 
-        hx-target="#firm_graph" id="loadGraphButton">Graph</a></li>
+        <li><a href="#firm_graph" hx-get="/firms/{{firm_id}}/graph" 
+        hx-target="#sub_graph" id="loadGraphButton">Graph</a></li>
     </ul>
 
     
@@ -95,11 +95,15 @@
                 <tr>
                     <td>{{node["custodian_type"]["custodian_type"]}}</td> 
                     <td>
-                        {{node["out"]["firm_type"]["firm_type"]}}:
-                            <a hx-get="/firms/{{node["out"]["identifier"]}}"
-                            hx-target="#node_detail" hx-swap="innerHTML">
-                            {{node["out"]["name"]}}
-                            </a>
+                        {% if node["out"]["firm_type"] %}
+                            {{node["out"]["firm_type"]["firm_type"]}}:
+                                <a hx-get="/firms/{{node["out"]["identifier"]}}"
+                                hx-target="#node_detail" hx-swap="innerHTML">
+                                {{node["out"]["name"]}}
+                                </a>
+                        {% else %}
+                            {{node["out"]}}
+                        {% endif%}
                     </td> 
                     <td>
                     {%if node["assets_under_management"] %}
@@ -148,7 +152,7 @@
 {% endif %}
 
 </div>
-    <span class="firm_info" style="display: inline-block;" id="firm_graph">
+    <span class="sub-graph" style="display: inline-block;" id="sub_graph">
         Show graph here
     </span>
 <script>

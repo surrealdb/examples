@@ -13,12 +13,40 @@
 </div>
 {% endif %}
     <script>
+ 
 
-        corpus_table = '';
+        edge_weight_field = {{ edge_weight_field | tojson }};
+        source_node_weight_field = {{ source_node_weight_field | tojson }};
+        target_node_weight_field = {{ target_node_weight_field | tojson }};
+        edge_label_field = {{ edge_label_field | tojson }};
+
+        
         the_data = {{ graph_data | tojson }};
-        node_edge_count_min = the_data.node_edge_count_min;   
-        node_edge_count_max = the_data.node_edge_count_max;   
-        node_edge_count_mean = the_data.node_edge_count_mean;
+
+
+
+
+
+        source_node_weight_min = the_data.source_node_weight_min;   
+        source_node_weight_max = the_data.source_node_weight_max; 
+
+        target_node_weight_min = the_data.target_node_weight_min;   
+        target_node_weight_max = the_data.target_node_weight_max;  
+
+        edge_weight_min = the_data.edge_weight_min;   
+        edge_weight_max = the_data.edge_weight_max;   
+
+        console.log("edge_weight_field", edge_weight_field);
+        console.log("source_node_weight_field", source_node_weight_field);
+        console.log("target_node_weight_field", target_node_weight_field);
+        console.log("edge_label_field", edge_label_field);
+
+        console.log("source_node_weight_min", source_node_weight_min);
+        console.log("source_node_weight_max", source_node_weight_max);
+        console.log("target_node_weight_min", target_node_weight_min);
+        console.log("target_node_weight_max", target_node_weight_max);
+        console.log("edge_weight_min", edge_weight_min);
+        console.log("edge_weight_max", edge_weight_max);
         
         function renderGraph(graphData) {
             var graphGenerator = Viva.Graph.generator();
@@ -26,13 +54,28 @@
 
             // 1. Add nodes to the graph
             graphData.nodes.forEach(node => {
+                var is_source = node.is_source;
+                var node_weight_min = 0;
+                var node_weight_max = 0;
+                if(is_source) {
+                    node_weight_field = source_node_weight_field;
+                    node_weight_min = source_node_weight_min;
+                    node_weight_max = source_node_weight_max;
+                }
+                else{
+                    node_weight_field = target_node_weight_field;
+                    node_weight_min = target_node_weight_min;
+                    node_weight_max = target_node_weight_max;
+                } 
                 graph.addNode(node.id, {
-                    label: node.label,
-                    type: node.type,
+                    label: node.name,
+                    firm_type: node.firm_type,
                     source_document: node.source_document,
-                    link: "/entity_detail?corpus_table=" + corpus_table + "&identifier=" + node.id,
+                    link: "/firms/" + node.id,
                     edge_count: node.edge_count,
-                    entity_type:node.entity_type
+                    weight: node[node_weight_field],
+                    is_source:is_source,
+                    font_size: calculateWeightFactor( node[node_weight_field], node_weight_min, node_weight_max, 10, 100)
                 });
             });
 
@@ -56,13 +99,14 @@
 
                         
                         graph.addLink(edge.source, edge.target, {
-                            label: edge.label,
-                            confidence: edge.confidence,
-                            link: "/relation_detail?corpus_table=" + corpus_table 
-                                + "&identifier_in=" + edge.source
-                                + "&identifier_out=" + edge.target
-                                + "&relationship=" + edge.label
+                            label: edge[edge_label_field],
+                            weight: edge[edge_weight_field],
+                            link: "/is_custodian_for/" + edge.id 
+                            //    + "&identifier_in=" + edge.source
+                            //    + "&identifier_out=" + edge.target
+                            //    + "&relationship=" + edge.label 
                         });
+                        //console.log(edge_weight_field,edge[edge_weight_field])
                     }
                 }
             });
@@ -71,37 +115,40 @@
 
             var graphics = Viva.Graph.View.svgGraphics();
             graphics.node(function(node){
-                var label_str = ""
-                var edge_count = 0
-                var entity_type = ""
+                var label_str = "";
+                var firm_type = "";
+                var font_size = 10;
                 if( node.data ){
-                    label_str = node.data.label
-                    edge_count = node.data.edge_count
-                    entity_type = node.data.entity_type
-                    link = node.data.link
+                    label_str = node.data.label;
+                    firm_type = node.data.firm_type;
+                    link = node.data.link;
+                    font_size = node.data.font_size;
                 }
-
-
+	
+//ERA
+//Records Custodian
+//Registered
+//SMA
                 // Create the text element directly.  No need for a group or rectangle.
                 const label = Viva.Graph.svg('text')
                     .attr('class', 'node-label')  // Keep the class for styling
                     .text(label_str);
 
-                
-                switch(entity_type){
-                    case "company":
+                switch(firm_type){
+                    case "Registered":
+                    case "ERA":
                         label.attr('fill', `pink`);
                         break;
-                    case "person":
+                    case "SMA Custodian":
+                    case "Records Custodian":
                         label.attr('fill', `purple`);
                         break;
                     default:
                         label.attr('fill', `green`);
                 }
                 // --- KEY CHANGE: Dynamically set font-size based on edge_count ---
-
-                const fontSize = calculateFontSize(edge_count, node_edge_count_min, node_edge_count_max, 10, 100);
-                label.attr('font-size', `${fontSize}px`);
+                
+                label.attr('font-size', `${font_size}px`);
 
                 // Optional: Center the text vertically and horizontally (if desired)
                 label.attr('text-anchor', 'middle'); // Horizontal centering
@@ -136,12 +183,14 @@
                 width = 1
                 label_str = ""
                 if(link.data){
-                    confidence = link.data.confidence || 1;
-                    alpha = confidence / 10; // Normalize confidence to 0.1 - 1.0
-                    width = mapConfidenceToWidth(confidence);
+                    strengh = normalizeWeight(link.data.weight, edge_weight_min, edge_weight_max);
+                    alpha = calculateWeightFactor(link.data.weight, edge_weight_min, edge_weight_max, 0.2, 1.0); // Normalize to 0.2 - 1.0
+                    width = calculateWeightFactor(link.data.weight, edge_weight_min, edge_weight_max, 1, 3); // Normalize to 1 - 3px
                     label_str = link.data.label;
+                    //console.log(strengh,alpha,width,link.data,edge_weight_min,edge_weight_max);
                 }
                 color = `rgba(255, 255, 255, ${alpha.toFixed(2)})`;
+
 
                 const line = Viva.Graph.svg('path')
                     .attr('stroke', color)
@@ -212,7 +261,7 @@
                 gravity : -1.2,
                 springTransform: function (link, spring) {
                     if(link.data){
-                        spring.length = idealLength * (10 - link.data.confidence);
+                        spring.length = idealLength * (10 - link.data.strengh);
                     }
                   }
             });
@@ -231,21 +280,23 @@
             renderer.run();
 
 
-           function calculateFontSize(edgeCount, minEdgeCount, maxEdgeCount, minFontSize, maxFontSize) {
-                if (maxEdgeCount === minEdgeCount) {
-                    return minFontSize;  // Avoid division by zero if all counts are the same
+           function normalizeWeight(weight, minWeight, maxWeight) {
+                if (minWeight == maxWeight) {
+                    return 0;  // Avoid division by zero if all counts are the same
                 }
-                const normalizedCount = (edgeCount - minEdgeCount) / (maxEdgeCount - minEdgeCount);
-                const fontSize = minFontSize + normalizedCount * (maxFontSize - minFontSize);
-                return fontSize;
+                const normalizedWeight = (weight - minWeight) / (maxWeight - minWeight);
+                return normalizedWeight;
             } 
 
-           function mapConfidenceToWidth(confidence) {
-                // Map confidence values (assumed to be between 0 and 10) to line widths.
-                const minWidth = 1;
-                const maxWidth = 3;
-                return (confidence / 10) * (maxWidth - minWidth) + minWidth;
-            }
+
+
+           function calculateWeightFactor(weight, minWeight, maxWeight, minFactor, maxFactor) {
+                const normalizedWeight = normalizeWeight(weight, minWeight, maxWeight);
+                const factor = minFactor + normalizedWeight * (maxFactor - minFactor);
+                return factor;
+            } 
+
+         
         }
 
         renderGraph(the_data);

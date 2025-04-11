@@ -109,9 +109,13 @@ def extract_field_value(data, field_name):
 
 
 
-def convert_adv_custodian_graph_to_ux_data(data):
-   #SELECT description,custodian_type,assets_under_management,in.{name,identifier},out.{name,identifier} FROM custodian_for;
-           
+def convert_adv_custodian_graph_to_ux_data(data,source_node_weight_field,target_node_weight_field,edge_weight_field):
+   
+    """
+        SELECT id,description,custodian_type.custodian_type AS custodian_type,assets_under_management,
+        in.{name,identifier,firm_type,section_5f},
+        out.{name,identifier,firm_type,section_5f} FROM custodian_for
+    """      
     if not data:
         return None
     
@@ -119,8 +123,14 @@ def convert_adv_custodian_graph_to_ux_data(data):
     edges = []
     edge_id_counter = 0
 
-    node_edge_count_min = 10000000
-    node_edge_count_max = 0
+    source_node_weight_min = float("inf")
+    source_node_weight_max = -source_node_weight_min
+    target_node_weight_min = float("inf")
+    target_node_weight_max = -target_node_weight_min
+
+
+    edge_weight_min = float("inf")
+    edge_weight_max = -edge_weight_min
 
     for row in data:
 
@@ -130,185 +140,72 @@ def convert_adv_custodian_graph_to_ux_data(data):
             if in_id not in nodes:
                 node = {
                     "id": in_id,
-                    "label": f"{row['in']['name']}",  
-                    "edge_count": 0
+                    "name": f"{row['in']['name']}", 
+                    "firm_type": row["in"]["firm_type"].id, 
+                    "edge_count": 0,
+                    "total_assets": row["in"]["section_5f"].get("total_regulatory_assets") if ("section_5f" in row["in"] and row["in"]["section_5f"]) else None,
+                    "assets_under_management": row.get("assets_under_management"),
+                    "is_source": True,
                 }
                 nodes[in_id] = node
             else:
                 nodes[in_id]["edge_count"] += 1
 
-
-            if nodes[in_id]["edge_count"]>node_edge_count_max:
-                node_edge_count_max = nodes[in_id]["edge_count"]
-            if nodes[in_id]["edge_count"]<node_edge_count_min:
-                node_edge_count_min = nodes[in_id]["edge_count"]
+            node_weight = nodes[in_id].get(source_node_weight_field)
+            if node_weight is not None:
+                if node_weight > source_node_weight_max:
+                    source_node_weight_max = node_weight
+                if node_weight < source_node_weight_min:
+                    source_node_weight_min = node_weight
 
             if out_id not in nodes:
                 
                 node = {
                     "id": out_id,
-                    "label": f"{row['out']['name']}",  
-                    "edge_count": 0
+                    "name": f"{row['out']['name']}",  
+                    "firm_type": row["out"]["firm_type"].id, 
+                    "edge_count": 0,
+                    "total_assets": row["out"]["section_5f"].get("total_regulatory_assets") if ("section_5f" in row["out"] and row["out"]["section_5f"]) else None,
+                    "assets_under_management": row.get("assets_under_management"),
+                    "is_source": False,
                 }
                 nodes[out_id] = node
             else:
                 nodes[out_id]["edge_count"] += 1
 
-            if nodes[out_id]["edge_count"]>node_edge_count_max:
-                node_edge_count_max = nodes[out_id]["edge_count"]
-            if nodes[out_id]["edge_count"]<node_edge_count_min:
-                node_edge_count_min = nodes[out_id]["edge_count"]
+            
+            node_weight = nodes[out_id].get(target_node_weight_field)
+            if node_weight is not None:
+                if node_weight > target_node_weight_max:
+                    target_node_weight_max = node_weight
+                if node_weight < target_node_weight_min:
+                    target_node_weight_min = node_weight
 
 
             edge_id_counter += 1
 
-            edges.append({
-                            "id": f"e{edge_id_counter}",
-                            "source": row["in"]["identifier"],
-                            "target": row["out"]["identifier"],
-                            "label": row["custodian_type"],
-                            "description": row.get("description"),  
-                            "assets_under_management": row.get("assets_under_management"),
-                        })
-
-    node_edge_count_mean = edge_id_counter / len(nodes) if len(nodes)>0 else 0
-    return {"nodes": list(nodes.values()), "edges": edges, 
-            "node_edge_count_min":node_edge_count_min, "node_edge_count_max":node_edge_count_max ,"node_edge_count_mean":node_edge_count_mean}
-
-
-
-
-
-def convert_corpus_graph_to_ux_data(data):
-    """
-    Converts your specific JSON-like data structure to Sigma.js format.
-
-    Args:
-        data: A list of dictionaries, where each dictionary represents an entity
-              and its relationships.  Expected keys: 'id', 'entity_type',
-              'name', 'source_document', 'relationships' (list of dicts with
-              'confidence', 'relationship', 'in', 'out').
-
-    Returns:
-        A dictionary with 'nodes' and 'edges' lists, suitable for Sigma.js.
-    """
-    nodes = {}
-    edges = []
-    edge_id_counter = 0
-
-    node_edge_count_min = 10000000
-    node_edge_count_max = 0
-
-    for edge in data:
-        edge_id_counter += 1
-        edges.append({
-                        "id": f"e{edge_id_counter}",
-                        "source": edge["in"]["identifier"],
-                        "target": edge["out"]["identifier"],
-                        "label": edge["relationship"],  # Relationship type
-                        "confidence": edge.get("confidence", 1),  # Use .get() with default
-                        # Add any other relationship properties you want here
-                    })
-        node_id = edge["in"]["identifier"]
-        if node_id not in nodes:
-            node = {
-                "id": node_id,
-                "label": f"{edge["in"]['name']}",  
-                "entity_type": edge["in"]['entity_type'],
-                "url": edge["in"]["source_document"]["url"],
-                "edge_count": 1
-            }
-            nodes[node_id] = node
-        else:
-            nodes[node_id]["edge_count"] += 1
-
-        if nodes[node_id]["edge_count"]>node_edge_count_max:
-            node_edge_count_max = nodes[node_id]["edge_count"]
-        if nodes[node_id]["edge_count"]<node_edge_count_min:
-            node_edge_count_min = nodes[node_id]["edge_count"]
-        
-            
-        node_id = edge["out"]["identifier"]
-        if node_id not in nodes:
-            node = {
-                "id": node_id,
-                "label": f"{edge["out"]['name']}",  
-                "entity_type": edge["out"]['entity_type'],
-                "url": edge["out"]["source_document"]["url"],
-                "edge_count": 1
-            }
-            nodes[node_id] = node
-        else:
-            nodes[node_id]["edge_count"] += 1
-
-
-        if nodes[node_id]["edge_count"]>node_edge_count_max:
-            node_edge_count_max = nodes[node_id]["edge_count"]
-        if nodes[node_id]["edge_count"]<node_edge_count_min:
-            node_edge_count_min = nodes[node_id]["edge_count"]
-
-
-    node_edge_count_mean = edge_id_counter / len(nodes) if len(nodes)>0 else 0
-    return {"nodes": list(nodes.values()), "edges": edges, 
-            "node_edge_count_min":node_edge_count_min, "node_edge_count_max":node_edge_count_max ,"node_edge_count_mean":node_edge_count_mean}
-
-
-def organize_relations_for_ux(relations,parent_identifier):
-
-    """
-    Organizes relations data for user interface display.
-
-    This function takes a list of relations and a parent entity identifier and restructures the data
-    to group relations by the related entity. It determines the related entity (either "in" or "out")
-    based on the parent identifier and creates a dictionary where keys are related entity identifiers
-    and values are dictionaries containing entity information and a list of its relations to the parent.
-
-    Args:
-        relations (list): A list of relation dictionaries. Each relation dictionary is expected to
-                          have "in", "out", "confidence", "relationship", "source_document", and
-                          "contexts" keys. The "in" and "out" values are dictionaries containing
-                          "identifier", "name", and "entity_type" keys.
-        parent_identifier (str): The identifier of the parent entity for which the relations are being organized.
-
-    Returns:
-        dict: A dictionary where keys are related entity identifiers and values are dictionaries with the following structure:
-              {
-                  "identifier": str,
-                  "name": str,
-                  "entity_type": str,
-                  "relations": list of dicts (each dict contains "confidence", "relationship", "source_document", "contexts")
-              }
-    """
-    
-    entity_relations_dict = {}
-    for relation in relations:
-        if relation["in"]["identifier"] == parent_identifier:
-            entity = relation["out"]
-        elif relation["in"]["identifier"] == parent_identifier:
-            entity = relation["in"]
-        else:
-            entity = None
-
-        if not entity is None:
-            identifier = entity["identifier"]
-            if identifier not in entity_relations_dict:
-                entity_relations_dict[identifier] = {
-                    "identifier":identifier,
-                    "name":entity["name"],
-                    "entity_type":entity["entity_type"],
-                    "relations":[
-                        {"confidence":relation["confidence"],
-                        "relationship":relation["relationship"],
-                        "source_document":relation["source_document"],
-                        "contexts":relation["contexts"],}
-                    ]
+            edge = {
+                        "id": f"{row["id"].id}",
+                        "source": row["in"]["identifier"],
+                        "target": row["out"]["identifier"],
+                        "custodian_type": row["custodian_type"],
+                        "description": row.get("description"),  
+                        "assets_under_management": row.get("assets_under_management"),
                     }
-            else:
-                entity_relations_dict[identifier]["relations"].append(
-                    {"confidence":relation["confidence"],
-                    "relationship":relation["relationship"],
-                    "source_document":relation["source_document"],
-                    "contexts":relation["contexts"],}
-                )
 
-    return entity_relations_dict
+            if edge_weight_field:
+                edge_weight = row.get(edge_weight_field)
+                if edge_weight is not None:     
+                    if edge_weight > edge_weight_max:
+                        edge_weight_max = edge_weight
+                    if edge_weight < edge_weight_min:
+                        edge_weight_min = edge_weight
+
+            edges.append(edge)
+            
+
+    return {"nodes": list(nodes.values()), "edges": edges, 
+            "source_node_weight_min":source_node_weight_min, "source_node_weight_max":source_node_weight_max, 
+            "target_node_weight_min":target_node_weight_min, "target_node_weight_max":target_node_weight_max, 
+            "edge_weight_min":edge_weight_min, "edge_weight_max":edge_weight_max }
+

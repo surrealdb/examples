@@ -69,26 +69,43 @@
 
 <body>
     <div class="nav">
-        <button hx-get="/firms" hx-target="main" hx-swap="innerHTML">
-            <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
-            Firms
-        </button>
-        <button hx-get="/filings" hx-target="main" hx-swap="innerHTML">
-            <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
-            Filings
-        </button>
-        <button hx-get="/people" hx-target="main" hx-swap="innerHTML">
-            <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
-            People
-        </button>
-        <button hx-get="/sma_graph" hx-target="main" hx-swap="innerHTML">
-            <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
-            SMA Graph
-        </button>
-        <button hx-get="/people" hx-target="main" hx-swap="innerHTML">
-            <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
-            Record Holder Graph
-        </button>
+        <span>
+            <button hx-get="/firms" hx-target="main" hx-swap="innerHTML">
+                <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                Firms
+            </button>
+            <button hx-get="/filings" hx-target="main" hx-swap="innerHTML">
+                <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                Filings
+            </button>
+            <button hx-get="/people" hx-target="main" hx-swap="innerHTML">
+                <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                People
+            </button>
+        </span><div class="graph-nav">
+            <span>
+                <button hx-get="/sma_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personGraphFilter,#firmFilter,#graphSizeLimit">
+                    <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                    SMA Graph
+                </button>
+                <button hx-get="/b_r_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personGraphFilter,#firmFilter,#graphSizeLimit">
+                    <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                    Tech Partners Graph
+                </button>
+            </span>
+        
+            <span>
+                <input name="person_graph_filter" id="personGraphFilter" class="nav_input" placeholder="Person Filter">
+                <input name="firm_filter" id="firmFilter" class="nav_input" placeholder="Firm Filter (Name, CIK, etc)">
+                <select name="graph_size_limit" id="graphSizeLimit">
+                    <option value='100'>Max nodes: 100</option>
+                    <option value='1000'>Max nodes: 1,000</option>
+                    <option value='10000'>Max nodes: 10,000</option>
+                    <option value='100000'>Max nodes: 100,000</option>
+                    <option value='1000000'>Max nodes: 1,000,000</option>
+                </select>
+            </span>
+        </div>
     </div>
     <main>
 

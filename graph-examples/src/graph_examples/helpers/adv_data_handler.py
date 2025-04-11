@@ -21,10 +21,25 @@ class ADVDataHandler():
     async def get_custodian_graph(self, custodian_type:str = None, 
                                   description_matches:list[str] = None, 
                                   order_by:str = None,
-                                  limit:int = None):
+                                  filing_id:int = None,
+                                  firm_id:int = None,
+                                  person_graph_filter:str = None,
+                                  firm_filter:str =None,
+                                  limit:int = None,
+                                  ):
         
         where_clause = ""
+        pre_query_clause = ""
         params = {}
+        result_index = 0
+        if filing_id:
+            where_clause += " source_filing = type::thing('filing',$filing_id)"
+            params["filing_id"] = filing_id
+        
+        if firm_id:
+            where_clause += " (in.id = type::thing('firm',$firm_id) OR out.id = type::thing('firm',$firm_id))"
+            params["firm_id"] = firm_id
+
         if custodian_type:
             if where_clause:
                 where_clause += " AND "
@@ -37,14 +52,31 @@ class ADVDataHandler():
             match_index = 1
             where_clause += f"description @{match_index}@ $description_matches[0]"
             for match in description_matches[1:]:
-                where_clause += f" OR description @{match_index}@ $description_matches[{match_index}]"
                 match_index += 1
+                where_clause += f" OR description @{match_index}@ $description_matches[{match_index}]"
             where_clause += ")"
             params["description_matches"] = description_matches
 
 
-        surql_query = """
-        SELECT description,custodian_type.custodian_type AS custodian_type,assets_under_management,in.{name,identifier},out.{name,identifier} FROM custodian_for
+        if person_graph_filter:
+            result_index += 1
+            if where_clause:
+                where_clause += " AND "
+            pre_query_clause += f"""
+                LET $person_firm_list = array::group( SELECT VALUE person->signed->filing.firm FROM person_alias 
+                WHERE 
+                full_name = $person_graph_filter OR full_name @@ $person_graph_filter OR
+                title = $person_graph_filter OR title @@ $person_graph_filter
+                );
+            """
+            where_clause += f" in IN $person_firm_list OR out in $person_firm_list"
+            params["person_graph_filter"] = person_graph_filter
+
+
+        surql_query = pre_query_clause + """
+        SELECT id,description,custodian_type.custodian_type AS custodian_type,assets_under_management,
+        in.{name,identifier,firm_type,section_5f},
+        out.{name,identifier,firm_type,section_5f} FROM custodian_for
         """
         
         if where_clause:
@@ -61,10 +93,10 @@ class ADVDataHandler():
             """
         
 
-        graph_data = await self.connection.query(
+        graph_data =  SurrealParams.ParseResponseForErrors(await self.connection.query_raw(
            surql_query,params=params
-        )
-        return graph_data
+        ))
+        return graph_data["result"][result_index]["result"]
 
         
     async def get_sma_graph(self):
@@ -77,7 +109,7 @@ class ADVDataHandler():
         
     async def get_people(self):
        
-        people = await self.connection.query(
+        people =  await self.connection.query(
             """  
             SELECT 
                 first_name,
