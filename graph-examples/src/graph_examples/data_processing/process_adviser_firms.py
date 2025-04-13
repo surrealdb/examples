@@ -19,6 +19,7 @@ FIELD_MAPPING = [
     {"dataframe_field_name": "Firm Type", "field_display_name": "Firm Type", "surql_field_name": "section1.firm_type", "python_type": str},
     {"dataframe_field_name": "CIK#", "field_display_name": "CIK#", "surql_field_name": "section1.cik", "python_type": int},
     {"dataframe_field_name": "Primary Business Name", "field_display_name": "Primary Business Name", "surql_field_name": "section1.primary_business_name", "python_type": str},
+    {"dataframe_field_name": "1P", "field_display_name": "Legal Entity Identifier", "surql_field_name": "section1.legal_entity_identifier", "python_type": str},
     {"dataframe_field_name": "Legal Name", "field_display_name": "Legal Name", "surql_field_name": "section1.legal_name", "python_type": str},
     {"dataframe_field_name": "Main Office Street Address 1", "field_display_name": "Main Office Street Address 1", "surql_field_name": "section1.main_office_street_address_1", "python_type": str},
     {"dataframe_field_name": "Main Office Street Address 2", "field_display_name": "Main Office Street Address 2", "surql_field_name": "section1.main_office_street_address_2", "python_type": str},
@@ -81,6 +82,8 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
         data: The data to be inserted.
     """
     insert_surql = """ 
+
+    LET $identifier = fn::firm_identifier(NONE, $sec_number, NONE, NONE);
     fn::firm_upsert(
         $name,
         $identifier,
@@ -92,7 +95,9 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
         $country,
         $section1,
         $section_5d,
-        $section_5f)
+        $section_5f);
+
+
     """
     if ("section1" in data 
         and "primary_business_name" in data["section1"]
@@ -100,7 +105,7 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
         and "firm_type" in data["section1"]):
         params = {
             "name": data["section1"]["primary_business_name"],
-            "identifier": data["section1"]["sec_number"],
+            "sec_number": data["section1"]["sec_number"],
             "firm_type": data["section1"]["firm_type"],        
             "section1": data["section1"]
             }

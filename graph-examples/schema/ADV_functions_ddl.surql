@@ -65,6 +65,7 @@ DEFINE FUNCTION OVERWRITE fn::firm_type_upsert($firm_type_name:string){
 
 
 
+
 DEFINE FUNCTION OVERWRITE fn::firm_upsert(
     $name: string,
     $identifier: string,
@@ -81,10 +82,10 @@ DEFINE FUNCTION OVERWRITE fn::firm_upsert(
     )
     {  
         LET $firm_type = fn::firm_type_upsert($firm_type_name);
-        LET $firm = type::thing("firm",$identifier);
+        LET $firm = type::thing("firm", $identifier);
 
         LET $chief_compliance_officer =        
-            IF $section1 IS NOT NULL AND $section1["chief_compliance_officer_name"]  IS NOT NONE THEN 
+            IF $section1 IS NOT NONE AND $section1["chief_compliance_officer_name"]  IS NOT NONE THEN 
                 fn::compliance_officer_upsert(
                         $firm,
                         $section1["chief_compliance_officer_name"],
@@ -95,35 +96,94 @@ DEFINE FUNCTION OVERWRITE fn::firm_upsert(
                 NONE
             END;
 
-        
+        # assume previous insert was definitive only append new information
         UPSERT $firm MERGE{
-            name: $name,
-            identifier: $identifier,
-            firm_type: $firm_type,
-            legal_name: $legal_name,
-            city: $city,
-            state: $state,
-            postal_code: $postal_code,
-            country: $country,
-            chief_compliance_officer: $chief_compliance_officer,
-            section1: $section1,
-            section_5d: $section_5d,
-            section_5f: $section_5f
+            name:IF name IS NONE THEN $name ELSE name END,
+            identifier:IF identifier IS NONE THEN $identifier ELSE identifier END,
+            firm_type:IF firm_type IS NONE THEN $firm_type ELSE firm_type END,
+            legal_name:IF legal_name IS NONE THEN $legal_name ELSE legal_name END,
+            city:IF city IS NONE THEN $city ELSE city END,
+            state:IF state IS NONE THEN $state ELSE state END,
+            postal_code:IF postal_code IS NONE THEN $postal_code ELSE postal_code END,
+            country:IF country IS NONE THEN $country ELSE country END,
+            chief_compliance_officer:IF chief_compliance_officer IS NONE THEN $chief_compliance_officer ELSE chief_compliance_officer END,
+            section1:IF section1 IS NONE THEN $section1 ELSE section1 END,
+            section_5d:IF section_5d IS NONE THEN $section_5d ELSE section_5d END,
+            section_5f:IF section_5f IS NONE THEN $section_5f ELSE section_5f END
         } RETURN NONE;
-
+        
+       
+        LET $firm_alias = fn::firm_alias_upsert(
+                $firm,
+                $name,
+                $legal_name,
+                $firm_type_name,
+                NONE,
+                $identifier,
+                IF $section1 IS NOT NONE THEN $section1["legal_entity_identifier"] ELSE NONE END,
+                IF $section1 IS NOT NONE THEN $section1["cik"] ELSE NONE END,
+                $city,
+                $state,
+                $postal_code,
+                $country);
 
         
-        IF $firm["firm_aliases"] IS NOT NONE THEN {
-            UPDATE $firm SET 
-                firm_aliases = [$firm_alias]
-            RETURN NONE;
-        }
-        ELSE IF $firm_alias IS NOT NONE THEN
-        {
-            UPDATE $firm SET 
-                firm_aliases = firm_aliases.union($firm_alias);
-            RETURN NONE;
+        IF $section1 IS NOT NONE AND $section1["legal_entity_identifier"] IS NOT NONE THEN {
+            LET $firm_identifier = fn::firm_identifier(NONE, NONE, $section1["legal_entity_identifier"], NONE);
+            LET $firm_alias = fn::firm_alias_upsert(
+                $firm,
+                $name,
+                $legal_name,
+                $firm_type_name,
+                NONE,
+                $firm_identifier,
+                IF $section1 IS NOT NONE THEN $section1["legal_entity_identifier"] ELSE NONE END,
+                IF $section1 IS NOT NONE THEN $section1["cik"] ELSE NONE END,
+                $city,
+                $state,
+                $postal_code,
+                $country);
+
         } END;
+
+        IF $section1 IS NOT NONE AND $section1["cik"] IS NOT NONE THEN {
+            LET $firm_identifier = fn::firm_identifier(NONE, NONE, NONE , $section1["cik"]);
+            LET $firm_alias = fn::firm_alias_upsert(
+                $firm,
+                $name,
+                $legal_name,
+                $firm_type_name,
+                NONE,
+                $firm_identifier,
+                IF $section1 IS NOT NONE THEN $section1["legal_entity_identifier"] ELSE NONE END,
+                IF $section1 IS NOT NONE THEN $section1["cik"] ELSE NONE END,
+                $city,
+                $state,
+                $postal_code,
+                $country);
+
+        } END;
+
+        IF $legal_name IS NOT NONE THEN {
+            LET $firm_identifier = fn::firm_identifier($legal_name, NONE, NONE , NONE);
+            LET $firm_alias = fn::firm_alias_upsert(
+                $firm,
+                $name,
+                $legal_name,
+                $firm_type_name,
+                NONE,
+                $firm_identifier,
+                IF $section1 IS NOT NONE THEN $section1["legal_entity_identifier"] ELSE NONE END,
+                IF $section1 IS NOT NONE THEN $section1["cik"] ELSE NONE END,
+                $city,
+                $state,
+                $postal_code,
+                $country);
+
+
+        } END;
+
+
 
         RETURN $firm;
     };
@@ -137,7 +197,7 @@ DEFINE FUNCTION OVERWRITE fn::find_alias_match_for_person(
    
 
     IF $email IS NOT NONE THEN {
-        LET $person_alias = type::thing("person_alias",[$firm,"E:" +$email.lowercase()]);
+        LET $person_alias = type::thing("person_alias",[$firm,"e:" +$email.lowercase()]);
         IF $person_alias["person"] IS NOT NONE THEN {
             RETURN $person_alias["person"];
         } END;
@@ -145,7 +205,7 @@ DEFINE FUNCTION OVERWRITE fn::find_alias_match_for_person(
 
 
 
-    LET $person_alias = type::thing("person_alias",[$firm,"FN:" +$full_name.lowercase()]);
+    LET $person_alias = type::thing("person_alias",[$firm,"fn:" +$full_name.lowercase()]);
     IF $person_alias["person"] IS NOT NONE THEN {
         RETURN $person_alias["person"];
     } ELSE { RETURN NONE; } END;
@@ -167,9 +227,9 @@ DEFINE FUNCTION OVERWRITE fn::person_alias_upsert(
 
         LET $identifier =
             IF $email IS NOT NONE THEN 
-                [$firm,"E:" + $email.lowercase()]
+                [$firm,"e:" + $email.lowercase()]
             ELSE IF $full_name IS NOT NONE THEN
-                [$firm,"FN:" + $full_name.lowercase()]
+                [$firm,"fn:" + $full_name.lowercase()]
             END;
 
 
@@ -262,7 +322,9 @@ DEFINE FUNCTION OVERWRITE fn::filing_upsert(
     {
 
         LET $execution_type = fn::execution_type_upsert($execution_type_name);
-        LET $firm = type::thing("firm",$sec_number);
+
+        LET $firm_identifier = fn::firm_identifier(NONE, $sec_number, NONE, NONE);
+        LET $firm = type::thing("firm", $firm_identifier);
         LET $filing = type::thing("filing",$filing_id);
 
         LET $signatory = fn::signatory_upsert(
@@ -321,7 +383,7 @@ DEFINE FUNCTION OVERWRITE fn::sma_custodian_get_or_upsert(
 
 
 DEFINE FUNCTION OVERWRITE fn::firm_identifier(
-    $legal_name: string,
+    $legal_name: Option<string>,
     $sec_number: Option<string>,
     $legal_entity_identifier: Option<string>,
     $cik: Option<int>
@@ -329,23 +391,24 @@ DEFINE FUNCTION OVERWRITE fn::firm_identifier(
     
         LET $identifier =
             IF $sec_number IS NOT NONE THEN 
-                $sec_number.lowercase()
+                "sec:" + $sec_number.lowercase()
             ELSE IF $legal_entity_identifier IS NOT NONE THEN
-                "LEI:" + $legal_entity_identifier.lowercase()
+                "lei:" + $legal_entity_identifier.lowercase()
             ELSE IF $cik IS NOT NONE THEN
-                "CIK:" + <string>$cik
+                "cik:" + <string>$cik
             ELSE 
-                "LN:" + $legal_name.lowercase()
+                "ln:" + $legal_name.lowercase()
             END;
             RETURN $identifier;
 };
 
 
 DEFINE FUNCTION OVERWRITE fn::firm_alias_upsert(
-    $source_filing : Record<filing>,
+    $firm: Record<firm>,
     $name: string,
     $legal_name: string,
     $firm_type_name: string,
+    $source_filing : Option<Record<filing>>,
     $sec_number: Option<string>,
     $legal_entity_identifier: Option<string>,
     $cik: Option<int>,
@@ -357,28 +420,35 @@ DEFINE FUNCTION OVERWRITE fn::firm_alias_upsert(
 
         LET $identifier = fn::firm_identifier($legal_name, $sec_number, $legal_entity_identifier,$cik);
         LET $firm_type = fn::firm_type_upsert($firm_type_name);
-        LET $firm = $source_filing["firm"];
-
 
 
         LET $firm_alias = type::thing("firm_alias",$identifier);
+        # assume previous insert was definitive only append new information
         UPSERT $firm_alias MERGE{
-            source_filing: $source_filing,
-            firm: $firm,
-            name: $name,
-            legal_name: $legal_name,
-            firm_type: $firm_type,
-            sec_number: $sec_number,
-            legal_entity_identifier: $legal_entity_identifier,
-            cik: $cik,
-            city: $city,
-            state: $state,
-            postal_code: $postal_code,
-            country: $country
+            source_filing:IF source_filing IS NONE THEN $source_filing ELSE source_filing END,
+            firm:IF firm IS NONE THEN $firm ELSE firm END,
+            name:IF name IS NONE THEN $name ELSE name END,
+            legal_name:IF legal_name IS NONE THEN $legal_name ELSE legal_name END,
+            firm_type:IF firm_type IS NONE THEN $firm_type ELSE firm_type END,
+            sec_number:IF sec_number IS NONE THEN $sec_number ELSE sec_number END,
+            legal_entity_identifier:IF legal_entity_identifier IS NONE THEN $legal_entity_identifier ELSE legal_entity_identifier END,
+            cik:IF cik IS NONE THEN $cik ELSE cik END,
+            city:IF city IS NONE THEN $city ELSE city END,
+            state:IF state IS NONE THEN $state ELSE state END,
+            postal_code:IF postal_code IS NONE THEN $postal_code ELSE postal_code END,
+            country:IF country IS NONE THEN $country ELSE country END
         } RETURN NONE;
+
+
+        UPDATE $firm 
+            SET 
+            firm_aliases = IF $firm["firm_aliases"] IS  NONE THEN [$firm_alias] ELSE firm_aliases.union([$firm_alias]) END
+            RETURN NONE;
 
         RETURN $firm_alias;
     };
+
+
 
 DEFINE FUNCTION OVERWRITE fn::firm_get_or_upsert(
     $source_filing : Record<filing>,
@@ -409,20 +479,6 @@ DEFINE FUNCTION OVERWRITE fn::firm_get_or_upsert(
     } ELSE {
         #if not found search matching firms for similar match upsert firm_alias
 
-        LET $firm_alias = fn::firm_alias_upsert(
-            $source_filing,
-            $name,
-            $legal_name,
-            $firm_type_name_if_insert,
-            $sec_number,
-            $legal_entity_identifier,
-            $cik,
-            $city,
-            $state,
-            $postal_code,
-            $country);
-
-
 
         LET $firm = 
             fn::find_match_for_firm  (
@@ -432,10 +488,26 @@ DEFINE FUNCTION OVERWRITE fn::firm_get_or_upsert(
                 $state,
                 $country
             );
-        
             
         IF $firm IS NOT NONE THEN{
             #if found 
+
+            # upsert alias with any new information
+            #need to change to update and only if better info
+            LET $firm_alias = fn::firm_alias_upsert(
+                $firm,
+                $name,
+                $legal_name,
+                $firm_type_name_if_insert,
+                $source_filing,
+                $sec_number,
+                $legal_entity_identifier,
+                $cik,
+                $city,
+                $state,
+                $postal_code,
+                $country);
+
             RETURN $firm;
         } ELSE {
 
@@ -443,31 +515,25 @@ DEFINE FUNCTION OVERWRITE fn::firm_get_or_upsert(
 
             LET $identifier = fn::firm_identifier($legal_name, $sec_number, $legal_entity_identifier,$cik);
 
-            IF $sec_number IS NOT NONE THEN {
-                RETURN fn::firm_upsert(
-                            $name,$identifier,$firm_type_name_if_insert,$name,$city,$state,$postal_code,$country,  {"sec_number":$sec_number}, NONE, NONE
-                        ).id; 
-            }ELSE{
-                IF $legal_entity_identifier IS NOT NONE THEN {
-                    RETURN fn::firm_upsert(
-                                        $name,$identifier,$firm_type_name_if_insert,$name,$city,$state,$postal_code,$country, NONE, NONE, NONE
-                                    ).id;
-                }ELSE {
-                    IF $cik IS NOT NONE THEN {
-                        RETURN fn::firm_upsert(
-                                        $name,$identifier,$firm_type_name_if_insert,$name,$city,$state,$postal_code,$country, NONE, NONE, NONE
-                                    ).id;
-                    } ELSE {
-                        RETURN fn::firm_upsert(
-                                        $name,$identifier,$firm_type_name_if_insert,$name,$city,$state,$postal_code,$country, NONE, NONE, NONE
-                                    ).id;
-                    } END;
-                } END;
-            }END;   
+
+            LET $firm = IF $sec_number IS NOT NONE THEN {
+                    fn::firm_upsert(
+                                $name,$identifier,$firm_type_name_if_insert,$name,$city,$state,$postal_code,$country,  {"sec_number":$sec_number}, NONE, NONE
+                            ).id
+                }ELSE{
+                    fn::firm_upsert(
+                                $name,$identifier,$firm_type_name_if_insert,$name,$city,$state,$postal_code,$country, NONE, NONE, NONE
+                            ).id   
+                }END;
+            RETURN $firm;
         }
         END;
     } END;
 };
+
+
+
+
 
 
 
@@ -578,6 +644,7 @@ DEFINE FUNCTION OVERWRITE fn::get_person_or_upsert(
     }END;
 };
 
+
 DEFINE FUNCTION OVERWRITE fn::sma_upsert(
     $filing_id: int,
     $primary_business_name: string,
@@ -591,7 +658,8 @@ DEFINE FUNCTION OVERWRITE fn::sma_upsert(
     $assets_under_management: Option<decimal>)
     {
         LET $filing = type::thing("filing",$filing_id);
-        LET $firm = $filing["firm"];
+        LET $filing_firm = $filing["firm"];
+
         LET $custodian_firm = fn::sma_custodian_get_or_upsert(
             $filing,
             $primary_business_name,
@@ -603,10 +671,11 @@ DEFINE FUNCTION OVERWRITE fn::sma_upsert(
             $country);
 
         
-        LET $related_person = IF $legal_entity_identifier IS NONE THEN FALSE ELSE $legal_entity_identifier.lowercase() in ["yes","true","1","y"] END;
-        RELATE $custodian_firm->custodian_for:[$custodian_firm,$firm]->$firm  CONTENT{
+        LET $related_person = IF $is_related_person IS NONE THEN FALSE ELSE $is_related_person.lowercase() in ["yes","true","1","y"] END;
+
+        RELATE $custodian_firm->custodian_for:[$custodian_firm,$filing_firm]->$filing_firm  CONTENT{
             in: $custodian_firm,
-            out: $firm,
+            out: $filing_firm,
             source_filing: $filing,
             custodian_type: custodian_type:`SMA`,
             legal_entity_identifier: $legal_entity_identifier,
@@ -691,7 +760,7 @@ DEFINE FUNCTION OVERWRITE fn::find_alias_match_for_firm(
     $cik: Option<int>){
 
     IF $sec_number IS NOT NONE THEN {
-        LET $firm_alias = type::thing("firm_alias",$sec_number);
+        LET $firm_alias = type::thing("firm_alias","sec:" + $sec_number);
         IF $firm_alias["firm"] IS NOT NONE THEN {
             RETURN $firm_alias["firm"];
         } END;
@@ -699,20 +768,20 @@ DEFINE FUNCTION OVERWRITE fn::find_alias_match_for_firm(
 
 
     IF $legal_entity_identifier IS NOT NONE THEN {
-        LET $firm_alias = type::thing("firm_alias","LEI:" +$legal_entity_identifier);
+        LET $firm_alias = type::thing("firm_alias","lei:" + $legal_entity_identifier);
         IF $firm_alias["firm"] IS NOT NONE THEN {
             RETURN $firm_alias["firm"];
         } END;
     } END;
 
     IF $cik IS NOT NONE THEN {
-        LET $firm_alias = type::thing("firm_alias","CIK:" + <string>$cik);
+        LET $firm_alias = type::thing("firm_alias","cik:" + <string>$cik);
         IF $firm_alias["firm"] IS NOT NONE THEN {
             RETURN $firm_alias["firm"];
         } END;
     } END;
 
-    LET $firm_alias = type::thing("firm_alias","LN:" + $legal_name);
+    LET $firm_alias = type::thing("firm_alias","ln:" + $legal_name);
     IF $firm_alias["firm"] IS NOT NONE THEN {
         RETURN $firm_alias["firm"];
     } ELSE {RETURN NONE;} END;
@@ -773,11 +842,16 @@ DEFINE FUNCTION OVERWRITE fn::b_and_r_upsert(
             
         LET $filing = type::thing("filing",$filing_id);
    
-        LET $firm = $filing["firm"];
+        LET $filing_firm = $filing["firm"];
+
+        IF $filing_firm IS NONE THEN {
+            # no filing!
+            RETURN NONE;
+        }END;
 
         LET $custodian_type = fn::custodian_type($type);
 
-
+        
 
         LET $custodian_firm = fn::b_and_r_custodian_get_or_upsert(
             $filing,
@@ -787,9 +861,9 @@ DEFINE FUNCTION OVERWRITE fn::b_and_r_upsert(
             $postal_code,
             $country);
 
-        RELATE $custodian_firm->custodian_for:[$custodian_firm,$firm]->$firm  CONTENT{
+        RELATE $custodian_firm->custodian_for:[$custodian_firm,$filing_firm]->$filing_firm  CONTENT{
             in: $custodian_firm,
-            out: $firm,
+            out: $filing_firm,
             source_filing: $filing,
             custodian_type: $custodian_type,
             description: $description

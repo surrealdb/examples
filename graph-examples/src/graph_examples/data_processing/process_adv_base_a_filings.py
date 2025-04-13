@@ -58,8 +58,6 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
             "signatory_name": data["signatory_name"],
             "signatory_title": data["signatory_title"],
             }
-        if data["filing_id"] == 1863637:
-            a = 1
         try:
             SurrealParams.ParseResponseForErrors(connection.query_raw(
                 insert_surql,params=params

@@ -6,8 +6,8 @@ DEFINE ANALYZER IF NOT EXISTS snowball_analyzer
     TOKENIZERS class
     FILTERS lowercase, snowball(english);
 
-DEFINE ANALYZER name_analyzer TOKENIZERS 
-    class,camel FILTERS lowercase, ascii, ngram(2, 4);
+DEFINE ANALYZER OVERWRITE name_analyzer TOKENIZERS 
+    class FILTERS lowercase, ascii, ngram(2, 10);
 
 DEFINE TABLE IF NOT EXISTS firm_type SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS firm_type ON TABLE firm_type TYPE string;
@@ -117,7 +117,7 @@ DEFINE FIELD IF NOT EXISTS city ON TABLE firm_alias TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS state ON TABLE firm_alias TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS country ON TABLE firm_alias TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS postal_code ON TABLE firm_alias TYPE Option<string>;
-DEFINE FIELD IF NOT EXISTS source_filing ON TABLE firm_alias TYPE Record<filing>;
+DEFINE FIELD IF NOT EXISTS source_filing ON TABLE firm_alias TYPE Option<Record<filing>>;
 
 DEFINE INDEX IF NOT EXISTS name_text_index ON TABLE firm_alias
     FIELDS name SEARCH ANALYZER name_analyzer BM25;
