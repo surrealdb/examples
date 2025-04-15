@@ -24,14 +24,18 @@ class SurrealDML():
             An array of objects, where each object contains the extracted field values.
         """
         if df is not None and not df.empty:
-            for index, row in tqdm.tqdm(df.iterrows(), desc="Processing rows", total=len(df), unit="row",position=2, leave=False):
+            for index, row in tqdm.tqdm(df.iterrows(), desc="Processing rows", total=len(df), unit="row"):
                 row_data = get_parsed_data_from_field_mapping(row, field_mapping)
                 insert_data_function(logger,connection,row_data)
 
 
     
-    @staticmethod                    
-    def process_excel_file_and_extract(insert_data_function,field_mapping,logger,connection:Surreal,filepath,sort_by=None,key=None,ascending=True):
+    @staticmethod
+    
+                        
+    def process_csv_files_and_extract(insert_data_function,field_mapping,logger,connection:Surreal,filenames:list[str],                    
+                                      filter_func = None,
+                                      sort_by=None,key=None,ascending=True):
         """
         Processes an Excel file, extracts specified fields, and returns an array of objects.
 
@@ -42,32 +46,61 @@ class SurrealDML():
         Returns:
             An array of objects, or None if an error occurs.
         """
-        encoding_hint = get_file_encoding(filepath)  # Get the encoding hint
-        # Prioritize latin1/ISO-8859-1
-        encodings_to_try = ['iso-8859-1', encoding_hint]  # Try iso-8859-1 first
 
-        df = None
-        for enc in encodings_to_try:
-            try:
-                df = pd.read_csv(filepath, encoding=enc, encoding_errors='replace')  # Use errors='replace'
-                #if enc != encoding_hint:
-                #    logger.warning(f"Successfully read {filepath} using {enc} instead of {encoding_hint}.")
-                break  # If successful, stop trying other encodings
-            except UnicodeDecodeError:
-                logger.warning(f"UnicodeDecodeError for {filepath} with {enc}.")
-            except Exception as e:
-                logger.error(f"An unexpected error occurred while processing {filepath}: {e}")
-                break  # Stop trying if a different error occurs
 
-        if df is not None:
-            if sort_by:
-                if key:
-                    df = df.sort_values(by=sort_by, key=key, ascending=ascending)
-                else:
-                    df = df.sort_values(by=sort_by, ascending=ascending)
+        dfs: list[pd.DataFrame] = []  # List to store individual dataframes
 
-            df = df.replace([np.nan], [None])
-            SurrealDML.insert_dataframe_into_database(insert_data_function,field_mapping,logger,connection,df)
+
+        pbar = tqdm.tqdm(filenames, desc="Processing files", unit="file")
+
+        for filename in pbar:
+
+            filepath = os.path.join(PART1_DIR, filename)
+            pbar.set_postfix(file=filename)  # Update progress bar with current file name
+
+            encoding_hint = get_file_encoding(filepath)  # Get the encoding hint
+            # Prioritize latin1/ISO-8859-1
+            encodings_to_try = ['iso-8859-1', encoding_hint]  # Try iso-8859-1 first
+
+            df = None
+            for enc in encodings_to_try:
+                try:
+                    df = pd.read_csv(filepath, encoding=enc, encoding_errors='replace')  # Use errors='replace'
+                    #if enc != encoding_hint:
+                    #    logger.warning(f"Successfully read {filepath} using {enc} instead of {encoding_hint}.")
+                    break  # If successful, stop trying other encodings
+                except UnicodeDecodeError:
+                    logger.warning(f"UnicodeDecodeError for {filepath} with {enc}.")
+                except Exception as e:
+                    logger.error(f"An unexpected error occurred while processing {filepath}: {e}")
+                    break  # Stop trying if a different error occurs
+                
+            if df is not None:
+                dfs.append(df)
+
+
+        if dfs:
+            concat_df = pd.concat(dfs, ignore_index=True)  # Concatenate all dataframes
+
+            if concat_df is not None:
+                if filter_func:
+                    concat_df = filter_func(concat_df)
+
+
+                if sort_by:
+                    if key:
+                        concat_df = concat_df.sort_values(by=sort_by, key=key, ascending=ascending)
+                    else:
+                        concat_df = concat_df.sort_values(by=sort_by, ascending=ascending)
+
+                concat_df = concat_df.replace([np.nan], [None])
+                SurrealDML.insert_dataframe_into_database(insert_data_function,field_mapping,logger,connection,concat_df)
+
+        else:
+            logger.error("No valid dataframes to process. Skipping.")
+            return  # Exit if no dataframes were loaded
+
+        
 
 
 

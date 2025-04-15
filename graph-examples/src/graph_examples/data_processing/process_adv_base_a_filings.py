@@ -89,13 +89,9 @@ def process_filings():
             if file_pattern1.match(filename) or file_pattern2.match(filename)
         ]
 
-        file_tqdm = tqdm.tqdm(matching_files, desc="Processing Files", position=1)
-        for filename in file_tqdm:
-            filepath = os.path.join(PART1_DIR, filename)
-            file_tqdm.set_description(f"Processing {filename}")  
-            SurrealDML.process_excel_file_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,filepath,sort_by="Signatory",key=lambda x: x.str.len())
-            
-            
+        # sort by shortest values of person's name to try to match on already submitted compliance officers
+        SurrealDML.process_csv_files_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,matching_files,sort_by="Signatory",key=lambda x: x.str.len())
+        
 
 # --- Main execution block ---
 if __name__ == "__main__":

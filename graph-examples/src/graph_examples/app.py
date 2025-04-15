@@ -171,20 +171,56 @@ async def filing_graph(request: fastapi.Request,filing_id: int) -> responses.HTM
                 "graph_size_limit":GRAPH_SIZE_LIMIT})
 
                 
-@app.get("/sma_graph", response_class=responses.HTMLResponse)
-async def sma_graph(request: fastapi.Request,
+@app.get("/raum_graph", response_class=responses.HTMLResponse)
+async def raum_graph(request: fastapi.Request,
     person_graph_filter: str = fastapi.Query(None),
     firm_filter: str = fastapi.Query(None),
-    graph_size_limit: int = fastapi.Query(None)) -> responses.HTMLResponse:
+    graph_size_limit: int = fastapi.Query(None),
+    firm_type: str = fastapi.Query(None)) -> responses.HTMLResponse:
 
     data_handler = ADVDataHandler(life_span["surrealdb"])
     if not graph_size_limit:
         graph_size_limit = GRAPH_SIZE_LIMIT
-    graph_data = await data_handler.get_custodian_graph(custodian_type="SMA",
+    graph_data = await data_handler.get_custodian_graph(custodian_type="RAUM",
                                                         order_by="assets_under_management DESC",
                                                         person_graph_filter=person_graph_filter,
                                                         firm_filter=firm_filter,
-                                                        limit=graph_size_limit)
+                                                        limit=graph_size_limit,
+                                                        firm_type=firm_type)
+                                                        
+    source_node_weight_field = "assets_under_management"
+    target_node_weight_field = "total_assets"
+    edge_weight_field = "assets_under_management"
+    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data,source_node_weight_field,target_node_weight_field,edge_weight_field)
+
+
+    return templates.TemplateResponse("graph.html", {
+            "request": request,
+                "graph_data":ux_graph_data,
+                "edge_label_field":"assets_under_management",
+                "edge_weight_field":edge_weight_field,
+                "source_node_weight_field":source_node_weight_field,
+                "target_node_weight_field":target_node_weight_field,
+                "graph_size":len(graph_data),
+                "graph_size_limit":GRAPH_SIZE_LIMIT})
+
+              
+@app.get("/pf_graph", response_class=responses.HTMLResponse)
+async def pf_graph(request: fastapi.Request,
+    person_graph_filter: str = fastapi.Query(None),
+    firm_filter: str = fastapi.Query(None),
+    graph_size_limit: int = fastapi.Query(None),
+    firm_type: str = fastapi.Query(None)) -> responses.HTMLResponse:
+
+    data_handler = ADVDataHandler(life_span["surrealdb"])
+    if not graph_size_limit:
+        graph_size_limit = GRAPH_SIZE_LIMIT
+    graph_data = await data_handler.get_custodian_graph(custodian_type="PF",
+                                                        order_by="assets_under_management DESC",
+                                                        person_graph_filter=person_graph_filter,
+                                                        firm_filter=firm_filter,
+                                                        limit=graph_size_limit,
+                                                        firm_type=firm_type)
                                                         
     source_node_weight_field = "assets_under_management"
     target_node_weight_field = "total_assets"
@@ -206,7 +242,8 @@ async def sma_graph(request: fastapi.Request,
 async def b_r_graph(request: fastapi.Request,
     person_graph_filter: str = fastapi.Query(None),
     firm_filter: str = fastapi.Query(None),
-    graph_size_limit: int = fastapi.Query(None)) -> responses.HTMLResponse:
+    graph_size_limit: int = fastapi.Query(None),
+    firm_type: str = fastapi.Query(None)) -> responses.HTMLResponse:
 
     if not graph_size_limit:
         graph_size_limit = GRAPH_SIZE_LIMIT
@@ -216,7 +253,8 @@ async def b_r_graph(request: fastapi.Request,
                                                         description_matches = ["cloud","data"],
                                                         person_graph_filter=person_graph_filter,
                                                         firm_filter=firm_filter,
-                                                        limit=graph_size_limit)
+                                                        limit=graph_size_limit,
+                                                        firm_type=firm_type)
     source_node_weight_field = "edge_count"
     target_node_weight_field = "total_assets"
     edge_weight_field = "assets_under_management"

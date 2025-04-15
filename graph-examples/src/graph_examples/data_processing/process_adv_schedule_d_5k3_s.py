@@ -11,7 +11,6 @@ import datetime
 import re
 from graph_examples.helpers.surreal_dml import SurrealDML
 
-
 db_params = DatabaseParams()
 args_loader = ArgsLoader("Input Glove embeddings model",db_params)
 FIELD_MAPPING = [
@@ -98,7 +97,7 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
 
 
     insert_surql = """ 
-    fn::sma_upsert(
+    fn::raum_upsert(
         $filing_id,
         $primary_business_name,
         $legal_name,
@@ -170,11 +169,8 @@ def process_filing_5k3_data_files():
             for filename in os.listdir(PART1_DIR)
             if file_pattern.match(filename)
         ]
-        file_tqdm = tqdm.tqdm(matching_files, desc="Processing Files", position=1)
-        for filename in file_tqdm:
-            file_tqdm.set_description(f"Processing {filename}")
-            filepath = os.path.join(PART1_DIR, filename)
-            SurrealDML.process_excel_file_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,filepath,sort_by=["5K(3)(e)","5K(3)(f)"],ascending=False) 
+        # sort by longest values first to enable full text matches for subsequent data
+        SurrealDML.process_csv_files_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,matching_files,sort_by=["5K(3)(e)","5K(3)(f)","5K(3)(a)"],key=lambda x: x.str.len(),ascending=False) 
 
 # --- Main execution block ---
 if __name__ == "__main__":

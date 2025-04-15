@@ -12,7 +12,7 @@ class ADVDataHandler():
 
 
 # SELECT assets_under_management,custodian_type,source_filing,in.identifier,in.name,out.identifier,out.name FROM custodian_for
-# WHERE custodian_type = custodian_type:SMA;
+# WHERE custodian_type = custodian_type:RAUM;
 # SELECT description,custodian_type,source_filing,in.identifier,in.name,out.identifier,out.name FROM custodian_for
 # WHERE custodian_type = custodian_type:⟨A third-party unaffiliated record keeper⟩
 # AND (description @1@ 'cloud' OR description @2@ 'data') AND in != out;
@@ -24,6 +24,7 @@ class ADVDataHandler():
                                   filing_id:int = None,
                                   firm_id:int = None,
                                   person_graph_filter:str = None,
+                                  firm_type:str =None,
                                   firm_filter:str =None,
                                   limit:int = None,
                                   ):
@@ -45,6 +46,19 @@ class ADVDataHandler():
                 where_clause += " AND "
             where_clause += " custodian_type = type::thing('custodian_type',$custodian_type)"
             params["custodian_type"] = custodian_type
+
+        if firm_type:
+            if where_clause:
+                where_clause += " AND "
+            where_clause += "( in.firm_type = type::thing('firm_type',$firm_type) OR out.firm_type = type::thing('firm_type',$firm_type) )"
+            params["firm_type"] = firm_type
+        
+        if firm_filter:
+            if where_clause:
+                where_clause += " AND "
+            where_clause += "( in.name @@ $firm_filter OR out.name @@ $firm_filter )"
+            params["firm_filter"] = firm_filter
+        
 
         if description_matches:
             if where_clause:
@@ -99,8 +113,8 @@ class ADVDataHandler():
         return graph_data["result"][result_index]["result"]
 
         
-    async def get_sma_graph(self):
-        return self.get_custodian_graph(custodian_type = "SMA")
+    async def get_raum_graph(self):
+        return self.get_custodian_graph(custodian_type = "RAUM")
     
 
     async def get_cloud_graph(self):

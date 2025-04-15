@@ -17,8 +17,14 @@ UPSERT firm_type:`Registered` CONTENT{
     firm_type : 'Registered'};
 UPSERT firm_type:`Records Custodian` CONTENT{
     firm_type : 'Records Custodian'};
-UPSERT firm_type:`SMA Custodian` CONTENT{
-    firm_type : 'SMA Custodian'};
+UPSERT firm_type:`RAUM Custodian` CONTENT{
+    firm_type : 'RAUM Custodian'};
+UPSERT firm_type:`PF Custodian` CONTENT{
+    firm_type : 'PF Custodian'};
+
+
+
+
 
 
 DEFINE TABLE IF NOT EXISTS firm SCHEMAFULL;
@@ -32,6 +38,8 @@ DEFINE FIELD IF NOT EXISTS country ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS postal_code ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS chief_compliance_officer ON TABLE firm TYPE Option<Record<person>>;
 DEFINE FIELD IF NOT EXISTS firm_aliases ON TABLE firm TYPE Option<Array<Record<firm_alias>>>;
+DEFINE FIELD IF NOT EXISTS PFID ON TABLE firm_alias TYPE Option<string>;
+
 
 -- Define fields for section1
 DEFINE FIELD IF NOT EXISTS section1 ON TABLE firm TYPE Option<object>;
@@ -95,6 +103,10 @@ DEFINE FIELD IF NOT EXISTS section_5f.nondiscretionary_accounts ON TABLE firm TY
 DEFINE FIELD IF NOT EXISTS section_5f.total_accounts ON TABLE firm TYPE Option<int>;
 DEFINE FIELD IF NOT EXISTS section_5f.nonus_regulatory_assets ON TABLE firm TYPE Option<float>;
 
+
+
+
+
 DEFINE INDEX IF NOT EXISTS name_text_index ON TABLE firm
     FIELDS name SEARCH ANALYZER name_analyzer BM25;
 
@@ -148,6 +160,8 @@ IN person OUT filing SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS execution_date ON TABLE signed TYPE datetime;
 DEFINE FIELD IF NOT EXISTS signatory_title ON TABLE signed TYPE Option<string>;
 
+
+
 DEFINE TABLE IF NOT EXISTS is_compliance_officer TYPE RELATION
 IN person OUT firm SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS as_of_latest_filing_date ON TABLE is_compliance_officer TYPE datetime;
@@ -161,9 +175,29 @@ IN firm OUT firm SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS source_filing ON TABLE custodian_for TYPE Record<filing>;
 DEFINE FIELD IF NOT EXISTS custodian_type ON TABLE custodian_for TYPE Record<custodian_type>;
 DEFINE FIELD IF NOT EXISTS legal_entity_identifier ON TABLE custodian_for TYPE Option<string>;
+
 DEFINE FIELD IF NOT EXISTS description ON TABLE custodian_for TYPE Option<string>;
+
 DEFINE FIELD IF NOT EXISTS assets_under_management ON TABLE custodian_for TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS related_person ON TABLE custodian_for TYPE Option<bool>;
+
+DEFINE FIELD IF NOT EXISTS section_d_7b1 ON TABLE custodian_for TYPE Option<object>;
+
+
+DEFINE FIELD IF NOT EXISTS section_d_7b1.percentage_owned_you_or_related ON TABLE custodian_for TYPE Option<float>;
+DEFINE FIELD IF NOT EXISTS section_d_7b1.percentage_owned_funds ON TABLE custodian_for TYPE Option<float>;
+DEFINE FIELD IF NOT EXISTS section_d_7b1.percentage_invested ON TABLE custodian_for TYPE Option<float>;
+DEFINE FIELD IF NOT EXISTS section_d_7b1.unqualified_opinion ON TABLE custodian_for TYPE Option<string>;
+DEFINE FIELD IF NOT EXISTS section_d_7b1.fund_type_other ON TABLE custodian_for TYPE Option<string>;
+
+
+DEFINE TABLE IF NOT EXISTS master_of_feeder TYPE RELATION
+IN firm OUT firm SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS source_filing ON TABLE master_of_feeder TYPE Record<filing>;
+DEFINE FIELD IF NOT EXISTS master_fund_name ON TABLE master_of_feeder TYPE Option<string>;
+
+           
+
 
 
 DEFINE INDEX IF NOT EXISTS description_index ON TABLE custodian_for
@@ -189,8 +223,10 @@ DEFINE FIELD IF NOT EXISTS execution_type ON TABLE ia_filing_execution_type TYPE
 
 DEFINE TABLE IF NOT EXISTS custodian_type SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS custodian_type ON TABLE custodian_type TYPE string;
-UPSERT custodian_type:`SMA` CONTENT{
-    custodian_type : 'SMA'};
+UPSERT custodian_type:`RAUM` CONTENT{
+    custodian_type : 'RAUM'};
+UPSERT custodian_type:`PF` CONTENT{
+custodian_type : 'PF'};
 
 DEFINE TABLE IF NOT EXISTS person SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS full_name ON TABLE person TYPE string;
@@ -233,4 +269,10 @@ DEFINE INDEX IF NOT EXISTS title_text_index ON TABLE person_alias
 
 DEFINE INDEX IF NOT EXISTS email ON TABLE firm_alias
     FIELDS email;
+
+
+
+
+
+
 

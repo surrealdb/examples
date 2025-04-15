@@ -167,12 +167,11 @@ def process_filing_books_records_data_files():
             if file_pattern.match(filename)
         ]
 
-        file_tqdm = tqdm.tqdm(matching_files, desc="Processing Files", position=1)
-        for filename in file_tqdm:
-            file_tqdm.set_description(f"Processing {filename}")
-            filepath = os.path.join(PART1_DIR, filename)
-            SurrealDML.process_excel_file_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,filepath,sort_by="Name",key=lambda x: x.str.len())
-            
+
+        
+        # sort by longest values first to enable full text matches for subsequent data
+        SurrealDML.process_csv_files_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,matching_files,sort_by="Name",key=lambda x: x.str.len(),ascending=False)
+        
             
 
 # --- Main execution block ---

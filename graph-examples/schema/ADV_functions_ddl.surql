@@ -120,6 +120,7 @@ DEFINE FUNCTION OVERWRITE fn::firm_upsert(
                 $firm_type_name,
                 NONE,
                 $identifier,
+                NONE,
                 IF $section1 IS NOT NONE THEN $section1["legal_entity_identifier"] ELSE NONE END,
                 IF $section1 IS NOT NONE THEN $section1["cik"] ELSE NONE END,
                 $city,
@@ -129,12 +130,13 @@ DEFINE FUNCTION OVERWRITE fn::firm_upsert(
 
         
         IF $section1 IS NOT NONE AND $section1["legal_entity_identifier"] IS NOT NONE THEN {
-            LET $firm_identifier = fn::firm_identifier(NONE, NONE, $section1["legal_entity_identifier"], NONE);
+            LET $firm_identifier = fn::firm_identifier(NONE, NONE, NONE, $section1["legal_entity_identifier"], NONE);
             LET $firm_alias = fn::firm_alias_upsert(
                 $firm,
                 $name,
                 $legal_name,
                 $firm_type_name,
+                NONE,
                 NONE,
                 $firm_identifier,
                 IF $section1 IS NOT NONE THEN $section1["legal_entity_identifier"] ELSE NONE END,
@@ -147,12 +149,13 @@ DEFINE FUNCTION OVERWRITE fn::firm_upsert(
         } END;
 
         IF $section1 IS NOT NONE AND $section1["cik"] IS NOT NONE THEN {
-            LET $firm_identifier = fn::firm_identifier(NONE, NONE, NONE , $section1["cik"]);
+            LET $firm_identifier = fn::firm_identifier(NONE, NONE, NONE, NONE , $section1["cik"]);
             LET $firm_alias = fn::firm_alias_upsert(
                 $firm,
                 $name,
                 $legal_name,
                 $firm_type_name,
+                NONE,
                 NONE,
                 $firm_identifier,
                 IF $section1 IS NOT NONE THEN $section1["legal_entity_identifier"] ELSE NONE END,
@@ -165,12 +168,13 @@ DEFINE FUNCTION OVERWRITE fn::firm_upsert(
         } END;
 
         IF $legal_name IS NOT NONE THEN {
-            LET $firm_identifier = fn::firm_identifier($legal_name, NONE, NONE , NONE);
+            LET $firm_identifier = fn::firm_identifier($legal_name, NONE, NONE, NONE , NONE);
             LET $firm_alias = fn::firm_alias_upsert(
                 $firm,
                 $name,
                 $legal_name,
                 $firm_type_name,
+                NONE,
                 NONE,
                 $firm_identifier,
                 IF $section1 IS NOT NONE THEN $section1["legal_entity_identifier"] ELSE NONE END,
@@ -233,6 +237,7 @@ DEFINE FUNCTION OVERWRITE fn::person_alias_upsert(
             END;
 
 
+        LET $person_alias = type::thing("person_alias",$identifier);
         UPSERT type::thing("person_alias",$identifier) MERGE{
             source_filing: $source_filing,
             firm: $firm,
@@ -242,7 +247,16 @@ DEFINE FUNCTION OVERWRITE fn::person_alias_upsert(
             last_name: $last_name,
             title: $title,
             email: $email
-        };
+        } RETURN NONE;
+
+
+        UPDATE $person 
+            SET 
+            person_aliases = IF $person["person_aliases"] IS  NONE THEN [$person_alias] ELSE person_aliases.union([$person_alias]) END
+            RETURN NONE;
+
+
+
         RETURN  type::thing("person",[$full_name,$firm]);
     };
 
@@ -323,7 +337,7 @@ DEFINE FUNCTION OVERWRITE fn::filing_upsert(
 
         LET $execution_type = fn::execution_type_upsert($execution_type_name);
 
-        LET $firm_identifier = fn::firm_identifier(NONE, $sec_number, NONE, NONE);
+        LET $firm_identifier = fn::firm_identifier(NONE, $sec_number, NONE, NONE, NONE);
         LET $firm = type::thing("firm", $firm_identifier);
         LET $filing = type::thing("filing",$filing_id);
 
@@ -355,7 +369,7 @@ DEFINE FUNCTION OVERWRITE fn::filing_upsert(
 
     
 
-DEFINE FUNCTION OVERWRITE fn::sma_custodian_get_or_upsert(
+DEFINE FUNCTION OVERWRITE fn::raum_custodian_get_or_upsert(
     $source_filing : Record<filing>,
     $name: string,
     $legal_name: string,
@@ -368,8 +382,9 @@ DEFINE FUNCTION OVERWRITE fn::sma_custodian_get_or_upsert(
             $source_filing,
             $name,
             $legal_name,
-            "SMA Custodian",
+            "RAUM Custodian",
             $sec_number,
+            NONE,
             $legal_entity_identifier,
             NONE,
             $city,
@@ -382,15 +397,122 @@ DEFINE FUNCTION OVERWRITE fn::sma_custodian_get_or_upsert(
 
 
 
+DEFINE FUNCTION OVERWRITE fn::pf_custodian_get_or_upsert(
+    $source_filing : Record<filing>,
+    $name: string,
+    $fund_id: string,
+    $fund_type: string,
+    $is_feeder_fund: Option<string>,
+    $master_fund_id: Option<string>,
+    $master_fund_name: Option<string>,
+    $state: Option<string>,
+    $country: Option<string>){
+    
+    
+        
+    LET $pf_firm = fn::firm_get_or_upsert(
+            $source_filing,
+            $name,
+            $name,
+            $fund_type,
+            NONE,
+            $fund_id,
+            NONE,
+            NONE,
+            NONE,
+            $state,
+            NONE,
+            $country
+        );
+    
+
+    LET $feeder_fund = IF $is_feeder_fund IS NONE THEN FALSE ELSE $is_feeder_fund.lowercase() in ["yes","true","1","y"] END;
+
+    
+
+    IF $feeder_fund = True AND $master_fund_id IS NOT NONE THEN {
+        LET $master_firm = type::thing("firm",fn::firm_identifier(NONE, NONE, $master_fund_id, NONE,NONE));
+        RELATE $master_firm->master_of_feeder:[$master_firm,$pf_firm]->$pf_firm  CONTENT{
+            in: $master_firm,
+            out: $pf_firm,
+            source_filing: $source_filing,
+            master_fund_name: $master_fund_name
+        } RETURN NONE; 
+
+    } END;
+
+    RETURN $pf_firm;
+    
+    };
+
+
+DEFINE FUNCTION OVERWRITE fn::pf_upsert(
+    $filing_id: int,
+
+    $name: string,
+    $fund_id: string,
+    $fund_type: string,
+    $is_feeder_fund: Option<string>,
+    $gross_asset_value: Option<float>,
+    $percentage_owned_you_or_related: Option<float>,
+    $percentage_owned_funds: Option<float>,
+    $percentage_invested: Option<float>,
+    $unqualified_opinion: Option<string>,
+
+
+    $master_fund_id: Option<string>,
+    $master_fund_name: Option<string>,
+    $state: Option<string>,
+    $country: Option<string>,
+    $fund_type_other: Option<string>
+
+)
+    {
+        LET $filing = type::thing("filing",$filing_id);
+        LET $filing_firm = $filing["firm"];
+
+
+
+       
+        LET $custodian_firm = fn::pf_custodian_get_or_upsert(
+            $filing,
+            $name,
+            $fund_id,
+            $fund_type,
+            $is_feeder_fund,
+            $master_fund_id,
+            $master_fund_name,
+            $state,
+            $country);
+
+        RELATE $custodian_firm->custodian_for:[$custodian_firm,$filing_firm]->$filing_firm  CONTENT{
+            in: $custodian_firm,
+            out: $filing_firm,
+            source_filing: $filing,
+            custodian_type: custodian_type:`PF`,
+            assets_under_management: $gross_asset_value,
+            section_d_7b1: {
+                percentage_owned_you_or_related: $percentage_owned_you_or_related,
+                percentage_owned_funds: $percentage_owned_funds,
+                percentage_invested: $percentage_invested,
+                unqualified_opinion: $unqualified_opinion,
+                fund_type_other: $fund_type_other
+            }
+        } RETURN NONE; 
+    };
+
 DEFINE FUNCTION OVERWRITE fn::firm_identifier(
     $legal_name: Option<string>,
     $sec_number: Option<string>,
+    $pfid: Option<string>,
     $legal_entity_identifier: Option<string>,
     $cik: Option<int>
 ) {
     
         LET $identifier =
-            IF $sec_number IS NOT NONE THEN 
+            IF $pfid IS NOT NONE THEN 
+                "pfid:" + $pfid.lowercase()
+            ELSE IF $sec_number IS NOT NONE THEN 
                 "sec:" + $sec_number.lowercase()
             ELSE IF $legal_entity_identifier IS NOT NONE THEN
                 "lei:" + $legal_entity_identifier.lowercase()
@@ -410,6 +532,7 @@ DEFINE FUNCTION OVERWRITE fn::firm_alias_upsert(
     $firm_type_name: string,
     $source_filing : Option<Record<filing>>,
     $sec_number: Option<string>,
+    $pfid: Option<string>,
     $legal_entity_identifier: Option<string>,
     $cik: Option<int>,
     $city: Option<string>,
@@ -418,7 +541,7 @@ DEFINE FUNCTION OVERWRITE fn::firm_alias_upsert(
     $country: Option<string>
     ){
 
-        LET $identifier = fn::firm_identifier($legal_name, $sec_number, $legal_entity_identifier,$cik);
+        LET $identifier = fn::firm_identifier($legal_name, $sec_number, $pfid, $legal_entity_identifier,$cik);
         LET $firm_type = fn::firm_type_upsert($firm_type_name);
 
 
@@ -456,6 +579,7 @@ DEFINE FUNCTION OVERWRITE fn::firm_get_or_upsert(
     $legal_name: string,
     $firm_type_name_if_insert: string,
     $sec_number: Option<string>,
+    $pfid: Option<string>,
     $legal_entity_identifier: Option<string>,
     $cik: Option<int>,
     $city: Option<string>,
@@ -466,9 +590,11 @@ DEFINE FUNCTION OVERWRITE fn::firm_get_or_upsert(
     ){
 
     #search aliases
+    
     LET $firm = fn::find_alias_match_for_firm(
             $legal_name,
             $sec_number,
+            $pfid,
             $legal_entity_identifier,
             $cik
         );
@@ -501,6 +627,7 @@ DEFINE FUNCTION OVERWRITE fn::firm_get_or_upsert(
                 $firm_type_name_if_insert,
                 $source_filing,
                 $sec_number,
+                $pfid,
                 $legal_entity_identifier,
                 $cik,
                 $city,
@@ -513,7 +640,7 @@ DEFINE FUNCTION OVERWRITE fn::firm_get_or_upsert(
 
             #if not found upsert firm and return firm
 
-            LET $identifier = fn::firm_identifier($legal_name, $sec_number, $legal_entity_identifier,$cik);
+            LET $identifier = fn::firm_identifier($legal_name, $sec_number, $pfid, $legal_entity_identifier,$cik);
 
 
             LET $firm = IF $sec_number IS NOT NONE THEN {
@@ -530,8 +657,6 @@ DEFINE FUNCTION OVERWRITE fn::firm_get_or_upsert(
         END;
     } END;
 };
-
-
 
 
 
@@ -645,7 +770,7 @@ DEFINE FUNCTION OVERWRITE fn::get_person_or_upsert(
 };
 
 
-DEFINE FUNCTION OVERWRITE fn::sma_upsert(
+DEFINE FUNCTION OVERWRITE fn::raum_upsert(
     $filing_id: int,
     $primary_business_name: string,
     $legal_name: string,
@@ -655,12 +780,12 @@ DEFINE FUNCTION OVERWRITE fn::sma_upsert(
     $state: Option<string>,
     $country: Option<string>,
     $is_related_person: Option<string>,
-    $assets_under_management: Option<decimal>)
+    $assets_under_management: Option<float>)
     {
         LET $filing = type::thing("filing",$filing_id);
         LET $filing_firm = $filing["firm"];
 
-        LET $custodian_firm = fn::sma_custodian_get_or_upsert(
+        LET $custodian_firm = fn::raum_custodian_get_or_upsert(
             $filing,
             $primary_business_name,
             $legal_name,
@@ -677,7 +802,7 @@ DEFINE FUNCTION OVERWRITE fn::sma_upsert(
             in: $custodian_firm,
             out: $filing_firm,
             source_filing: $filing,
-            custodian_type: custodian_type:`SMA`,
+            custodian_type: custodian_type:`RAUM`,
             legal_entity_identifier: $legal_entity_identifier,
             assets_under_management: $assets_under_management,
             related_person: $related_person
@@ -756,6 +881,7 @@ DEFINE FUNCTION OVERWRITE fn::find_match_for_firm(
 DEFINE FUNCTION OVERWRITE fn::find_alias_match_for_firm(
     $legal_name: string,
     $sec_number: Option<string>,
+    $pfid: Option<string>,
     $legal_entity_identifier: Option<string>,
     $cik: Option<int>){
 
@@ -766,6 +892,12 @@ DEFINE FUNCTION OVERWRITE fn::find_alias_match_for_firm(
         } END;
     } END;
 
+    IF $pfid IS NOT NONE THEN {
+        LET $firm_alias = type::thing("firm_alias","pfid:" + $pfid);
+        IF $firm_alias["firm"] IS NOT NONE THEN {
+            RETURN $firm_alias["firm"];
+        } END;
+    } END;
 
     IF $legal_entity_identifier IS NOT NONE THEN {
         LET $firm_alias = type::thing("firm_alias","lei:" + $legal_entity_identifier);
@@ -794,8 +926,6 @@ DEFINE FUNCTION OVERWRITE fn::find_alias_match_for_firm(
 
 
 
-
-
 DEFINE FUNCTION OVERWRITE fn::b_and_r_custodian_get_or_upsert(
     $source_filing : Record<filing>,
     $name: string,
@@ -808,6 +938,7 @@ DEFINE FUNCTION OVERWRITE fn::b_and_r_custodian_get_or_upsert(
             $name,
             $name,
             "Records Custodian",
+            NONE,
             NONE,
             NONE,
             NONE,

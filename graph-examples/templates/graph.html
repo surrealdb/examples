@@ -128,7 +128,7 @@
 //ERA
 //Records Custodian
 //Registered
-//SMA
+//RAUM
                 // Create the text element directly.  No need for a group or rectangle.
                 const label = Viva.Graph.svg('text')
                     .attr('class', 'node-label')  // Keep the class for styling
@@ -139,8 +139,10 @@
                     case "ERA":
                         label.attr('fill', `pink`);
                         break;
-                    case "SMA Custodian":
+                    case "RAUM Custodian":
                     case "Records Custodian":
+                    case "Hedge Fund":
+                    case "Venture Capital Fund":
                         label.attr('fill', `purple`);
                         break;
                     default:

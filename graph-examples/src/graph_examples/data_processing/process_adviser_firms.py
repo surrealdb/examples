@@ -83,7 +83,7 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
     """
     insert_surql = """ 
 
-    LET $identifier = fn::firm_identifier(NONE, $sec_number, NONE, NONE);
+    LET $identifier = fn::firm_identifier(NONE, $sec_number, NONE, NONE, NONE);
     fn::firm_upsert(
         $name,
         $identifier,
