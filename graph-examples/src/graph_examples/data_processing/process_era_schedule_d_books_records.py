@@ -30,7 +30,11 @@ from graph_examples.helpers.surreal_dml import SurrealDML
 
 
 db_params = DatabaseParams()
-args_loader = ArgsLoader("Input Glove embeddings model",db_params)
+args_loader = ArgsLoader("Input books and records filings from section d",db_params)
+
+# Defines a mapping between DataFrame column names, user-friendly display names,
+# SurrealQL field names, Python data types, and field descriptions.
+# This mapping is used for data transformation and insertion into SurrealDB.
 FIELD_MAPPING = [
     {
         "dataframe_field_name": "FilingID",
@@ -93,11 +97,27 @@ FIELD_MAPPING = [
 
 def insert_data_into_surrealdb(logger,connection:Surreal,data):
     """
-    Inserts data into SurrealDB.
+    Inserts data about books and records custodians into SurrealDB
+    using the 'fn::b_and_r_upsert' function.
+
+    This function takes custodian data (parsed from a row of a DataFrame) and constructs
+    a SurrealQL query to insert or update custodian information. It checks for the
+    presence of required fields and logs any errors during the insertion process.
 
     Args:
-        data: The data to be inserted.
+        logger:     A logger object for logging information and errors.
+        connection: A SurrealDB connection object.
+        data:       A dictionary containing the custodian data to be inserted/updated.
+                    This dictionary should align with the parameters of the 'fn::b_and_r_upsert'
+                    SurrealQL function.
     """
+
+    # --- SurrealQL Query ---
+
+    # The SurrealQL query string that calls the 'fn::b_and_r_upsert' function.
+    # This function is assumed to exist in the SurrealDB database and handles
+    # the upsert (update or insert) logic for books and records custodian records.
+    
 
     insert_surql = """ 
     fn::b_and_r_upsert(
@@ -112,10 +132,17 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
         )
     """
 
+    # --- Parameter Construction and Validation ---
+
+    # Check if all the required data fields are present.
+    # These fields are considered essential for inserting a custodian record.
+    
 
     if ("filing_id" in data 
         and "name" in data
         and "type" in data):
+        # Construct the 'params' dictionary, which will be passed as parameters
+        # to the SurrealQL query.
         params = {
             "filing_id": data["filing_id"],
             "name": data["name"],
@@ -135,18 +162,32 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
             params["description"] = data["description"]
 
 
+         # --- Execute the Query ---
+
         try:
-            SurrealParams.ParseResponseForErrors(connection.query_raw(
-                insert_surql,params=params
-            ))
+            # Execute the SurrealQL query with the constructed parameters.
+            # 'SurrealParams.ParseResponseForErrors' is assumed to be a helper function
+            # to handle potential errors in the SurrealDB response.
+            SurrealParams.ParseResponseForErrors(
+                connection.query_raw(insert_surql, params=params)
+            )
         except Exception as e:
+            # Log and raise an exception if there's an error during insertion. Don't raise the error as filings sometimes miss a firm
             logger.error(f"Error inserting data into SurrealDB: {data}")
-            
+            # raise
 
 
         
 
 def process_filing_books_records_data_files():
+    """
+    Main function to process data about books and records custodians
+    from CSV files and insert it into SurrealDB.
+
+    This function sets up logging, connects to SurrealDB, identifies relevant CSV files,
+    and calls the necessary functions to extract and insert the data. It also sorts the
+    data before insertion to improve matching.
+    """
 
     logger = loggers.setup_logger("SurrealProcessD-Books-Records")
     args_loader.LoadArgs() # Parse command-line arguments
@@ -159,6 +200,7 @@ def process_filing_books_records_data_files():
 
         logger.info(f"Processing part 1 adv base a firms data in directory {PART1_DIR}")
 
+        # Define regular expression pattern to identify relevant CSV files.
         file_pattern = re.compile(r".*_Schedule_D_Books_and_Records_.*\.csv$")
 
         matching_files = [
@@ -169,7 +211,9 @@ def process_filing_books_records_data_files():
 
 
         
-        # sort by longest values first to enable full text matches for subsequent data
+        # Process the CSV files and insert data into SurrealDB.
+        # The data is sorted by "Name" to improve matching. Sorting is done by
+        # the length of the string in descending order.
         SurrealDML.process_csv_files_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,matching_files,sort_by="Name",key=lambda x: x.str.len(),ascending=False)
         
             

@@ -69,7 +69,8 @@
 
 <body>
     <div class="nav">
-        <span>
+        <div class="graph-nav">
+            <span>
             <button hx-get="/firms" hx-target="main" hx-swap="innerHTML">
                 <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
                 Firms
@@ -82,24 +83,38 @@
                 <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
                 People
             </button>
-        </span><div class="graph-nav">
+            </span>
             <span>
-                <button hx-get="/pf_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personGraphFilter,#firmFilter,#graphSizeLimit,#firmType">
+
+                <button hx-get="/custodian_reports/hedge_report" hx-target="main" hx-swap="innerHTML">
+                    <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                    Hedges
+                </button>
+
+                <button hx-get="/custodian_reports/vc_report" hx-target="main" hx-swap="innerHTML">
+                    <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                    VC
+                </button>
+            </span>
+        </div>
+        <div class="graph-nav">
+            <span>
+                <button hx-get="/pf_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personFilter,#firmFilter,#graphSizeLimit,#firmType">
                     <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
                     PF SMA Graph
                 </button>
-                <button hx-get="/raum_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personGraphFilter,#firmFilter,#graphSizeLimit,#firmType">
+                <button hx-get="/raum_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personFilter,#firmFilter,#graphSizeLimit,#firmType">
                     <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
                     RAUM SMA Graph
                 </button>
-                <button hx-get="/b_r_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personGraphFilter,#firmFilter,#graphSizeLimit,#firmType">
+                <button hx-get="/b_r_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personFilter,#firmFilter,#graphSizeLimit,#firmType">
                     <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
                     Tech Partners Graph
                 </button>
             </span>
         
             <span>
-                <input name="person_graph_filter" id="personGraphFilter" class="nav_input" placeholder="Person Filter">
+                <input name="person_filter" id="personFilter" class="nav_input" placeholder="Person Filter">
                 <input name="firm_filter" id="firmFilter" class="nav_input" placeholder="Firm Filter (Name, CIK, etc)">
                 <select name="firm_type" id="firmType">
                     <option value=''>--Firm Type--</option>

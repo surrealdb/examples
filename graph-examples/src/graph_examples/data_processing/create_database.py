@@ -10,7 +10,7 @@ from graph_examples.helpers.params import DatabaseParams, SurrealParams
 import graph_examples.helpers.constants as constants
 # Initialize parameter objects and argument loader
 db_params = DatabaseParams()
-args_loader = ArgsLoader("Input Embeddings Model",db_params)
+args_loader = ArgsLoader("Create database",db_params)
 
 """
 Creates a SurrealDB database and namespace, and executes schema DDL.

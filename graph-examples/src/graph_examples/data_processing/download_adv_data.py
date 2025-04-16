@@ -11,22 +11,41 @@ from graph_examples.helpers import loggers
 import tqdm
 import time 
 
+# --- Configuration ---
+
+# Rate limiting settings to avoid overwhelming the SEC servers.
 MAX_REQUESTS_PER_SECOND = 4
 THROTTLE_TIME_SECONDS = 1 / MAX_REQUESTS_PER_SECOND
-# Define more comprehensive headers
+
+# Base headers for HTTP requests.
+# These headers are designed to mimic a typical web browser.
 BASE_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
     "Accept-Language": "en-US,en;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br", # requests handles decompression
+    "Accept-Encoding": "gzip, deflate, br",  # requests handles decompression
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1",
 }
 
-
         
 
 def download_and_extract_zip_file(logger, session: requests.Session, url:str, target_dir:str) -> None:
+
+    """
+    Downloads a zip file from a given URL and extracts its contents to a target directory.
+
+    This function handles HTTP requests, error handling, zip file validation,
+    and file extraction with proper logging.
+
+    Args:
+        logger:     A logger object for logging information, warnings, and errors.
+        session:    A requests.Session object to persist headers and connections.
+        url:        The URL of the zip file to download.
+        target_dir: The directory where the contents of the zip file will be extracted.
+    """
+
+
     time.sleep(THROTTLE_TIME_SECONDS) # Sleep to avoid overwhelming the server
     response = session.get(url, stream=True, timeout=90) # Increased timeout
     response.raise_for_status()  # Check for download errors (4xx or 5xx)
@@ -100,7 +119,20 @@ def download_and_extract_zip_file(logger, session: requests.Session, url:str, ta
         logger.error(f"  An unexpected error occurred processing {url}: {e}")
 
 def download_and_extract_zip_files(logger, session: requests.Session, referer_url:str, links:list[str], destination_folder:str) -> None:
-    
+    """
+    Downloads and extracts multiple zip files from a list of URLs.
+
+    This function iterates through a list of URLs, sets the 'Referer' header for each request,
+    and calls the 'download_and_extract_zip_file' function to process each zip file.
+
+    Args:
+        logger:            A logger object for logging progress and errors.
+        session:           A requests.Session object to persist headers and connections.
+        referer_url:       The URL of the page containing the zip file links (used as the 'Referer' header).
+        links:             A list of URLs pointing to the zip files to download.
+        destination_folder: The directory where the zip files will be extracted.
+    """
+
     headers = session.headers.copy() # Get base headers from session
     headers['Referer'] = referer_url
     session.headers.update(headers) # Update session headers
@@ -110,6 +142,24 @@ def download_and_extract_zip_files(logger, session: requests.Session, referer_ur
 
 
 def process_page_links(logger,session: requests.Session, url:str, pattern:re, destination_folder:str, max_links:int=12) -> None:
+
+    """
+    Finds zip file links on a webpage, downloads, and extracts them.
+
+    This function fetches a webpage, parses its HTML, finds links matching a
+    specified regular expression pattern, and then downloads and extracts the
+    found zip files. It also includes rate limiting to avoid server overload.
+
+    Args:
+        logger:            A logger object for logging information, warnings, and errors.
+        session:           A requests.Session object to persist headers and connections.
+        url:               The URL of the webpage to process.
+        pattern:           A regular expression pattern to match the zip file links.
+        destination_folder: The directory where the zip files will be extracted.
+        max_links:         The maximum number of links to process from the page.
+    """
+
+
     ensure_dir(destination_folder)
     time.sleep(THROTTLE_TIME_SECONDS) # Sleep to avoid overwhelming the server
     response = session.get(url, timeout=30) # No need to pass headers explicitly now
@@ -133,6 +183,16 @@ def process_page_links(logger,session: requests.Session, url:str, pattern:re, de
 
 
 def download_adv_data() -> None:
+
+    """
+    Main function to download and extract ADV data from SEC websites.
+
+    This function sets up logging, creates a requests session with appropriate
+    headers (including a mandatory User-Agent), and then calls functions to
+    process specific SEC webpages and download the data.
+    """
+
+    
     logger = loggers.setup_logger("DownloadData") # Use your logger setup
 
     logger.info("Starting SEC data download process...")

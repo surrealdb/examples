@@ -11,7 +11,15 @@ import datetime
 
 
 db_params = DatabaseParams()
-args_loader = ArgsLoader("Input Glove embeddings model",db_params)
+args_loader = ArgsLoader("Input IA firms",db_params)
+
+
+
+# Defines a mapping between DataFrame column names, user-friendly display names,
+# SurrealQL field names, and their corresponding Python data types.
+# This is crucial for data transformation and insertion into SurrealDB.
+
+
 FIELD_MAPPING = [
     {"dataframe_field_name": "SEC#", "field_display_name": "SEC#", "surql_field_name": "section1.sec_number", "python_type": str},
     {"dataframe_field_name": "SEC Region", "field_display_name": "SEC Region", "surql_field_name": "section1.sec_region", "python_type": str},
@@ -76,29 +84,54 @@ FIELD_MAPPING = [
 
 def insert_data_into_surrealdb(logger,connection:Surreal,data):
     """
-    Inserts data into SurrealDB.
+    Inserts data into SurrealDB using the 'fn::firm_upsert' function.
+
+    This function takes data (presumably parsed from a row of a DataFrame)
+    and constructs a SurrealQL query to insert or update a 'firm' record.
+    It handles various optional fields and logs any errors during the insertion process.
 
     Args:
-        data: The data to be inserted.
+        logger: A logger object for logging information and errors.
+        connection: A SurrealDB connection object.
+        data: A dictionary containing the data to be inserted/updated.
+              This dictionary should align with the parameters of the 'fn::firm_upsert'
+              SurrealQL function.
     """
-    insert_surql = """ 
 
-    LET $identifier = fn::firm_identifier(NONE, $sec_number, NONE, NONE, NONE);
+    # --- SurrealQL Query ---
+
+    # The SurrealQL query string that calls the 'fn::firm_upsert' function.
+    # This function is assumed to exist in the SurrealDB database and handles
+    # the upsert (update or insert) logic for 'firm' records.
+
+    insert_surql = """ 
     fn::firm_upsert(
         $name,
-        $identifier,
         $firm_type,
         $legal_name,
+        $sec_number,
+        NONE, #not private funds
+        $legal_entity_identifier,
+        $cik,
         $city,
         $state,
         $postal_code,
         $country,
         $section1,
         $section_5d,
-        $section_5f);
-
-
+        $section_5f,
+        NONE #not processing filings yet
+        ); 
     """
+
+
+
+    # --- Parameter Construction ---
+
+    # Check if the necessary 'section1' data is present.
+    # The 'primary_business_name', 'sec_number', and 'firm_type' are considered
+    # essential for inserting a firm.
+
     if ("section1" in data 
         and "primary_business_name" in data["section1"]
         and "sec_number" in data["section1"]
@@ -110,6 +143,12 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
             "section1": data["section1"]
             }
         
+
+        if "cik" in data["section1"]:
+            params["cik"] = data["section1"]["cik"]
+        if "legal_entity_identifier" in data["section1"]:
+            params["legal_entity_identifier"] = data["section1"]["legal_entity_identifier"]
+
         if "legal_name" in data["section1"]:
             params["legal_name"] = data["section1"]["legal_name"]
         if "main_office_city" in data["section1"]:
@@ -120,18 +159,25 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
             params["country"] = data["section1"]["main_office_postal_code"]
         if "main_office_country" in data["section1"]:
             params["country"] = data["section1"]["main_office_country"]
+
         if "section_5d" in data:
             params["section_5d"] = data["section_5d"]
         if "section_5f" in data:
             params["section_5f"] = data["section_5f"]
 
+         # --- Execute the Query ---
         try:
-            SurrealParams.ParseResponseForErrors(connection.query_raw(
-                insert_surql,params=params
-            ))
+            # Execute the SurrealQL query with the constructed parameters.
+            # 'SurrealParams.ParseResponseForErrors' is assumed to be a helper function
+            # to handle potential errors in the SurrealDB response.
+            SurrealParams.ParseResponseForErrors(
+                connection.query_raw(insert_surql, params=params)
+            )
         except Exception as e:
+            # Log and raise an exception if there's an error during insertion.
             logger.error(f"Error inserting data into SurrealDB: {data}: {e}")
             raise
+
 
 
 

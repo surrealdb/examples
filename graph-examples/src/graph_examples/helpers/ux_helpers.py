@@ -111,11 +111,58 @@ def extract_field_value(data, field_name):
 
 def convert_adv_custodian_graph_to_ux_data(data,source_node_weight_field,target_node_weight_field,edge_weight_field):
    
+    Python
+
+from typing import Dict, List, Any, Optional
+
+def convert_adv_custodian_graph_to_ux_data(
+    data: List[Dict[str, Any]],
+    source_node_weight_field: Optional[str],
+    target_node_weight_field: Optional[str],
+    edge_weight_field: Optional[str],
+) -> Optional[Dict[str, Any]]:
     """
-        SELECT id,description,custodian_type.custodian_type AS custodian_type,assets_under_management,
-        in.{name,identifier,firm_type,section_5f},
-        out.{name,identifier,firm_type,section_5f} FROM custodian_for
-    """      
+    Transforms data retrieved from a SurrealDB graph query about ADV custodians
+    into a format suitable for user interface (UX) visualization.
+
+    The function processes a list of rows, where each row represents a custodian
+    relationship between two firms. It extracts node (firm) and edge (relationship)
+    information, calculates weight ranges for nodes and edges, and formats the data
+    into a dictionary containing nodes, edges, and weight range metadata.
+
+    Args:
+        data: A list of dictionaries, where each dictionary represents a row
+              from a SurrealDB query. Each row is expected to have a specific
+              structure (see example query in docstring).
+        source_node_weight_field: Optional. The name of the field in the 'in' node
+                                  to use for calculating source node weight ranges.
+        target_node_weight_field: Optional. The name of the field in the 'out' node
+                                  to use for calculating target node weight ranges.
+        edge_weight_field: Optional. The name of the field in the edge data to use
+                          for calculating edge weight ranges.
+
+    Returns:
+        A dictionary containing the transformed data, or None if the input data is empty.
+        The dictionary has the following structure:
+        {
+            "nodes": List of node dictionaries,
+            "edges": List of edge dictionaries,
+            "source_node_weight_min": Minimum source node weight (or inf if no weights),
+            "source_node_weight_max": Maximum source node weight (or -inf if no weights),
+            "target_node_weight_min": Minimum target node weight (or inf if no weights),
+            "target_node_weight_max": Maximum target node weight (or -inf if no weights),
+            "edge_weight_min": Minimum edge weight (or inf if no weights),
+            "edge_weight_max": Maximum edge weight (or -inf if no weights)
+        }
+
+    Example SurrealDB query (illustrative):
+        SELECT id, description, custodian_type.custodian_type AS custodian_type,
+               assets_under_management,
+               in.{name, identifier, firm_type, section_5f},
+               out.{name, identifier, firm_type, section_5f}
+        FROM custodian_for
+    """
+
     if not data:
         return None
     

@@ -1,13 +1,10 @@
 
 from graph_examples.helpers.constants import * 
-from graph_examples.helpers import loggers     
-import tqdm
-import numpy as np
+from graph_examples.helpers import loggers   
 import pandas as pd
 import os
 from surrealdb import Surreal
 from graph_examples.helpers.params import DatabaseParams, SurrealParams
-import datetime
 import re
 from graph_examples.helpers.surreal_dml import SurrealDML
 
@@ -19,8 +16,11 @@ from graph_examples.helpers.surreal_dml import SurrealDML
 
 #find out why corbin is kicking butt
 db_params = DatabaseParams()
-args_loader = ArgsLoader("Input Glove embeddings model",db_params)
+args_loader = ArgsLoader("Insert private fund SMA listings from section D 7b1",db_params)
 
+# Defines a mapping between DataFrame column names, user-friendly display names,
+# SurrealQL field names, Python data types, and field descriptions.
+# This mapping is used for data transformation and insertion into SurrealDB.
 
 FIELD_MAPPING = [
     {
@@ -140,12 +140,25 @@ FIELD_MAPPING = [
 
 def insert_data_into_surrealdb(logger,connection:Surreal,data):
     """
-    Inserts data into SurrealDB.
+    Inserts private fund data into SurrealDB using the 'fn::pf_upsert' function.
+
+    This function takes fund data (parsed from a row of a DataFrame) and constructs
+    a SurrealQL query to insert or update a private fund record. It checks for the
+    presence of required fields and logs any errors during the insertion process.
 
     Args:
-        data: The data to be inserted.
+        logger:     A logger object for logging information and errors.
+        connection: A SurrealDB connection object.
+        data:       A dictionary containing the private fund data to be inserted/updated.
+                    This dictionary should align with the parameters of the 'fn::pf_upsert'
+                    SurrealQL function.
     """
 
+    # --- SurrealQL Query ---
+
+    # The SurrealQL query string that calls the 'fn::pf_upsert' function.
+    # This function is assumed to exist in the SurrealDB database and handles
+    # the upsert (update or insert) logic for private fund records.
 
 
     insert_surql = """ 
@@ -167,12 +180,18 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
         $fund_type_other
         )
     """
+    # --- Parameter Construction and Validation ---
 
+    # Check if all the required data fields are present.
+    # These fields are considered essential for inserting a private fund record.
 
     if ("filing_id" in data 
         and "fund_name" in data
         and "fund_id" in data 
         and "fund_type" in data):
+
+        # Construct the 'params' dictionary, which will be passed as parameters
+        # to the SurrealQL query.
         params = {
             "filing_id": data["filing_id"],
             "fund_name": data["fund_name"],
@@ -210,14 +229,21 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
 
 
 
+        # --- Execute the Query ---
+
         try:
-            SurrealParams.ParseResponseForErrors(connection.query_raw(
-                insert_surql,params=params
-            ))
+            # Execute the SurrealQL query with the constructed parameters.
+            # 'SurrealParams.ParseResponseForErrors' is assumed to be a helper function
+            # to handle potential errors in the SurrealDB response.
+            SurrealParams.ParseResponseForErrors(
+                connection.query_raw(insert_surql, params=params)
+            )
         except Exception as e:
+            # Log and raise an exception if there's an error during insertion. These errors are not recoverable so continue
             logger.error(f"Error inserting data into SurrealDB: {data}")
             # if e.message != "Error in results: Can not execute RELATE statement where property 'id' is: NONE":
             #     raise;
+
 
 def filter_vc_hedge(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -244,7 +270,15 @@ def filter_vc_hedge(df: pd.DataFrame) -> pd.DataFrame:
  
 
 def process_filing_7b1_data_files():
+    """
+    Main function to process private fund data (Schedule D 7B1) from CSV files
+    and insert it into SurrealDB.
 
+    This function sets up logging, connects to SurrealDB, identifies relevant CSV files,
+    calls the necessary functions to extract and insert the data, and filters the data
+    to include only Venture Capital and Hedge Funds. It also sorts the data before
+    insertion to improve matching.
+    """
     logger = loggers.setup_logger("SurrealProcessD-5B1s")
     args_loader.LoadArgs() # Parse command-line arguments
     logger.info(args_loader.string_to_print())
@@ -256,17 +290,19 @@ def process_filing_7b1_data_files():
 
         logger.info(f"Processing part 1 adv base a firms data in directory {PART1_DIR}")
 
-
+        # Define regular expression patterns to identify relevant CSV files.
+        
         file_pattern1 = re.compile(r"^IA_Schedule_D_7B1_.*\.csv$")
         file_pattern2 = re.compile(r"^ERA_Schedule_D_7B1_.*\.csv$")
 
-       
+        # Find all files in the directory that match either pattern.
         matching_files = [
             filename
             for filename in os.listdir(PART1_DIR)
             if file_pattern1.match(filename) or file_pattern2.match(filename)
         ]
-        # sort by longest values first to enable full text matches for subsequent data
+        # Process the CSV files and insert data into SurrealDB.
+        # The data is sorted by "Master Fund Name" and "Fund Name" to improve matching.
         SurrealDML.process_csv_files_and_extract(insert_data_into_surrealdb,FIELD_MAPPING,logger,connection,matching_files,
                                                  sort_by=["Master Fund Name","Fund Name"],filter_func=filter_vc_hedge) 
 

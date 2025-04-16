@@ -23,7 +23,7 @@ class ADVDataHandler():
                                   order_by:str = None,
                                   filing_id:int = None,
                                   firm_id:int = None,
-                                  person_graph_filter:str = None,
+                                  person_filter:str = None,
                                   firm_type:str =None,
                                   firm_filter:str =None,
                                   limit:int = None,
@@ -53,12 +53,6 @@ class ADVDataHandler():
             where_clause += "( in.firm_type = type::thing('firm_type',$firm_type) OR out.firm_type = type::thing('firm_type',$firm_type) )"
             params["firm_type"] = firm_type
         
-        if firm_filter:
-            if where_clause:
-                where_clause += " AND "
-            where_clause += "( in.name @@ $firm_filter OR out.name @@ $firm_filter )"
-            params["firm_filter"] = firm_filter
-        
 
         if description_matches:
             if where_clause:
@@ -72,19 +66,45 @@ class ADVDataHandler():
             params["description_matches"] = description_matches
 
 
-        if person_graph_filter:
+        if firm_filter:
+            if where_clause:
+                where_clause += " AND "
+            where_clause += "( in.name @@ $firm_filter OR out.name @@ $firm_filter )"
+            params["firm_filter"] = firm_filter
+        
+        if firm_filter:
+            result_index += 1
+            if where_clause:
+                where_clause += " AND "
+            pre_query_clause += f"""
+                
+                LET $firm_list = array::group( SELECT VALUE firm.id FROM firm_alias 
+                                WHERE 
+                                name @@ $firm_filter OR
+                                legal_name @@ $firm_filter OR 
+                                sec_number = $firm_filter OR 
+                                (cik IS NOT NONE AND <string>cik = $firm_filter) OR 
+                                pfid = $firm_filter OR 
+                                legal_entity_identifier = $firm_filter 
+                                );
+            """
+            where_clause += f" in IN $firm_list OR out in $firm_list"
+            params["firm_filter"] = firm_filter
+
+
+        if person_filter:
             result_index += 1
             if where_clause:
                 where_clause += " AND "
             pre_query_clause += f"""
                 LET $person_firm_list = array::group( SELECT VALUE person->signed->filing.firm FROM person_alias 
                 WHERE 
-                full_name = $person_graph_filter OR full_name @@ $person_graph_filter OR
-                title = $person_graph_filter OR title @@ $person_graph_filter
+                full_name = $person_filter OR full_name @@ $person_filter OR
+                title = $person_filter OR title @@ $person_filter
                 );
             """
             where_clause += f" in IN $person_firm_list OR out in $person_firm_list"
-            params["person_graph_filter"] = person_graph_filter
+            params["person_filter"] = person_filter
 
 
         surql_query = pre_query_clause + """
@@ -151,6 +171,43 @@ class ADVDataHandler():
             FROM filing;"""
         )
         return filings
+
+
+
+
+    async def hedge_custodian_report(self):
+       
+        report_data = await self.connection.query(
+            """
+                 SELECT id,identifier,firm_type,name, customers.{name,id,identifier} AS customers, math::sum(assets_under_management) AS assets_under_management FROM 
+                (
+                    SELECT id,identifier,firm_type,name,->custodian_for.out AS customers, ->custodian_for.assets_under_management AS assets_under_management  FROM firm 
+                    WHERE firm_type = firm_type:⟨Hedge Fund⟩
+                )
+                ORDER BY assets_under_management DESC
+                ;
+
+            """
+        )
+        return report_data
+    
+
+    async def vc_custodian_report(self):
+       
+        report_data = await self.connection.query(
+            """
+                 SELECT id,identifier,firm_type,name, customers.{name,id,identifier} AS customers, math::sum(assets_under_management) AS assets_under_management FROM 
+                (
+                    SELECT id,identifier,firm_type,name,->custodian_for.out AS customers, ->custodian_for.assets_under_management AS assets_under_management  FROM firm 
+                    WHERE firm_type = firm_type:⟨Venture Capital Fund⟩
+                )
+                ORDER BY assets_under_management DESC
+                ;
+
+            """
+        )
+        return report_data
+
 
     async def get_firms(self):
        

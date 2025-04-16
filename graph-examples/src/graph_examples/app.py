@@ -1,26 +1,22 @@
 """Backend for SurrealDB chat interface."""
 
 import contextlib
-import datetime
 from collections.abc import AsyncGenerator
 import fastapi
-from surrealdb import AsyncSurreal,RecordID
+from surrealdb import AsyncSurreal
 from fastapi import responses, staticfiles, templating
 from fastapi.exceptions import RequestValidationError
 
 import uvicorn
-import ast
 from urllib.parse import urlencode
 
 from graph_examples.helpers.constants import * 
-from graph_examples.helpers import loggers     
 
 from graph_examples.helpers.ux_helpers import *
 
 from graph_examples.helpers.adv_data_handler import ADVDataHandler
 
 from fastapi.responses import JSONResponse
-from starlette.exceptions import HTTPException
 
 from graph_examples.data_processing.process_adviser_firms import FIELD_MAPPING as firm_field_mapping
 
@@ -74,6 +70,23 @@ async def index(request: fastapi.Request) -> responses.HTMLResponse:
     return templates.TemplateResponse("index.html", {
             "request": request })
 
+
+@app.get("/custodian_reports/hedge_report", response_class=responses.HTMLResponse)
+async def hedge_report(request: fastapi.Request) -> responses.HTMLResponse:
+
+    data_handler = ADVDataHandler(life_span["surrealdb"])
+    custodians = await data_handler.hedge_custodian_report()
+    return templates.TemplateResponse("custodian_report.html", {
+            "request": request,"custodians":custodians})
+
+
+@app.get("/custodian_reports/vc_report", response_class=responses.HTMLResponse)
+async def vc_report(request: fastapi.Request) -> responses.HTMLResponse:
+
+    data_handler = ADVDataHandler(life_span["surrealdb"])
+    custodians = await data_handler.vc_custodian_report()
+    return templates.TemplateResponse("custodian_report.html", {
+            "request": request,"custodians":custodians})
 
 @app.get("/firms", response_class=responses.HTMLResponse)
 async def firms(request: fastapi.Request) -> responses.HTMLResponse:
@@ -207,7 +220,7 @@ async def raum_graph(request: fastapi.Request,
               
 @app.get("/pf_graph", response_class=responses.HTMLResponse)
 async def pf_graph(request: fastapi.Request,
-    person_graph_filter: str = fastapi.Query(None),
+    person_filter: str = fastapi.Query(None),
     firm_filter: str = fastapi.Query(None),
     graph_size_limit: int = fastapi.Query(None),
     firm_type: str = fastapi.Query(None)) -> responses.HTMLResponse:
@@ -217,7 +230,7 @@ async def pf_graph(request: fastapi.Request,
         graph_size_limit = GRAPH_SIZE_LIMIT
     graph_data = await data_handler.get_custodian_graph(custodian_type="PF",
                                                         order_by="assets_under_management DESC",
-                                                        person_graph_filter=person_graph_filter,
+                                                        person_filter=person_filter,
                                                         firm_filter=firm_filter,
                                                         limit=graph_size_limit,
                                                         firm_type=firm_type)

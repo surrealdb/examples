@@ -1,13 +1,26 @@
 /*
-This file defines the SurrealQL for the chat functionality of this project. and functions that span either embedding model
+This file defines the SurrealQL for this project.
 */
 
+// Defines a custom analyzer named 'snowball_analyzer' for text searching.
+// It uses the 'class' tokenizer (which tokenizes based on word boundaries)
+// and applies two filters:
+// 1. 'lowercase': Converts all tokens to lowercase for case-insensitive searching.
+// 2. 'snowball(english)': Applies the Snowball stemming algorithm for English,
+//    reducing words to their root form to improve search recall.
 DEFINE ANALYZER IF NOT EXISTS snowball_analyzer
     TOKENIZERS class
     FILTERS lowercase, snowball(english);
 
-DEFINE ANALYZER OVERWRITE name_analyzer TOKENIZERS 
+// Defines another custom analyzer named 'name_analyzer' specifically for names.
+// It uses the 'class' tokenizer and applies these filters:
+// 1. 'lowercase': Converts tokens to lowercase.
+// 2. 'ascii': Removes any non-ASCII characters.
+// 3. 'ngram(2, 10)': Creates n-grams (sequences of characters) of length 2 to 10.
+//    This is useful for partial name matching and handling typos.
+DEFINE ANALYZER OVERWRITE name_analyzer TOKENIZERS
     class FILTERS lowercase, ascii, ngram(2, 10);
+
 
 DEFINE TABLE IF NOT EXISTS firm_type SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS firm_type ON TABLE firm_type TYPE string;
@@ -38,7 +51,6 @@ DEFINE FIELD IF NOT EXISTS country ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS postal_code ON TABLE firm TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS chief_compliance_officer ON TABLE firm TYPE Option<Record<person>>;
 DEFINE FIELD IF NOT EXISTS firm_aliases ON TABLE firm TYPE Option<Array<Record<firm_alias>>>;
-DEFINE FIELD IF NOT EXISTS PFID ON TABLE firm_alias TYPE Option<string>;
 
 
 -- Define fields for section1
@@ -106,15 +118,26 @@ DEFINE FIELD IF NOT EXISTS section_5f.nonus_regulatory_assets ON TABLE firm TYPE
 
 
 
-
+// Defines an index named 'name_text_index' on the 'firm' table for the 'name' field.
+// It uses the 'name_analyzer' for text searching and the BM25 ranking algorithm.
 DEFINE INDEX IF NOT EXISTS name_text_index ON TABLE firm
     FIELDS name SEARCH ANALYZER name_analyzer BM25;
 
+// Defines an index for the 'legal_name' field on the 'firm' table, using 'name_analyzer'.
 DEFINE INDEX IF NOT EXISTS legal_name_text_index ON TABLE firm
     FIELDS legal_name SEARCH ANALYZER name_analyzer BM25;
 
-DEFINE INDEX IF NOT EXISTS identifier_index ON TABLE firm_alias
+// Defines a regular index on the 'identifier' field of the 'firm' table for exact lookups.
+DEFINE INDEX IF NOT EXISTS identifier_index ON TABLE firm
     FIELDS identifier;
+
+// Defines a regular index on the 'cik' field within the 'section1' object of the 'firm' table.
+DEFINE INDEX IF NOT EXISTS cik_index ON firm
+    FIELDS section1.cik;
+
+// Defines a regular index on the 'firm_type.firm_type' field of the 'firm' table.
+DEFINE INDEX IF NOT EXISTS firm_type_index ON firm
+    FIELDS firm_type.firm_type;
 
 
 DEFINE TABLE IF NOT EXISTS firm_alias SCHEMAFULL;
@@ -130,46 +153,31 @@ DEFINE FIELD IF NOT EXISTS state ON TABLE firm_alias TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS country ON TABLE firm_alias TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS postal_code ON TABLE firm_alias TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS source_filing ON TABLE firm_alias TYPE Option<Record<filing>>;
+DEFINE FIELD IF NOT EXISTS pfid ON TABLE firm_alias TYPE Option<string>;
 
+// Defines text search indexes for 'name' and 'legal_name' on the 'firm_alias' table.
 DEFINE INDEX IF NOT EXISTS name_text_index ON TABLE firm_alias
     FIELDS name SEARCH ANALYZER name_analyzer BM25;
 
 DEFINE INDEX IF NOT EXISTS legal_name_text_index ON TABLE firm_alias
     FIELDS legal_name SEARCH ANALYZER name_analyzer BM25;
 
-DEFINE INDEX IF NOT EXISTS cik_index ON TABLE firm_alias
-    FIELDS cik;
-
-DEFINE INDEX IF NOT EXISTS legal_entity_identifier_index ON TABLE firm_alias
-    FIELDS legal_entity_identifier;
 
 
 
-DEFINE INDEX IF NOT EXISTS identifier_index ON firm
-    FIELDS identifier;
-
-DEFINE INDEX IF NOT EXISTS cik_index ON firm
-    FIELDS section1.cik;
-
-DEFINE INDEX IF NOT EXISTS firm_type_index ON firm
-    FIELDS firm_type.firm_type;
-
-
+// Defines a RELATION table named 'signed' between 'person' and 'filing'.
 DEFINE TABLE IF NOT EXISTS signed TYPE RELATION
 IN person OUT filing SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS execution_date ON TABLE signed TYPE datetime;
 DEFINE FIELD IF NOT EXISTS signatory_title ON TABLE signed TYPE Option<string>;
 
-
-
+// Defines a RELATION table named 'is_compliance_officer' between 'person' and 'firm'.
 DEFINE TABLE IF NOT EXISTS is_compliance_officer TYPE RELATION
 IN person OUT firm SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS as_of_latest_filing_date ON TABLE is_compliance_officer TYPE datetime;
 DEFINE FIELD IF NOT EXISTS title_at_time_of_filing ON TABLE is_compliance_officer TYPE Option<string>;
 
-
-
-
+// Defines a RELATION table named 'custodian_for' between two 'firm' records.
 DEFINE TABLE IF NOT EXISTS custodian_for TYPE RELATION
 IN firm OUT firm SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS source_filing ON TABLE custodian_for TYPE Record<filing>;
@@ -183,14 +191,19 @@ DEFINE FIELD IF NOT EXISTS related_person ON TABLE custodian_for TYPE Option<boo
 
 DEFINE FIELD IF NOT EXISTS section_d_7b1 ON TABLE custodian_for TYPE Option<object>;
 
-
 DEFINE FIELD IF NOT EXISTS section_d_7b1.percentage_owned_you_or_related ON TABLE custodian_for TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_d_7b1.percentage_owned_funds ON TABLE custodian_for TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_d_7b1.percentage_invested ON TABLE custodian_for TYPE Option<float>;
 DEFINE FIELD IF NOT EXISTS section_d_7b1.unqualified_opinion ON TABLE custodian_for TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS section_d_7b1.fund_type_other ON TABLE custodian_for TYPE Option<string>;
 
+// Defines a text search index on the 'description' field of the 'custodian_for' table.
+DEFINE INDEX IF NOT EXISTS description_index ON TABLE custodian_for
+    FIELDS description SEARCH ANALYZER snowball_analyzer BM25;
 
+
+
+// Defines a RELATION table named 'master_of_feeder' between two 'firm' records.
 DEFINE TABLE IF NOT EXISTS master_of_feeder TYPE RELATION
 IN firm OUT firm SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS source_filing ON TABLE master_of_feeder TYPE Record<filing>;
@@ -200,8 +213,6 @@ DEFINE FIELD IF NOT EXISTS master_fund_name ON TABLE master_of_feeder TYPE Optio
 
 
 
-DEFINE INDEX IF NOT EXISTS description_index ON TABLE custodian_for
-    FIELDS description SEARCH ANALYZER snowball_analyzer BM25;
 
 DEFINE TABLE IF NOT EXISTS filing SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS filing_id ON TABLE filing TYPE int;
@@ -209,24 +220,25 @@ DEFINE FIELD IF NOT EXISTS firm ON TABLE filing TYPE Record<firm>;
 DEFINE FIELD IF NOT EXISTS execution_type ON TABLE filing TYPE Record<ia_filing_execution_type>;
 DEFINE FIELD IF NOT EXISTS signatory ON TABLE filing TYPE Record<person>;
 
-
+// Defines a RELATION table named 'filed' between 'firm' and 'filing'.
 DEFINE TABLE IF NOT EXISTS filed TYPE RELATION
 IN firm OUT filing SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS execution_date ON TABLE filed TYPE datetime;
 
-
-
+// Defines a table named 'ia_filing_execution_type' with SCHEMAFULL mode.
 DEFINE TABLE IF NOT EXISTS ia_filing_execution_type SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS execution_type ON TABLE ia_filing_execution_type TYPE string;
 
-
-
+// Defines a table named 'custodian_type' with SCHEMAFULL mode.
 DEFINE TABLE IF NOT EXISTS custodian_type SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS custodian_type ON TABLE custodian_type TYPE string;
+// Inserts or updates records in the 'custodian_type' table.
 UPSERT custodian_type:`RAUM` CONTENT{
     custodian_type : 'RAUM'};
 UPSERT custodian_type:`PF` CONTENT{
 custodian_type : 'PF'};
+
+
 
 DEFINE TABLE IF NOT EXISTS person SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS full_name ON TABLE person TYPE string;
@@ -236,6 +248,18 @@ DEFINE FIELD IF NOT EXISTS last_name ON TABLE person TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS title ON TABLE person TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS email ON TABLE person TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS person_aliases ON TABLE person TYPE Option<Array<Record<person_alias>>>;
+
+
+// Defines text search indexes on various fields of the 'person' table.
+DEFINE INDEX IF NOT EXISTS full_name_text_index ON TABLE person
+    FIELDS full_name SEARCH ANALYZER name_analyzer BM25;
+DEFINE INDEX IF NOT EXISTS first_name_text_index ON TABLE person
+    FIELDS first_name SEARCH ANALYZER name_analyzer BM25;
+DEFINE INDEX IF NOT EXISTS last_name_text_index ON TABLE person
+    FIELDS last_name SEARCH ANALYZER name_analyzer BM25;
+DEFINE INDEX IF NOT EXISTS title_text_index ON TABLE person
+    FIELDS title SEARCH ANALYZER name_analyzer BM25;
+
 
 DEFINE INDEX IF NOT EXISTS full_name_text_index ON TABLE person
     FIELDS full_name SEARCH ANALYZER name_analyzer BM25;
@@ -258,6 +282,7 @@ DEFINE FIELD IF NOT EXISTS email ON TABLE person_alias TYPE Option<string>;
 DEFINE FIELD IF NOT EXISTS source_filing ON TABLE person_alias TYPE Option<Record<filing>>;
 
 
+// Defines text search indexes on various fields of the 'person_alias' table.
 DEFINE INDEX IF NOT EXISTS full_name_text_index ON TABLE person_alias
     FIELDS full_name SEARCH ANALYZER name_analyzer BM25;
 DEFINE INDEX IF NOT EXISTS first_name_text_index ON TABLE person_alias
@@ -267,7 +292,8 @@ DEFINE INDEX IF NOT EXISTS last_name_text_index ON TABLE person_alias
 DEFINE INDEX IF NOT EXISTS title_text_index ON TABLE person_alias
     FIELDS title SEARCH ANALYZER name_analyzer BM25;
 
-DEFINE INDEX IF NOT EXISTS email ON TABLE firm_alias
+// Defines a regular index on the 'email' field of the 'firm_alias' table.
+DEFINE INDEX IF NOT EXISTS email ON TABLE person_alias
     FIELDS email;
 
 

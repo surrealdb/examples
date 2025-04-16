@@ -53,6 +53,26 @@ def get_file_encoding(filepath):
         return 'iso-8859-1'
 
 def get_parsed_data_from_field_mapping(row, field_mapping:dict):
+    """
+    Extracts and formats data from a DataFrame row based on a field mapping.
+
+    This function iterates through a predefined field mapping to extract specific columns
+    from a DataFrame row, casts their values to the specified Python types, and organizes
+    the extracted data into a dictionary suitable for SurrealDB insertion.
+
+    Args:
+        row:           A pandas Series representing a single row from a DataFrame.
+        field_mapping: A list of dictionaries. Each dictionary defines how to extract and
+                       process a field. Expected keys:
+                       - 'dataframe_field_name' (str): The name of the column in the DataFrame.
+                       - 'surql_field_name'     (str): The name of the field in SurrealDB.
+                       - 'python_type'          (type): The Python type to cast the DataFrame value to.
+
+    Returns:
+        A dictionary where keys are SurrealDB field names and values are the extracted and
+        type-casted data. Nested dictionaries are created for SurrealDB fields with dot notation
+        (e.g., 'section.field').
+    """
     row_data = {}
     for field in field_mapping:
         if field["dataframe_field_name"] in row and row[field["dataframe_field_name"]] is not None:

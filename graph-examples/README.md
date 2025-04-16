@@ -1,3 +1,123 @@
+#   ADV Filing Graph Extractor and Visualization Tool
+
+This project provides tools for extracting and visualizing data from ADV (Uniform Application for Investment Adviser Registration) filings. It focuses on specific data points relevant to the hedge fund and investor communities, as well as those related to fintech and cloud data processing. The system leverages SurrealDB for data storage and retrieval and employs full-text search for efficient entity matching.
+
+##   Key Capabilities
+
+* **Data Extraction:** Extracts structured data from ADV filings, focusing on:
+    * Separately Managed Account (SMA) listings for hedge funds.
+    * SMA custodians for investors.
+    * Books and records listings for fintech and cloud data processors.
+* **Data Storage and Retrieval:** Utilizes SurrealDB for efficient storage and retrieval of extracted data.
+* **Entity Matching:** Employs full-text search to accurately match entities within the filings.
+* **Data Visualization:**
+    * Table-based visualization of asset holdings.
+    * Hierarchical navigation within the data.
+    * Dynamic graph visualization of relationships.
+
+The backend is built with FastAPI, the UI with Jinja2, and dynamic interactivity is achieved with htmx.
+
+##   Data Sources
+
+* **SEC ADV Filings:** Data is extracted from the official [SEC's EDGAR database](https://www.sec.gov/edgar/searchedgar/companysearch.html) using custom Python scripts.
+
+##   Technology Stack
+
+* **Backend:** FastAPI (Python)
+* **Frontend:** Jinja2 (Templating), htmx (Dynamic HTML)
+* **Database:** SurrealDB
+* **Entity Matching:** Full-text search (SurrealDB)
+
+##   Visualization
+
+* **Tables:** Display asset holding information in a structured, tabular format.
+* **Hierarchy Navigation:** Enables users to explore relationships and data structures within the ADV filings.
+* **Dynamic Graph Visualization:** Presents relationships between entities (e.g., custodians and funds) using a dynamic graph interface. (Uses VivaGraphJS - similar to the example).
+
+##   Setup
+
+* **Hardware:** A machine with sufficient resources to handle data processing and visualization is recommended.
+* **SurrealDB:** Version 2.2.x or later or [SurrealDB Cloud](https://surrealdb.com/cloud) is required. [SurrealDB Installation](https://surrealdb.com/install).
+* **Python:** Version 3.11 is recommended.
+* **Environment Variables:**
+    * Set these in your shell configuration (e.g., `.bashrc`, `.zshrc`) or use a `.env` file.
+    ```
+    SURREAL_ADV_USER=<SurrealDB username>
+    SURREAL_ADV_PASS=<SurrealDB password>
+    SURREAL_ADV_DB_URL=<SurrealDB connection URL> (e.g., ws://localhost:8000 or wss://xxx_cloud_id_xxx.surreal.cloud)
+    SURREAL_ADV_DB_NS=<SurrealDB namespace> (e.g., ADV_NS)
+    SURREAL_ADV_DB_DB=<SurrealDB database> (e.g., ADV_DB)
+    ```
+
+##   Getting Started
+
+1.  **Clone:**
+
+    ```bash
+    git clone <your_repo_url>
+    cd <your_repo_directory>
+    ```
+
+2.  **Install:**
+
+    ```bash
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install -e ./
+    ```
+
+3.  **Run Scripts:**
+
+    Execute scripts using the script names defined in `pyproject.toml` (under `[project.scripts]`).
+
+    ###   Example: Processing ADV Filings
+
+    ```bash
+    # Example script (adjust as needed based on your pyproject.toml)
+    process_adv_filings
+    ```
+
+    ###   Script Details (Example - Adjust as needed)
+
+    * **`process_adv_filings`:**
+        * Downloads, extracts, and processes ADV filings data.
+        * Arguments (Example - adjust based on your scripts):
+            * `-url` or `--url`: The URL of the SurrealDB instance.
+            * `-u` or `--username`: The database username.
+            * `-p` or `--password`: The database password.
+            * `-ns` or `--namespace`: The SurrealDB namespace.
+            * `-db` or `--database`: The SurrealDB database.
+            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
+            * `-uenv` or `--user_env`: The environment variable name for the database username.
+            * `-penv` or `--pass_env`: The environment variable name for the database password.
+            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
+            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
+
+##   Key Libraries
+
+This project leverages several powerful libraries to achieve its functionality:
+
+* **FastAPI:** A modern, fast (high-performance), web framework for building APIs with Python 3.7+ based on standard Python type hints.
+* **Jinja2:** A fast, expressive, and extensible templating engine. HTML, XML or other markup formats can be generated via templates.
+* **htmx:** Allows you to access AJAX, CSS Transitions, WebSockets and Server Sent Events directly in HTML, using attributes.
+* **SurrealDB:** A multi-model database system that supports SQL, graph queries, and real-time collaboration. [SurrealDB Installation](https://surrealdb.com/install)
+* **pandas:** A fast, powerful, flexible and easy to use open source data analysis and manipulation tool, built on top of the Python programming language.
+* **pandas-stubs:** Type hints for pandas.
+* **python-multipart:** A parser for multipart/form-data content in Python.
+* **tqdm:** A fast, extensible progress bar for Python.
+* **re:** Python's built-in regular expression library.
+
+##   UI Libraries
+
+* **Lightpick:** A lightweight, customizable date range picker. [https://wakirin.github.io/Lightpick/](https://wakirin.github.io/Lightpick/)
+* **VivaGraphJS:** A graph drawing library. [https://github.com/anvaka/VivaGraphJS/](https://github.com/anvaka/VivaGraphJS/)
+
+##   Acknowledgments
+
+
+
+
+
 # SurrealDB RAG Exploration: Knowledge Graphs, Advanced RAG, and Flexible Data Pipelines
 
 Welcome to a comprehensive RAG (Retrieval Augmented Generation) experimentation platform built with SurrealDB! This project provides robust tools for building and evaluating RAG systems, with a focus on knowledge graph integration, flexible data pipelines, and granular control over LLM interactions. We leverage SurrealDB's speed and flexibility to combine large language models (LLMs) with rich data sources (Wikipedia, SEC Edgar filings) and structured knowledge extracted from them.
