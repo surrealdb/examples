@@ -12,7 +12,7 @@ PROMPT_TEXT_TEMPLATES =  {
         The knowledge graph data will have entities in this structure:         
             { entity_type: 'the type of entity', identifier: 'an id for matching on the graph', name: 'a friendly name to describe the entity' }
         The knowledge graph data will have relationships in this structure:     
-            { confidence: 'an int from 1-10 on the confidence of the realtionship',
+            { confidence: 'an int from 1-10 on the confidence of the relationship',
                 in_identifier: 'an id that is a key representing an entity from the entity list',
                 out_identifier: 'an id that is a key representing an entity from the entity list',
                 contexts: 'an array of strings that represent the reason for the relationship',
@@ -55,7 +55,7 @@ PROMPT_TEXT_TEMPLATES =  {
         The knowledge graph data will have entities in this structure:         
             { entity_type: 'the type of entity', identifier: 'an id for matching on the graph', name: 'a friendly name to describe the entity' }
         The knowledge graph data will have relationships in this structure:     
-            { confidence: 'an int from 1-10 on the confidence of the realtionship',
+            { confidence: 'an int from 1-10 on the confidence of the relationship',
                 in_identifier: 'an id that is a key representing an entity from the entity list',
                 out_identifier: 'an id that is a key representing an entity from the entity list',
                 contexts: 'an array of strings that represent the reason for the relationship',
@@ -97,7 +97,7 @@ PROMPT_TEXT_TEMPLATES =  {
     The knowledge graph data will have entities in this structure:         
         { entity_type: 'the type of entity', identifier: 'an id for matching on the graph', name: 'a friendly name to describe the entity' }
     The knowledge graph data will have relationships in this structure:     
-        { confidence: 'an int from 1-10 on the confidence of the realtionship',
+        { confidence: 'an int from 1-10 on the confidence of the relationship',
             in_identifier: 'an id that is a key representing an entity from the entity list',
             out_identifier: 'an id that is a key representing an entity from the entity list',
             contexts: 'an array of strings that represent the reason for the relationship',
@@ -132,7 +132,7 @@ PROMPT_TEXT_TEMPLATES =  {
     The knowledge graph data will have entities in this structure:         
         { entity_type: 'the type of entity', identifier: 'an id for matching on the graph', name: 'a friendly name to describe the entity' }
     The knowledge graph data will have relationships in this structure:     
-        { confidence: 'an int from 1-10 on the confidence of the realtionship',
+        { confidence: 'an int from 1-10 on the confidence of the relationship',
             in_identifier: 'an id that is a key representing an entity from the entity list',
             out_identifier: 'an id that is a key representing an entity from the entity list',
             contexts: 'an array of strings that represent the reason for the relationship',

@@ -57,12 +57,6 @@ class SurrealDML():
         """
           
         return f"""
-
-                LET $chunk_size =  IF $chunk_size = None THEN 
-                    math::ceil(math::mean( SELECT VALUE text.split(' ').len() FROM embedded_wiki))
-                ELSE 
-                    $chunk_size
-                END; 
                 DELETE FROM corpus_table_model WHERE corpus_table = corpus_table:{TABLE_NAME};
                 FOR $model IN $embed_models {{
                     LET $model_definition = type::thing("embedding_model_definition",$model.model_id);

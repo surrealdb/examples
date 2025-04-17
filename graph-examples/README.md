@@ -12,14 +12,14 @@ This project provides tools for extracting and visualizing data from ADV (Unifor
 * **Entity Matching:** Employs full-text search to accurately match entities within the filings.
 * **Data Visualization:**
     * Table-based visualization of asset holdings.
-    * Hierarchical navigation within the data.
+    * Hierarchical navigation within the data via knowledge graphs.
     * Dynamic graph visualization of relationships.
 
 The backend is built with FastAPI, the UI with Jinja2, and dynamic interactivity is achieved with htmx.
 
 ##   Data Sources
 
-* **SEC ADV Filings:** Data is extracted from the official [SEC's EDGAR database](https://www.sec.gov/edgar/searchedgar/companysearch.html) using custom Python scripts.
+* **SEC ADV Filings:** Data is extracted from the official [Investment Adviser Public Disclosure website](https://adviserinfo.sec.gov/) using custom Python scripts.
 
 ##   Technology Stack
 
@@ -99,13 +99,7 @@ This project leverages several powerful libraries to achieve its functionality:
 
 * **FastAPI:** A modern, fast (high-performance), web framework for building APIs with Python 3.7+ based on standard Python type hints.
 * **Jinja2:** A fast, expressive, and extensible templating engine. HTML, XML or other markup formats can be generated via templates.
-* **htmx:** Allows you to access AJAX, CSS Transitions, WebSockets and Server Sent Events directly in HTML, using attributes.
 * **SurrealDB:** A multi-model database system that supports SQL, graph queries, and real-time collaboration. [SurrealDB Installation](https://surrealdb.com/install)
-* **pandas:** A fast, powerful, flexible and easy to use open source data analysis and manipulation tool, built on top of the Python programming language.
-* **pandas-stubs:** Type hints for pandas.
-* **python-multipart:** A parser for multipart/form-data content in Python.
-* **tqdm:** A fast, extensible progress bar for Python.
-* **re:** Python's built-in regular expression library.
 
 ##   UI Libraries
 

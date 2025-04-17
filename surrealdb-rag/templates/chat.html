@@ -26,7 +26,7 @@
             Content Length:
             <select id="numberOfChunks" name="number_of_chunks">
                 {% for i in range(1, 100) %}
-                    <option value="{{ i }}"  {% if i == 10 %}selected{% endif %}>{{ i }} chunks</option>
+                    <option value="{{ i }}"  {% if i == 50 %}selected{% endif %}>{{ i }} chunks</option>
                 {% endfor %}
             </select>
             </span>
@@ -34,7 +34,7 @@
             Chat Memory Length:
             <select id="numberOfChats" name="number_of_chats">
                 {% for i in range(1, 100) %}
-                    <option value="{{ i }}"  {% if i == 10 %}selected{% endif %}>{{ i }} messages</option>
+                    <option value="{{ i }}"  {% if i == 0 %}selected{% endif %}>{{ i }} messages</option>
                 {% endfor %}
             </select>
                 </span>

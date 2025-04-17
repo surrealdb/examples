@@ -5,17 +5,18 @@ from surrealdb import AsyncSurreal
 
 
 class ADVDataHandler():
+    """
+    This class provides methods to interact with the SurrealDB database
+    for retrieving and manipulating data related to ADV filings.
+
+    It encapsulates various queries and data retrieval operations,
+    making it easier to access and present ADV data in a user-friendly format.
+    """
    
     def __init__(self, connection: AsyncSurreal):
         self.connection = connection
     
 
-
-# SELECT assets_under_management,custodian_type,source_filing,in.identifier,in.name,out.identifier,out.name FROM custodian_for
-# WHERE custodian_type = custodian_type:RAUM;
-# SELECT description,custodian_type,source_filing,in.identifier,in.name,out.identifier,out.name FROM custodian_for
-# WHERE custodian_type = custodian_type:⟨A third-party unaffiliated record keeper⟩
-# AND (description @1@ 'cloud' OR description @2@ 'data') AND in != out;
 
 
     async def get_custodian_graph(self, custodian_type:str = None, 
@@ -28,6 +29,29 @@ class ADVDataHandler():
                                   firm_filter:str =None,
                                   limit:int = None,
                                   ):
+        
+        """
+        Retrieves graph data about custodians and their relationships.
+
+        This method constructs a SurrealQL query to select custodian relationships
+        and associated firm information, allowing for various filtering and ordering
+        options.
+
+        Args:
+            custodian_type: Optional. Filters results by custodian type (e.g., "RAUM").
+            description_matches: Optional. Filters results based on matches in the custodian's description.
+            order_by: Optional. Specifies the field to order the results by.
+            filing_id: Optional. Filters results by the filing ID.
+            firm_id: Optional. Filters results by the firm ID.
+            person_filter: Optional. Filters results based on related persons.
+            firm_type: Optional. Filters results by firm type.
+            firm_filter: Optional. Filters results based on firm name or identifiers.
+            limit: Optional. Limits the number of results returned.
+
+        Returns:
+            A list of dictionaries, where each dictionary represents a custodian relationship
+            and includes details about the related firms.
+        """
         
         where_clause = ""
         pre_query_clause = ""
@@ -134,15 +158,33 @@ class ADVDataHandler():
 
         
     async def get_raum_graph(self):
+        """
+        Retrieves graph data specifically for RAUM (Reporting Agent Under Management) custodians.
+
+        Returns:
+            A list of dictionaries representing RAUM custodian relationships.
+        """
         return self.get_custodian_graph(custodian_type = "RAUM")
     
 
     async def get_cloud_graph(self):
+        """
+        Retrieves graph data specifically for custodians related to "cloud" and "data".
+
+        Returns:
+            A list of dictionaries representing custodian relationships related to cloud and data.
+        """
         return self.get_custodian_graph(custodian_type = "A third-party unaffiliated record keeper",description_matches = ["cloud","data"])
 
         
     async def get_people(self):
-       
+        """
+        Retrieves information about people (e.g., officers) associated with firms.
+
+        Returns:
+            A list of dictionaries, where each dictionary represents a person
+            and includes their details and firm affiliations.
+        """
         people =  await self.connection.query(
             """  
             SELECT 
@@ -159,6 +201,13 @@ class ADVDataHandler():
     
 
     async def get_filings(self):
+        """
+        Retrieves information about filings (e.g., ADV filings).
+
+        Returns:
+            A list of dictionaries, where each dictionary represents a filing
+            and includes details about the firm, signatory, and execution type.
+        """
        
         filings = await self.connection.query(
             """  
@@ -176,40 +225,63 @@ class ADVDataHandler():
 
 
     async def hedge_custodian_report(self):
+        """
+        Generates a report on hedge fund custodians, ordered by assets under management.
+
+        Returns:
+            A list of dictionaries, where each dictionary represents a hedge fund
+            and includes information about its custodians and total assets under management.
+        """
        
         report_data = await self.connection.query(
             """
-                 SELECT id,identifier,firm_type,name, customers.{name,id,identifier} AS customers, math::sum(assets_under_management) AS assets_under_management FROM 
+                 SELECT id,identifier,firm_type,name, customers.{name,id,identifier} AS customers, math::sum(assets_under_management)  AS assets_under_management FROM 
                 (
-                    SELECT id,identifier,firm_type,name,->custodian_for.out AS customers, ->custodian_for.assets_under_management AS assets_under_management  FROM firm 
-                    WHERE firm_type = firm_type:⟨Hedge Fund⟩
+                    SELECT id,identifier,firm_type,name,->custodian_for.out AS customers, ->custodian_for.assets_under_management.map(|$v| IF $v IS NONE THEN 0 ELSE $v END) AS assets_under_management  
+                    FROM firm 
+                    WHERE firm_type = type::thing("firm_type",$firm_type) 
                 )
                 ORDER BY assets_under_management DESC
                 ;
 
-            """
+            """, params = {"firm_type": "Hedge Fund"}
         )
         return report_data
     
 
     async def vc_custodian_report(self):
+        """
+        Generates a report on hedge fund custodians, ordered by assets under management.
+
+        Returns:
+            A list of dictionaries, where each dictionary represents a hedge fund
+            and includes information about its custodians and total assets under management.
+        """
        
         report_data = await self.connection.query(
             """
-                 SELECT id,identifier,firm_type,name, customers.{name,id,identifier} AS customers, math::sum(assets_under_management) AS assets_under_management FROM 
+                 SELECT id,identifier,firm_type,name, customers.{name,id,identifier} AS customers, math::sum(assets_under_management)  AS assets_under_management FROM 
                 (
-                    SELECT id,identifier,firm_type,name,->custodian_for.out AS customers, ->custodian_for.assets_under_management AS assets_under_management  FROM firm 
-                    WHERE firm_type = firm_type:⟨Venture Capital Fund⟩
+                    SELECT id,identifier,firm_type,name,->custodian_for.out AS customers, ->custodian_for.assets_under_management.map(|$v| IF $v IS NONE THEN 0 ELSE $v END) AS assets_under_management  
+                    FROM firm 
+                    WHERE firm_type = type::thing("firm_type",$firm_type) 
                 )
                 ORDER BY assets_under_management DESC
                 ;
 
-            """
+            """, params = {"firm_type": "Venture Capital Fund"}
         )
         return report_data
 
 
     async def get_firms(self):
+        """
+        Generates a report on hedge fund custodians, ordered by assets under management.
+
+        Returns:
+            A list of dictionaries, where each dictionary represents a hedge fund
+            and includes information about its custodians and total assets under management.
+        """
        
         firms = await self.connection.query(
             """
@@ -229,10 +301,11 @@ class ADVDataHandler():
         
     async def get_firm(self,firm_id):
         """
-        Creates a new chat session in the database.
+        Generates a report on hedge fund custodians, ordered by assets under management.
 
         Returns:
-            dict: A dictionary containing the 'id' and 'title' of the newly created chat.
+            A list of dictionaries, where each dictionary represents a hedge fund
+            and includes information about its custodians and total assets under management.
         """
         firm = await self.connection.query(
             """                                 
@@ -262,10 +335,15 @@ class ADVDataHandler():
         
     async def get_person(self,firm_id,full_name):
         """
-        Creates a new chat session in the database.
+        Retrieves detailed information about a specific person associated with a firm.
+
+        Args:
+            firm_id: The identifier of the firm the person is associated with.
+            full_name: The full name of the person to retrieve.
 
         Returns:
-            dict: A dictionary containing the 'id' and 'title' of the newly created chat.
+            A dictionary containing detailed information about the person,
+            including related entities like signed filings and compliance officer roles.
         """
         person = await self.connection.query(
             """                                 
@@ -286,10 +364,14 @@ class ADVDataHandler():
         
     async def get_filing(self,filing_id):
         """
-        Creates a new chat session in the database.
+        Retrieves detailed information about a specific filing.
+
+        Args:
+            filing_id: The identifier of the filing to retrieve.
 
         Returns:
-            dict: A dictionary containing the 'id' and 'title' of the newly created chat.
+            A dictionary containing detailed information about the filing,
+            including related entities like firm, signatory, and execution type.
         """
         filing = await self.connection.query(
             """                                 
