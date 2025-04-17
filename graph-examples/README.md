@@ -1,6 +1,8 @@
-#   ADV Filing Graph Extractor and Visualization Tool
+#   ADV Filing Graph Extractor and Visualization Tool 
 
 This project provides tools for extracting and visualizing data from ADV (Uniform Application for Investment Adviser Registration) filings. It focuses on specific data points relevant to the hedge fund and investor communities, as well as those related to fintech and cloud data processing. The system leverages SurrealDB for data storage and retrieval and employs full-text search for efficient entity matching.
+
+
 
 ##   Key Capabilities
 
@@ -66,20 +68,35 @@ The backend is built with FastAPI, the UI with Jinja2, and dynamic interactivity
     pip install -e ./
     ```
 
-3.  **Run Scripts:**
+3.  **Setup:**
 
-    Execute scripts using the script names defined in `pyproject.toml` (under `[project.scripts]`).
+    Run the python files in order
 
-    ###   Example: Processing ADV Filings
+    ###   Processing ADV Filings
 
     ```bash
-    # Example script (adjust as needed based on your pyproject.toml)
-    process_adv_filings
+   
+    python /src/graph_examples/data_processing/download_adv_data.py
+    python /src/graph_examples/data_processing/create_database.py 
+    python /src/graph_examples/data_processing/process_adviser_firms.py 
+    python /src/graph_examples/data_processing/process_adv_base_a_filings.py 
+    python /src/graph_examples/data_processing/process_adv_schedule_d_7b1_s.py 
+    python /src/graph_examples/data_processing/process_adv_schedule_d_5k3_s.py 
+    python /src/graph_examples/data_processing/process_adv_schedule_d_books_records.py 
     ```
+
+
+
+    ###   Launch the app (currently hardcoded as http://0.0.0.0:8082/):
+
+    ```bash
+    python /src/graph_examples/app.py
+    ```
+
 
     ###   Script Details (Example - Adjust as needed)
 
-    * **`process_adv_filings`:**
+    * **`paramaters for the scripts`:**
         * Downloads, extracts, and processes ADV filings data.
         * Arguments (Example - adjust based on your scripts):
             * `-url` or `--url`: The URL of the SurrealDB instance.
@@ -111,10 +128,6 @@ This project leverages several powerful libraries to achieve its functionality:
 
 
 
-
-# SurrealDB RAG Exploration: Knowledge Graphs, Advanced RAG, and Flexible Data Pipelines
-
-Welcome to a comprehensive RAG (Retrieval Augmented Generation) experimentation platform built with SurrealDB! This project provides robust tools for building and evaluating RAG systems, with a focus on knowledge graph integration, flexible data pipelines, and granular control over LLM interactions. We leverage SurrealDB's speed and flexibility to combine large language models (LLMs) with rich data sources (Wikipedia, SEC Edgar filings) and structured knowledge extracted from them.
 
 ## Key Capabilities
 
