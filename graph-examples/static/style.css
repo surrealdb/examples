@@ -1,0 +1,278 @@
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    color:white
+    
+}
+
+button:hover {
+    background: #ff00a0;
+}
+
+.nav {
+    width: calc(100%);
+    overflow-y: auto;
+    padding: 20px;
+    box-sizing: border-box;
+    background: #000000;
+    color: #f5f5f7;
+    display: flex;
+    height: 150px;
+    flex-direction: row;
+}
+.nav span{
+    width: calc(100%);
+    background: #000000;
+    color: #f5f5f7;
+    display: flex;
+    flex-direction: row;
+}
+
+
+#graphSizeLimit {
+    text-overflow: ellipsis;
+    width: calc(33%);
+}
+
+.nav input{
+    background: #000000;
+    color: #f5f5f7;
+    width: calc(33%);
+}
+.graph-nav{
+    flex-direction: column;
+    display: flex;
+}
+.graph-nav span{
+    flex-direction: row;
+    display: flex;
+    text-align: center;
+}
+table {
+    width: 100%;
+    height: 100%;
+    border-collapse: collapse;
+    
+}
+td {
+    padding: 10px;
+}
+.expand-contexts, .expand-contexts a{
+    color:green;
+}
+
+/* Modal Styles */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgb(0,0,0); /* Fallback color */
+    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto; /* 15% from the top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%; /* Could be more or less, depending on screen size */
+    position: relative; /* For close button positioning */
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    position: absolute;
+    top: 10px;
+    right: 15px;
+}
+
+.close:hover, 
+.doc:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+td {
+    vertical-align: top;
+}
+a {
+    color: #ff00a0;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+
+button {
+    background: #000000;
+    color: #fff;
+    cursor: pointer;
+    border: 1px solid #ff00a0;
+    border-radius: 8px;
+    font-size: 12px;
+    transition: background-color 0.3s ease;
+    box-sizing: border-box;
+    height: 30px;
+    width: 200px;
+}
+
+button img.surrealdb-logo {
+    height: 20px;
+    padding-right: 10px;
+    vertical-align: middle;
+}
+
+button img {
+    -webkit-user-drag: none;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+    background: #151517;
+}
+
+main form {
+    display: flex;
+    height: 50px;
+}
+
+main form input {
+    border-radius: 10px;
+    border: 2px solid #444748;
+    padding: 10px;
+    box-sizing: border-box;
+    font-family: inherit;
+    margin-right: 10px;
+    flex: 1;
+    background: #151517;
+    color: #f5f5f7;
+}
+
+main form button {
+    width: 100px;
+    padding: 10px;
+    box-sizing: border-box;
+    border-radius: 10px;
+    background: #ff00a0;
+    color: #fff;
+    border: none;
+    text-align: center;
+    display: block;
+    height: 100%;
+}
+
+a:-webkit-any-link {
+    color: #ff00a0;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+select {
+    background-color: black;
+    color: white;
+
+}
+.graphTitle{
+    color: #ff00a0;
+}
+
+.graph_warning {
+    position: fixed; /* Or absolute, depending on desired behavior */
+    top: 100px; /* Adjust vertical positioning */
+    left: 50%; /* Start at the horizontal center */
+    transform: translateX(-50%); /* Shift it back half its width */
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    border: 1px solid #ccc;
+    z-index: 1000;
+    color:red;
+    white-space: nowrap; /*prevent the text from wrapping, and allow the div to size itself correctly*/
+}
+.sub_selection_details{
+    margin-left: 10px;   
+}
+.graphDate {
+        width: calc(100%);
+}
+.graphDate input{
+        width: calc(41%);
+        background-color: black;
+        color: white;
+        border: 1px solid white;
+        
+}
+.graphContainer {
+    width: calc(90%);
+    height: calc(90%);
+    height: 100%;
+}
+.graphContainer > svg {
+    width: calc(100%);
+    height: calc(100%);
+}
+#entity_graph{
+    width: calc(100%);
+    height: 500px;
+    background-color: black;
+}
+#document_graph{
+    width: calc(100%);
+    height: 500px;
+    background-color: black;
+}
+
+/* Optional: Style the labels */
+.node-label {
+    stroke: white;  /* Optional: Add a white outline for better readability */
+    stroke-width: 0.5px; /* Adjust outline width */
+    pointer-events: all;  /* THIS IS THE KEY */
+}
+.edge-label{ /*style edge labels */
+    fill: white;
+    font-size: 8px; /* Base font size for edge labels */
+    pointer-events: all; /*  */
+}
+.expand-contexts-content {
+    display:none;
+}
+p {
+
+    margin-block-start: 0px;
+    margin-block-end: 0px;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+}
+
+.relation_info, .entity_info {
+    display: inline-block;
+    vertical-align: top;
+    margin-left: 20px;
+}
+.node-detail {
+    color:black;
+}
+.sub-graph{
+    width:calc(100%);
+    height:600px;
+
+}

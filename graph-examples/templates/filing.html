@@ -1,0 +1,36 @@
+
+<h1>
+<a hx-get="/firms/{{filing["firm"]["identifier"]}}"
+                    hx-target="#node_detail" hx-swap="innerHTML">
+                    {{filing["firm"]["name"]}}
+                </a> : {{filing["signatory_id"]}} Filing {{filing["filing_id"]}} Detail
+
+</h1>
+
+ 
+<table>
+<tr>
+    <td>Signatory</td>
+    <td>
+        <a hx-get="/firms/{{filing["firm"]["identifier"]}}/people/{{filing["signatory"]["full_name"]|format_url_id}}"
+            hx-target="#node_detail" hx-swap="innerHTML">
+            {{filing["signatory"]["full_name"]}} 
+        </a>
+
+    - {{filing["signatory"]["title"]}}</td>
+</tr>
+<tr>
+    <td>Type</td>
+    <td>{{filing["execution_type"]["execution_type"]}}</td>
+</tr>
+<tr>
+    <td>Execution Date</td>
+    <td>{{filing["filed"][0]["execution_date"]}}</td>
+</tr>
+
+</table>
+
+    <span class="sub-graph" style="display: inline-block;" id="sub_graph" hx-get="/filings/{{filing_id}}/graph" hx-trigger="load">
+        Show graph here
+    </span>
+

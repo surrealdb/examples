@@ -1,0 +1,165 @@
+
+<h1>{{firm["name"]}} : {{firm["identifier"]}} Detail</h1>
+
+<div id="firm_tabs">
+    <ul>
+        <li><a href="#detail">Detail</a></li>
+        {% if (firm["firm_custodians"] | length) > 0 %}
+            <li><a href="#custodian_list">Custodians ({{firm["firm_custodians"] | length}})</a></li>
+        {% endif %}
+
+        {% if (firm["firm_custodian_of"] | length) > 0 %}
+           <li><a href="#firm_custodian_of_list">Custodians Of ({{firm["firm_custodian_of"] | length}})</a></li>
+        {% endif %}
+        {% if (firm["firm_filings"] | length) > 0 %}
+            <li><a href="#filing_list">filings ({{firm["firm_filings"] | length}})</a></li>
+        {% endif %}
+        <li><a href="#firm_graph" hx-get="/firms/{{firm_id}}/graph" 
+        hx-target="#sub_graph" id="loadGraphButton">Graph</a></li>
+    </ul>
+
+    
+<span class="firm_info" style="display: inline-block;" id="detail">   
+    <table>
+        <tbody>
+            <tr><td>Type</td><td>{{firm["firm_type"]["firm_type"]}}</td></tr>
+            <tr><td>Legal Name</td><td>{{firm["legal_name"]}}</td></tr>
+            <tr><td>City</td><td>{{firm["city"]}}</td></tr>
+            <tr><td>State</td><td>{{firm["state"]}}</td></tr>
+            <tr><td>Postal Code</td><td>{{firm["postal_code"]}}</td></tr>
+            <tr><td>Country</td><td>{{firm["country"]}}</td></tr>
+            {%if firm["chief_compliance_officer"]%}
+            <tr><td>Chief Compliance Officer</td><td>{{firm["chief_compliance_officer"]["full_name"]}}</td></tr>
+            {% endif %}
+            {% for field in field_mapping %}
+                {%if (firm | extract_field_value(field["surql_field_name"])) %}
+                    <tr>
+                        <td>{{field["field_display_name"]}}</td>
+                        <td>{{firm | extract_field_value(field["surql_field_name"])}}</td>
+                    </tr>
+                {%endif%}
+            {% endfor %}
+        </tbody>
+    </table>
+</span>
+
+{% if (firm["firm_custodians"] | length) > 0 %}
+    <span class="firm_info" style="display: inline-block;" id="custodian_list">
+        <table>
+            <thead>
+                <tr>
+                    <th>Relationship</th>
+                    <th>Firm</th>
+                    <th>Assets Managed</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for node in firm["firm_custodians"] %}
+                <tr>
+                    <td>{{node["custodian_type"]["custodian_type"]}}</td> 
+                    <td>
+                        {{node["in"]["firm_type"]["firm_type"]}}:
+                            <a hx-get="/firms/{{node["in"]["identifier"]}}"
+                            hx-target="#node_detail" hx-swap="innerHTML">
+                            {{node["in"]["name"]}}
+                            </a>
+                    </td> 
+                    <td>
+                    {%if node["assets_under_management"] %}
+                        {{ '%.0f' % node["assets_under_management"] }}
+                    {%endif%}
+                    </td> 
+                    <td>{{node["description"]}}</td> 
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </span>
+{% endif %}
+
+
+{% if (firm["firm_custodian_of"] | length) > 0 %}
+    <span class="firm_info" style="display: inline-block;" id="firm_custodian_of_list">
+        <table>
+            <thead>
+                <tr>
+                    <th>Relationship</th>
+                    <th>Firm</th>
+                    <th>Assets Managed</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for node in firm["firm_custodian_of"] %}
+                <tr>
+                    <td>{{node["custodian_type"]["custodian_type"]}}</td> 
+                    <td>
+                        {% if node["out"]["firm_type"] %}
+                            {{node["out"]["firm_type"]["firm_type"]}}:
+                                <a hx-get="/firms/{{node["out"]["identifier"]}}"
+                                hx-target="#node_detail" hx-swap="innerHTML">
+                                {{node["out"]["name"]}}
+                                </a>
+                        {% else %}
+                            {{node["out"]}}
+                        {% endif%}
+                    </td> 
+                    <td>
+                    {%if node["assets_under_management"] %}
+                        {{ '%.0f' % node["assets_under_management"] }}
+                    {%endif%}
+                    </td> 
+                    <td>{{node["description"]}}</td> 
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </span>
+{% endif %}
+{% if (firm["firm_filings"] | length) > 0 %}
+    <span class="firm_info" style="display: inline-block;" id="filing_list">
+    <table>
+        <thead>
+            <tr>
+                <th>Filing</th>
+                <th>Execution Date</th>
+                <th>signatory</th>
+            </tr>
+        </thead>
+        <tbody>
+    {% for node in firm["firm_filings"] %}
+            <tr>
+                <td>
+                    <a hx-get="/filings/{{ node["out"]["filing_id"] }}" hx-target="node_detail" 
+                    hx-swap="innerHTML">
+                    {{node["out"]["filing_id"]}}
+                    </a>
+
+                </td>
+                <td> {{node["execution_date"]}}</td>
+                <td>{{node["in"]["title"]}} - 
+                    <a hx-get="/firms/{{firm["identifier"]}}/people/{{node["in"]["full_name"]|format_url_id}}"
+                        hx-target="#node_detail" hx-swap="innerHTML">
+                        {{node["in"]["full_name"]}}
+                    </a>
+                </td>
+            </tr>
+    {% endfor %}
+
+    </table>
+    </span>
+{% endif %}
+
+</div>
+    <span class="sub-graph" style="display: inline-block;" id="sub_graph">
+        Show graph here
+    </span>
+<script>
+$( function() {
+    $( "#firm_tabs" ).tabs();
+} );
+$('#custodian_list table').DataTable();
+$('#firm_custodian_of_list table').DataTable();
+$('#filing_list table').DataTable();
+</script>

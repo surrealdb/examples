@@ -1,0 +1,57 @@
+
+IA_ADV_Base_A_20241201_20241231.csv
+
+"FilingID" 
+"1D" is SEC # 
+"Execution Type"	
+"Signatory"	
+"Execution Date"	
+"Title"
+
+get database companies:
+ERA_Schedule_D_Books_and_Records_20240501_20240531.csv
+
+FilingID	
+Name	
+Street 1	
+Street 2	
+City	
+State	
+Country	
+Postal Code	
+Private Residence	
+Phone	
+Fax	
+Type	
+Description
+
+SMAs:
+IA_Schedule_D_5K3_20240401_20240430.csv
+
+"Filing ID","5K(3)(a)","5K(3)(b)","5K(3)(c) City","5K(3)(c) State","5K(3)(c) Country","5K(3)(d)","5K(3)(e)","5K(3)(f)","5K(3)(g)"
+1849620,"CHARLES SCHWAB & CO., INC.","CHARLES SCHWAB & CO., INC.","WESTLAKE","TX","USA","N","8-16514","",111933484
+SECTION 5.K.(3) Custodians for Separately Managed Accounts
+
+Complete a separate Schedule D Section 5.K.(3) for each custodian that holds ten percent or more of your aggregate separately managed account regulatory assets under management.
+
+(a)	Legal name of custodian:
+BANK OF NEW YORK MELLON, N.A.
+(b)	Primary business name of custodian:
+BANK OF NEW YORK MELLON, N.A.
+(c)	The location(s) of the custodian's office(s) responsible for custody of the assets :
+City:
+NEW YORK	State:
+
+New York	Country:
+
+United States
+Yes	No
+(d)	Is the custodian a related person of your firm?	
+ Radio button not selected	 Radio button selected, changed
+(e)	If the custodian is a broker-dealer, provide its SEC registration number (if any)
+-        
+(f)	If the custodian is not a broker-dealer, or is a broker-dealer but does not have an SEC registration number, provide its legal entity identifier (if any)
+HPFHU0OQ28E4N0NFVK49
+(g)	What amount of your regulatory assets under management attributable to separately managed accounts is held at the custodian?
+$ 20,970,069,384
+ 

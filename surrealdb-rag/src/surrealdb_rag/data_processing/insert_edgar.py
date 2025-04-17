@@ -291,13 +291,12 @@ def surreal_edgar_insert() -> None:
 
     
 
-    with Surreal(db_params.DB_PARAMS.url) as connection:
-        
-        logger.info(f"Connecting to SurrealDB")
-        connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
-        connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
-        logger.info("Connected to SurrealDB")
-        if not incrimental_load:
+    if not incrimental_load:
+        with Surreal(db_params.DB_PARAMS.url) as connection:            
+            logger.info(f"Connecting to SurrealDB")
+            connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
+            connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
+            logger.info("Connected to SurrealDB")
             logger.info(f"Executting DDL for {table_name}")
             # Read and execute table DDL that creates the tables and indexes if missing
             with open(constants.CORPUS_TABLE_DDL) as f: 
@@ -318,6 +317,16 @@ def surreal_edgar_insert() -> None:
     insert_rows(table_name, input_file, total_chunks, using_glove, using_fasttext, incrimental_load)
 
             
+    if not incrimental_load:
+        with Surreal(db_params.DB_PARAMS.url) as connection:            
+            logger.info(f"Connecting to SurrealDB")
+            connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
+            connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
+            logger.info("Connected to SurrealDB")    
+            logger.info(f"Updating corpus table info for {table_name}")
+            SurrealParams.ParseResponseForErrors( connection.query_raw(SurrealDML.UPDATE_CORPUS_TABLE_INFO(table_name,display_name),params={"embed_models":embed_model_mappings}))
+
+
 
 
 

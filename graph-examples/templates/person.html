@@ -1,0 +1,76 @@
+
+<h1>
+<a hx-get="/firms/{{person["firm"]["identifier"]}}"
+                    hx-target="#node_detail" hx-swap="innerHTML">
+                    {{person["firm"]["name"]}}
+                </a> : {{person["full_name"]}} Detail
+
+</h1>
+
+    
+<span class="person_info" style="display: inline-block;" id="detail">   
+
+</span>
+    {% if person["compliance_officer_for"] | length > 0%}
+        <span class="person_info" style="display: inline-block;" id="signed_list">
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>As of</th>
+                        <th>Title</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for node in person["compliance_officer_for"] %}
+                    <tr>
+                        <td>
+                            {{node["as_of_latest_filing_date"]}}
+                        </td> 
+                        <td>{{node["title_at_time_of_filing"]}}</td> 
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </span>
+    {%endif%}
+    {% if person["signed_filings"] | length > 0%}
+        <h2>Is signatory For</h2>
+        <span class="firm_info" style="display: inline-block;" id="filing_list">
+        <table>
+            <thead>
+                <tr>
+                    <th>Filing</th>
+                    <th>Execution Date</th>
+                    <th>Execution Type</th>
+                    <th>Title</th>
+                </tr>
+            </thead>
+            <tbody>
+        {% for node in person["signed_filings"] %}
+                <tr>
+                    <td> 
+                        <a hx-get="/filings/{{ node["out"]["filing_id"] }}" hx-target="node_detail" 
+                        hx-swap="innerHTML">
+                        {{node["out"]["filing_id"]}}
+                        </a>
+
+                    </td>
+                    <td> {{node["execution_date"]}}</td>
+                    <td> {{node["out"]["execution_type"]["execution_type"]}}</td>
+                    
+                    <td> {{node["signatory_title"]}}</td>
+                </tr>
+        {% endfor %}
+
+        </table>
+        </span>
+    {%endif%}
+
+
+
+
+
+<script>
+$('#filing_list table').DataTable();
+</script>

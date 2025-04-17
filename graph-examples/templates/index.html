@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatSurrealDB</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}" />
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightpick@1.6.2/css/lightpick.min.css">
+
+
+    
+    <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.7.0.js"></script>
+    <script src="https://code.jquery.com/ui/1.14.1/jquery-ui.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lightpick@1.6.2/lightpick.min.js"></script>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/vivagraphjs@latest/dist/vivagraph.js"></script>
+
+
+    <style type="text/css" media="screen">
+        html, body, svg { width: 100%; height: 100%;}
+    </style>
+
+    <script>
+
+        function clearAllModalHTML(){
+            const nodeDetail = document.getElementById('node_detail');
+            if (nodeDetail) {
+                nodeDetail.innerHTML = '';
+            }
+        }
+        document.addEventListener("DOMContentLoaded", function() {
+            const modal = document.getElementById("myModal");
+            const closeBtn = document.querySelector(".close");
+
+            // Event delegation for dynamically created buttons
+            document.body.addEventListener("click", function(event) {
+                if (event.target.classList.contains("model_open")) {
+                    modal.style.display = "block";
+                }
+            });
+
+            if (modal && closeBtn) {
+                closeBtn.onclick = function() {
+                    modal.style.display = "none";
+                    clearAllModalHTML();
+                };
+
+                window.onclick = function(event) {
+                    if (event.target === modal) {
+                        modal.style.display = "none";
+                        clearAllModalHTML();
+                    }
+                };
+            } else {
+                console.error("Modal or close button not found.");
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <div class="nav">
+        <div class="graph-nav">
+            <span>
+            <button hx-get="/firms" hx-target="main" hx-swap="innerHTML">
+                <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                Firms
+            </button>
+            <button hx-get="/filings" hx-target="main" hx-swap="innerHTML">
+                <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                Filings
+            </button>
+            <button hx-get="/people" hx-target="main" hx-swap="innerHTML">
+                <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                People
+            </button>
+            </span>
+            <span>
+
+                <button hx-get="/custodian_reports/hedge_report" hx-target="main" hx-swap="innerHTML">
+                    <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                    Hedges
+                </button>
+
+                <button hx-get="/custodian_reports/vc_report" hx-target="main" hx-swap="innerHTML">
+                    <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                    VC
+                </button>
+            </span>
+        </div>
+        <div class="graph-nav">
+            <span>
+                <button hx-get="/pf_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personFilter,#firmFilter,#graphSizeLimit,#firmType">
+                    <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                    PF SMA Graph
+                </button>
+                <button hx-get="/raum_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personFilter,#firmFilter,#graphSizeLimit,#firmType">
+                    <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                    RAUM SMA Graph
+                </button>
+                <button hx-get="/b_r_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personFilter,#firmFilter,#graphSizeLimit,#firmType">
+                    <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
+                    Tech Partners Graph
+                </button>
+            </span>
+        
+            <span>
+                <input name="person_filter" id="personFilter" class="nav_input" placeholder="Person Filter">
+                <input name="firm_filter" id="firmFilter" class="nav_input" placeholder="Firm Filter (Name, CIK, etc)">
+                <select name="firm_type" id="firmType">
+                    <option value=''>--Firm Type--</option>
+                    <option value='Registered'>Registered</option>
+                    <option value='Hedge Fund'>Hedge Fund</option>
+                    <option value='Venture Capital Fund'>Venture Capital Fund</option>
+                    <option value='ERA'>ERA</option>
+                </select>
+                <select name="graph_size_limit" id="graphSizeLimit">
+                    <option value='100'>Max nodes: 100</option>
+                    <option value='1000'>Max nodes: 1,000</option>
+                    <option value='10000'>Max nodes: 10,000</option>
+                    <option value='100000'>Max nodes: 100,000</option>
+                    <option value='1000000'>Max nodes: 1,000,000</option>
+                </select>
+            </span>
+        </div>
+    </div>
+    <main>
+
+    </main>
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <node_detail id="node_detail" class="node-detail"></node_detail>
+        </div>
+    </div>
+</body>
+
+</html>

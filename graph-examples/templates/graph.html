@@ -1,0 +1,307 @@
+
+<h4 class="graphTitle">{{graph_title}} ({{graph_size}} relations displayed)</h4>
+
+
+
+<div id="graph_container" class="graphContainer"></div>
+
+   
+
+{% if graph_size_limit<=graph_size %}
+<div class="graph_warning">
+    Maximum graph size reached.  Only displaying first {{graph_size_limit}} nodes and edges.
+</div>
+{% endif %}
+    <script>
+ 
+
+        edge_weight_field = {{ edge_weight_field | tojson }};
+        source_node_weight_field = {{ source_node_weight_field | tojson }};
+        target_node_weight_field = {{ target_node_weight_field | tojson }};
+        edge_label_field = {{ edge_label_field | tojson }};
+
+        
+        the_data = {{ graph_data | tojson }};
+
+
+
+
+
+        source_node_weight_min = the_data.source_node_weight_min;   
+        source_node_weight_max = the_data.source_node_weight_max; 
+
+        target_node_weight_min = the_data.target_node_weight_min;   
+        target_node_weight_max = the_data.target_node_weight_max;  
+
+        edge_weight_min = the_data.edge_weight_min;   
+        edge_weight_max = the_data.edge_weight_max;   
+
+        console.log("edge_weight_field", edge_weight_field);
+        console.log("source_node_weight_field", source_node_weight_field);
+        console.log("target_node_weight_field", target_node_weight_field);
+        console.log("edge_label_field", edge_label_field);
+
+        console.log("source_node_weight_min", source_node_weight_min);
+        console.log("source_node_weight_max", source_node_weight_max);
+        console.log("target_node_weight_min", target_node_weight_min);
+        console.log("target_node_weight_max", target_node_weight_max);
+        console.log("edge_weight_min", edge_weight_min);
+        console.log("edge_weight_max", edge_weight_max);
+        
+        function renderGraph(graphData) {
+            var graphGenerator = Viva.Graph.generator();
+            var graph = graphGenerator.grid(3, 3);
+
+            // 1. Add nodes to the graph
+            graphData.nodes.forEach(node => {
+                var is_source = node.is_source;
+                var node_weight_min = 0;
+                var node_weight_max = 0;
+                if(is_source) {
+                    node_weight_field = source_node_weight_field;
+                    node_weight_min = source_node_weight_min;
+                    node_weight_max = source_node_weight_max;
+                }
+                else{
+                    node_weight_field = target_node_weight_field;
+                    node_weight_min = target_node_weight_min;
+                    node_weight_max = target_node_weight_max;
+                } 
+                graph.addNode(node.id, {
+                    label: node.name,
+                    firm_type: node.firm_type,
+                    source_document: node.source_document,
+                    link: "/firms/" + node.id,
+                    edge_count: node.edge_count,
+                    weight: node[node_weight_field],
+                    is_source:is_source,
+                    font_size: calculateWeightFactor( node[node_weight_field], node_weight_min, node_weight_max, 10, 100)
+                });
+            });
+
+            
+            // 2. Add edges to the graph
+            graphData.edges.forEach(edge => {
+
+                if (!graph.hasLink(edge.source, edge.target)) {
+
+                    if (edge.source === edge.target) {
+                        console.warn("Zero-length link detected:", edge); // Log it
+                        // Option 1: Don't add the link to the graph at all
+                        // (usually the best option)
+
+                        // Option 2: Add a small offset to one of the nodes (hacky)
+                        // graph.addNode(edge.target + "_offset", { ... });
+                        // graph.addLink(edge.source, edge.target + "_offset", ...);
+
+                        //Option 3, log it and keep going
+                    } else {
+
+                        
+                        graph.addLink(edge.source, edge.target, {
+                            label: edge[edge_label_field],
+                            weight: edge[edge_weight_field],
+                            link: "/is_custodian_for/" + edge.id 
+                            //    + "&identifier_in=" + edge.source
+                            //    + "&identifier_out=" + edge.target
+                            //    + "&relationship=" + edge.label 
+                        });
+                        //console.log(edge_weight_field,edge[edge_weight_field])
+                    }
+                }
+            });
+
+
+
+            var graphics = Viva.Graph.View.svgGraphics();
+            graphics.node(function(node){
+                var label_str = "";
+                var firm_type = "";
+                var font_size = 10;
+                if( node.data ){
+                    label_str = node.data.label;
+                    firm_type = node.data.firm_type;
+                    link = node.data.link;
+                    font_size = node.data.font_size;
+                }
+	
+//ERA
+//Records Custodian
+//Registered
+//RAUM
+                // Create the text element directly.  No need for a group or rectangle.
+                const label = Viva.Graph.svg('text')
+                    .attr('class', 'node-label')  // Keep the class for styling
+                    .text(label_str);
+
+                switch(firm_type){
+                    case "Registered":
+                    case "ERA":
+                        label.attr('fill', `pink`);
+                        break;
+                    case "RAUM Custodian":
+                    case "Records Custodian":
+                    case "Hedge Fund":
+                    case "Venture Capital Fund":
+                        label.attr('fill', `purple`);
+                        break;
+                    default:
+                        label.attr('fill', `green`);
+                }
+                // --- KEY CHANGE: Dynamically set font-size based on edge_count ---
+                
+                label.attr('font-size', `${font_size}px`);
+
+                // Optional: Center the text vertically and horizontally (if desired)
+                label.attr('text-anchor', 'middle'); // Horizontal centering
+                label.attr('dy', '.35em');          // Vertical centering (approximate)
+
+
+                
+                label.addEventListener('click', function(event) {
+                    event.stopPropagation(); // Prevent the click from bubbling up
+                    if (node.data && node.data.link) { // Access node.data.link *here*
+                        document.getElementById('myModal').style.display = 'block';
+                        document.getElementById("node_detail").style.display = "block";
+                        htmx.ajax('GET', node.data.link, {
+                            target: '#node_detail',
+                            swap: 'innerHTML' // Correct way to specify swap with htmx.ajax
+                        });
+                    }
+                });
+
+                return label; // Return the text element directly
+            });
+
+                
+            
+
+// --- Customize Link Appearance and Add Labels ---
+            graphics.link(function(link) {
+                const ui = Viva.Graph.svg('g'); // Use a group for link + label
+
+
+                alpha = 0
+                width = 1
+                label_str = ""
+                if(link.data){
+                    strengh = normalizeWeight(link.data.weight, edge_weight_min, edge_weight_max);
+                    alpha = calculateWeightFactor(link.data.weight, edge_weight_min, edge_weight_max, 0.2, 1.0); // Normalize to 0.2 - 1.0
+                    width = calculateWeightFactor(link.data.weight, edge_weight_min, edge_weight_max, 1, 3); // Normalize to 1 - 3px
+                    label_str = link.data.label;
+                    //console.log(strengh,alpha,width,link.data,edge_weight_min,edge_weight_max);
+                }
+                color = `rgba(255, 255, 255, ${alpha.toFixed(2)})`;
+
+
+                const line = Viva.Graph.svg('path')
+                    .attr('stroke', color)
+                    .attr('stroke-width', width);
+
+                const label = Viva.Graph.svg('text')
+                    .attr('fill', color)
+                    .attr('class', 'edge-label') // Add class for styling
+                    .text(label_str);  // Use label from link data, default to empty
+
+
+                label.addEventListener('click', function(event) {
+                    event.stopPropagation(); // Prevent the click from bubbling up
+                    console.log(link);
+
+                    if (link.data && link.data.link) {
+                        
+                        console.log("click!", link.data.link); // Access node.data.link *here*
+                        document.getElementById('myModal').style.display = 'block';
+                        document.getElementById("node_detail").style.display = "block";
+                        htmx.ajax('GET', link.data.link, {
+                            target: '#node_detail',
+                            swap: 'innerHTML' // Correct way to specify swap with htmx.ajax
+                        });
+                    }
+
+                });
+                ui.append(line);
+                ui.append(label);
+                return ui;
+            });
+
+            // --- Position Edge Labels ---
+            graphics.placeLink(function(linkUI, fromPos, toPos) {
+                // "fromPos" and "toPos" are objects that have "x" and "y"
+                // attributes, which correspond to start and end points of the link.
+
+                var data = "M" + fromPos.x + "," + fromPos.y +
+                            "L" + toPos.x + "," + toPos.y;
+                // This SVG path command means:
+                // "Move to (fromPos.x, fromPos.y), then draw line to (toPos.x, toPos.y)"
+                // In other words, we are just moving link from its start/end points.
+                
+                let line = linkUI.childNodes[0];
+                line.attr("d", data);
+
+                // Position the label at the midpoint of the link
+                let label = linkUI.childNodes[1]; // Get Text Element
+                if (label) {
+                    const midX = (fromPos.x + toPos.x) / 2;
+                    const midY = (fromPos.y + toPos.y) / 2;
+                    label.attr('x', midX);
+                    label.attr('y', midY);
+                } else {
+                    console.error("No label found for link:", linkUI,fromPos,toPos);
+                }
+
+
+                    
+            });
+             
+
+            var idealLength = 90;
+            var layout = Viva.Graph.Layout.forceDirected(graph, {
+                springLength : 10,
+                springCoeff : 0.0005,
+                dragCoeff : 0.02,
+                gravity : -1.2,
+                springTransform: function (link, spring) {
+                    if(link.data){
+                        spring.length = idealLength * (10 - link.data.strengh);
+                    }
+                  }
+            });
+
+            
+            var container = document.getElementById('graph_container');
+
+            // specify where it should be rendered:
+            var renderer = Viva.Graph.View.renderer(graph, {
+                container: container,
+                //layout: layout,
+                graphics: graphics
+                
+            });
+
+            renderer.run();
+
+
+           function normalizeWeight(weight, minWeight, maxWeight) {
+                if (minWeight == maxWeight) {
+                    return 0;  // Avoid division by zero if all counts are the same
+                }
+                const normalizedWeight = (weight - minWeight) / (maxWeight - minWeight);
+                return normalizedWeight;
+            } 
+
+
+
+           function calculateWeightFactor(weight, minWeight, maxWeight, minFactor, maxFactor) {
+                const normalizedWeight = normalizeWeight(weight, minWeight, maxWeight);
+                const factor = minFactor + normalizedWeight * (maxFactor - minFactor);
+                return factor;
+            } 
+
+         
+        }
+
+        renderGraph(the_data);
+    </script>
+
+
