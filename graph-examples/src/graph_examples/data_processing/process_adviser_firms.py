@@ -225,6 +225,14 @@ def process_adviser_firms():
         logger.info("Connected to SurrealDB")
         connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
         connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
+        
+
+        logger.info("Executing person index DDL")
+        # Read the schema DDL that holds the SurQL functions from file
+        with open(ADV_PERSON_TABLES_INDEX_DDL) as f: 
+            surlql_to_execute = f.read()
+            SurrealParams.ParseResponseForErrors( connection.query_raw(surlql_to_execute))
+
 
         logger.info(f"Processing adviser firms data in directory {INVESTMENT_ADVISER_FIRMS_DIR}")
         file_tqdm = tqdm.tqdm(os.listdir(INVESTMENT_ADVISER_FIRMS_DIR), desc="Processing Files", position=1)

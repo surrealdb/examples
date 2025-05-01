@@ -242,7 +242,7 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
             # Log and raise an exception if there's an error during insertion. These errors are not recoverable so continue
             logger.error(f"Error inserting data into SurrealDB: {data}")
             # if e.message != "Error in results: Can not execute RELATE statement where property 'id' is: NONE":
-            #     raise;
+            raise;
 
 
 def filter_vc_hedge(df: pd.DataFrame) -> pd.DataFrame:
