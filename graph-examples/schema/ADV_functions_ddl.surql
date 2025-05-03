@@ -340,7 +340,7 @@ DEFINE FUNCTION OVERWRITE fn::find_match_for_firm(
         END;
     
     // If any matches are found, return the ID of the top-scoring firm; otherwise, return NONE.
-    IF array::len($matched_firms) > 0 THEN {RETURN $matched_firms.id[0];} ELSE {RETURN NONE;} END;
+    RETURN IF array::len($matched_firms) > 0 THEN $matched_firms.id[0] ELSE NONE END;
     
 
 };
@@ -1166,7 +1166,7 @@ DEFINE FUNCTION OVERWRITE fn::clean_name_string($name: string){
         // If the name contains a comma, split it and return the second part (after the comma).
         LET $last_name = $name_arr[0].trim();
         LET $rest_of_name = $name_arr.slice(1,$name_arr_len).join(" ").trim();
-        RETURN $rest_of_name + " " + $last_name;
+        RETURN ($rest_of_name + " " + $last_name).trim();
     } END;
     RETURN $name;
 };
@@ -1245,18 +1245,9 @@ DEFINE FUNCTION OVERWRITE fn::clean_company_string($name: string){
             "LTD",
             "CO",
             "THE",];
-    
-    LET $name_array = $name.words().map(|$a| $a.
-            replace('.','').
-            replace(',','').
-            replace('&','').
-            replace('(','').
-            replace(')','').
-            replace('"','').
-            replace("'",'').
-            replace("+",'').
-            replace("!",'').
-            replace('-',''));
+   
+
+    LET $name_array = $name.uppercase().words().map(|$a| fn::remove_punctuation($a,""));
 
     
     LET $name_array = $name_array[WHERE $this != '' AND $this NOT IN $jargon_words AND $this NOT IN $geo_words];
@@ -1354,34 +1345,25 @@ DEFINE FUNCTION OVERWRITE fn::firm_name_to_vector($name: string) {
 
 DEFINE FUNCTION OVERWRITE fn::retrieve_vectors_for_firm_name($sentence:string) 
 {
-    LET $sentence = $sentence.uppercase().
-        replace(' ',' .').
-        replace(',',' ,').
-        replace('?',' ?').
-        replace('!',' !').
-        replace(';',' ;').
-        replace(':',' :').
-        replace('(',' (').
-        replace(')',' )').
-        replace('[',' [').
-        replace(']',' ]').
-        replace('{',' {').
-        replace('}',' }').
-        replace('"',' "').
-        replace("'"," '").
-        replace('`',' `').
-        replace('/',' /').
-        replace('\\',' \\').
-        replace('<',' <').
-        replace('>',' >').
-        replace('—',' —').
-        replace('–',' –');
+    LET $sentence = fn::remove_punctuation($sentence.uppercase(), " ");
     LET $words = $sentence.words();
     LET $words = array::filter($words, |$word: any| $word != '');   
-
     #select the vectors from the embedding table that match the words
-    
     RETURN (SELECT VALUE type::thing('firm_name_embedding_model',$this).embedding FROM $words);
+};
 
+DEFINE  FUNCTION OVERWRITE fn::remove_punctuation($input: string,$replace_with:"" | " ") -> string {
 
+    LET $punctuation = [
+        '.', ',', '&', '(', ')', '"', "'", "+", "!", '-', "{", "}", "[", "]", ":", ";", "<", ">", "`", "/", "\\", "—", "–"
+    ];
+    IF $replace_with = " " THEN{
+        RETURN $punctuation.fold($input,|$a, $b| 
+            $a.replace($b, " ")
+        );
+    }ELSE{
+        RETURN $punctuation.fold($input,|$a, $b| 
+            $a.replace($b, "")
+        );
+    }END;
 };

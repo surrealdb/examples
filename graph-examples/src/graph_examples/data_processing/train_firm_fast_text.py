@@ -15,6 +15,39 @@ FILING_FIELD_MAPPING = [
     {"dataframe_field_name": "1A", "field_display_name": "Name", "surql_field_name": "name", "python_type": str},
     {"dataframe_field_name": "1B1", "field_display_name": "Legal Name", "surql_field_name": "legal_name", "python_type": str},
 ]
+
+B_R_FIELD_MAPPING = [
+    {
+        "dataframe_field_name": "FilingID",
+        "field_display_name": "Filing ID",
+        "surql_field_name": "filing_id",
+        "python_type": int,  # Assuming Filing ID is an integer
+        "description": "Unique identifier for the filing.",
+    },
+    {
+        "dataframe_field_name": "Name",
+        "field_display_name": "Name",
+        "surql_field_name": "name",
+        "python_type": str,
+        "description": "Name of the custodian holding books or records.",
+    },
+    {
+        "dataframe_field_name": "Type",
+        "field_display_name": "Type of Custodian",
+        "surql_field_name": "type",
+        "python_type": str,
+        "description": "Nature of the custodian's relationship to the books or records.",
+    },
+    {
+        "dataframe_field_name": "Description",
+        "field_display_name": "Description",
+        "surql_field_name": "description",
+        "python_type": str,
+        "description": "Description of the custodian's relationship to the books or records.",
+    },
+]
+
+
 FILING_71b_FIELD_MAPPING = [
     {
         "dataframe_field_name": "FilingID",
@@ -90,7 +123,7 @@ def get_filing_5k3_df(logger):
         if file_pattern.match(filename)
     ]
     
-    filing_df = extract_csv_data(logger,matching_files,sort_by=["5K(3)(b)","5K(3)(a)"])
+    filing_df = extract_csv_data(logger,matching_files)
 
     filing_df = filing_df.rename(
         columns={
@@ -100,9 +133,7 @@ def get_filing_5k3_df(logger):
         }
     )
     filing_df["fund_type"] = None  # Add fund_type column with None
-    filing_df["master_fund_name"] = (
-        None  # Add master_fund_name column with None
-    )
+    filing_df["master_fund_name"] = None 
 
 
     return filing_df
@@ -150,7 +181,7 @@ def get_filing_7b1_df(logger):
         for filename in os.listdir(PART1_DIR)
         if file_pattern1.match(filename) or file_pattern2.match(filename)
     ]
-    filing_df = extract_csv_data(logger,matching_files,sort_by=["Fund Name"],filter_func=filter_vc_hedge)
+    filing_df = extract_csv_data(logger,matching_files,filter_func=filter_vc_hedge)
 
 
     filing_df = filing_df.rename(
@@ -164,7 +195,41 @@ def get_filing_7b1_df(logger):
     filing_df["legal_name"] = None
     return filing_df
         
-def get_filing_firm_dict(logger):
+
+
+def get_filing_b_r_df(logger):
+   
+    logger.info(f"Processing b_r_df {PART1_DIR}")
+
+    # Define regular expression patterns to identify relevant CSV files.
+    
+    
+    # Define regular expression pattern to identify relevant CSV files.
+    file_pattern = re.compile(r".*_Schedule_D_Books_and_Records_.*\.csv$")
+
+    matching_files = [
+        filename
+        for filename in os.listdir(PART1_DIR)
+        if file_pattern.match(filename)
+    ]
+
+
+    filing_df = extract_csv_data(logger,matching_files)
+
+
+    filing_df = filing_df.rename(
+        columns={
+            "Name": "name",
+            "FilingID": "filing_id",
+            "Type": "fund_type"
+        }
+    )
+    filing_df["legal_name"] = None
+    filing_df["master_fund_name"] = None 
+    return filing_df
+        
+
+def get_filing_firm_df(logger):
    
     logger.info("Getting filing firm dictionary")
 
@@ -178,9 +243,54 @@ def get_filing_firm_dict(logger):
         for filename in os.listdir(PART1_DIR)
         if file_pattern1.match(filename) or file_pattern2.match(filename)
     ]
-    filing_firm_df = extract_csv_data(logger,matching_files)
+    filing_df = extract_csv_data(logger,matching_files)
 
-    return filing_firm_df.set_index("FilingID").to_dict('index')
+    filing_df = filing_df.rename(
+        columns={
+            "1A": "name",
+            "FilingID": "filing_id",
+            "1B1": "legal_name"
+        }
+    )
+    filing_df["fund_type"] = "Registered"
+    filing_df["master_fund_name"] = None 
+
+
+    return filing_df #.set_index("FilingID").to_dict('index')
+
+
+
+def get_adv_firms_df(logger):
+   
+
+
+    dfs: list[pd.DataFrame] = []  # List to store individual dataframes
+
+    file_tqdm = tqdm.tqdm(os.listdir(INVESTMENT_ADVISER_FIRMS_DIR), desc="Processing Files", position=1)
+    for filename in file_tqdm:
+        file_tqdm.set_description(f"Processing {filename}")
+        if filename.endswith(".xlsx"):
+            filepath = os.path.join(INVESTMENT_ADVISER_FIRMS_DIR, filename)                
+            logger.info(f"Getting firms  from {filepath}")
+            df = pd.read_excel(filepath)
+            df = df.replace([np.nan], [None])
+            dfs.append(df)
+
+    if dfs:
+        filing_df = pd.concat(dfs, ignore_index=True)  # Concatenate all dataframes
+
+        filing_df = filing_df.rename(
+            columns={
+                "Primary Business Name": "name",
+                "Legal Name": "legal_name",
+                "Firm Type":"fund_type"
+            }
+        )
+        filing_df["master_fund_name"] = None 
+        filing_df["filing_id"] = None 
+
+        return filing_df
+
 
 def train_model(logger,traning_data_file, model_bin_file):
 
@@ -237,8 +347,10 @@ def write_model_to_text_file(logger,model,model_txt_file):
             if word and len(vector) == model_dim:
                 vector_str = " ".join([str(v) for v in vector]) # More robust conversion to string
                 f.write(f"{word} {vector_str}\n") 
+
+
     
-def process_adv_train_firm_fast_text():
+def train_firm_fast_text():
 
     logger = loggers.setup_logger("TrainFastTextModel")
     args_loader.LoadArgs() # Parse command-line arguments
@@ -246,15 +358,27 @@ def process_adv_train_firm_fast_text():
     # filing_dict = get_filing_firm_dict(logger)
     filing_5k3_df = get_filing_5k3_df(logger)
     filing_7b1_df = get_filing_7b1_df(logger)
+    filing_filing_firm_df = get_filing_firm_df(logger)
+    filing_b_r_firm_df = get_filing_b_r_df(logger)
+    filing_adv_firms_df = get_adv_firms_df(logger)
 
     union_df = pd.concat(
         [
             filing_5k3_df[
-                [ "name", "legal_name", "fund_type", "master_fund_name"]
+                [ "name", "legal_name", "master_fund_name"]
             ],
             filing_7b1_df[
-                [ "name", "legal_name", "fund_type", "master_fund_name"]
+                [ "name", "legal_name", "master_fund_name"]
             ],
+            filing_b_r_firm_df[
+                [ "name", "legal_name", "master_fund_name"]
+            ],
+            filing_filing_firm_df[
+                [ "name", "legal_name", "master_fund_name"]
+            ],
+            filing_adv_firms_df[
+                [ "name", "legal_name", "master_fund_name"]
+            ]
         ],
         ignore_index=True,
     )
@@ -263,9 +387,9 @@ def process_adv_train_firm_fast_text():
     # union_df["legal_name"] = union_df["legal_name"].apply(clean_company_string)
     # union_df["master_fund_name"] = union_df["master_fund_name"].apply(clean_company_string)
 
-    union_df["name"] = union_df["name"].apply(clean_initials_for_company_string)
-    union_df["legal_name"] = union_df["legal_name"].apply(clean_initials_for_company_string)
-    union_df["master_fund_name"] = union_df["master_fund_name"].apply(clean_initials_for_company_string)
+    union_df["name"] = union_df["name"].apply(clean_initials_and_punctuation_for_company_string)
+    union_df["legal_name"] = union_df["legal_name"].apply(clean_initials_and_punctuation_for_company_string)
+    union_df["master_fund_name"] = union_df["master_fund_name"].apply(clean_initials_and_punctuation_for_company_string)
     
     union_df = union_df.drop_duplicates(subset=["name", "legal_name", "master_fund_name"])
 
@@ -282,7 +406,7 @@ def process_adv_train_firm_fast_text():
        logger.info(f"Writing training data to {training_file}")
 
 
-       for index, row in tqdm.tqdm(union_df.iterrows(), desc="Processing 5k3", total=len(filing_5k3_df), unit="row"):
+       for index, row in tqdm.tqdm(union_df.iterrows(), desc="Processing 5k3", total=len(union_df), unit="row"):
             if row['master_fund_name'] != None:
                 f.write(f"{(row['master_fund_name'])}\n")
             f.write(f"{(row['name'])}\n")
@@ -299,5 +423,5 @@ def process_adv_train_firm_fast_text():
     
 # --- Main execution block ---
 if __name__ == "__main__":
-    process_adv_train_firm_fast_text()
+    train_firm_fast_text()
 # --- End main execution block ---

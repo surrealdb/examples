@@ -28,6 +28,81 @@ ADV_PERSON_TABLES_INDEX_DDL= "./schema/ADV_person_tables_indexes_ddl.surql"
 ADV_FIRM_TABLES_INDEX_DDL= "./schema/ADV_firm_tables_indexes_ddl.surql"
 
 
+GEO_WORDS = [
+            "AMERICAS",
+            "INTERNATIONAL",
+            "PACIFIC",
+            "ASIAPACIFIC",
+            "GLOBAL",
+            "EUROPE",
+            "ASIA",
+            "LUXEMBOURG",
+            "IRELAND",
+            "LONDON",
+            "USA",
+            "UK",
+            "US",    
+        ]    
+JARGON_WORDS = [
+        "INCORPORATED",
+        "ASSOCIATES",
+        "MANAGEMENT",
+        "INVESTMENTS",
+        "INVESTMENT",
+        "COMPANY",
+        "FINANCIAL",
+        "CAPITAL",
+        "ADVISORY",
+        "ADVISORS",
+        "ADVISOR",
+        "ADVISERS",
+        "ADVISER",
+        "PRIVATE",
+        "WEALTH",
+        "PARTNERS",
+        "SECURITIES",
+        "SERVICES",
+        "MANAGER",
+        "ASSETS",
+        "ASSET",
+        "EQUITY",
+        "EQUITIES",
+        "SERVICES",
+        "FUNDS",
+        "FUND",
+        "COMPANY",
+        "INVESTORS",
+        "INVESTOR",
+        "FIDUCIARY",
+        "TRUST",
+        "INSURANCE",
+        "CREDIT",
+        "PUBLIC",
+        "CORPORATION",
+        "LIMITED",
+        "SOLUTIONS",
+        "GROUP",
+        "VENTURES",
+        "VALUE",
+        "REAL",
+        "ESTATE",
+        "ETF",
+        "SARL",
+        "INC",
+        "LLP",
+        "LLC",
+        "LP",
+        "LTD",
+        "CO",
+        "THE",]
+
+PUNCTUATION = [
+    '.', ',', '&', '(', ')', '"', "'", "+", "!", '-', "{", "}", "[", "]", ":", ";", "<", ">", "`", "/", "\\", "—", "–"
+]
+    
+    
+
+
 def get_file_encoding(filepath):
     """
     Gets the encoding of a file using the 'file -I' command.
@@ -159,9 +234,13 @@ def clean_non_breaking_space(text: str) -> str:
         text = re.sub(r'\s+', ' ', text).strip() # Normalize whitespace
         return text
     
-def clean_initials_for_company_string(name: str) -> str:
+def clean_initials_and_punctuation_for_company_string(name: str) -> str:
     
     if name is None: return None
+    name = str(name)
+    name = name.upper()
+    for term in PUNCTUATION:
+        name = name.replace(term, '')
     name = clean_non_breaking_space(name)
     name_array = name.split(' ')
     clean_firm_string = ''
@@ -193,69 +272,11 @@ def clean_company_string(name: str) -> str:
     Returns:
         str: The cleaned company name.
     """
-    geo_words = [
-            "AMERICAS",
-            "INTERNATIONAL",
-            "GLOBAL",
-            "ASIA",
-            "USA",
-            "UK",
-            "US",
-    
-        ]
-    
-    jargon_words = [
-            "INCORPORATED",
-            "ASSOCIATES",
-            "MANAGEMENT",
-            "INVESTMENTS",
-            "INVESTMENT",
-            "COMPANY",
-            "FINANCIAL",
-            "CAPITAL",
-            "ADVISORS",
-            "PRIVATE",
-            "WEALTH",
-            "PARTNERS",
-            "SECURITIES",
-            "ASSETS",
-            "ASSET",
-            "FUNDS",
-            "FUND",
-            "COMPANY",
-            "INVESTORS",
-            "FIDUCIARY",
-            "TRUST",
-            "CORPORATION",
-            "LIMITED",
-            "GROUP",
-            "VENTURES",
-            "VALUE",
-            "SARL",
-            "INC",
-            "LLP",
-            "LLC",
-            "LP",
-            "LTD",
-            "CO",
-            "THE",]
-    
-    punctuation = [
-            '.',
-            ',',
-            '&',
-            '(',
-            ')',
-            '"',
-            "'",
-            "+",
-            "!",
-            '-']
     
     if name is None: return None
-
+    name = str(name)
     name = name.upper()
-    for term in punctuation:
+    for term in PUNCTUATION:
         name = name.replace(term, '')
     
     name = clean_non_breaking_space(name)
@@ -263,16 +284,18 @@ def clean_company_string(name: str) -> str:
     name_array = name.split(' ')
     clean_firm_string = ''
     for word in name_array:
-        if word not in geo_words and word not in jargon_words:
+        if word not in GEO_WORDS and word not in JARGON_WORDS:
             text = word
             text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation and symbols
+            
             if len(text) > 1:
                 clean_firm_string += word + ' '
             else:
+                #combine initials to make non-single letter words
                 clean_firm_string += '_' + text + '_'
     clean_firm_string = clean_firm_string.replace("__", "").replace("_", " ").replace("  ", " ").strip()
     if clean_firm_string == '':
-        return None 
+        return name 
     else:
         return clean_firm_string
     
