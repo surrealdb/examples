@@ -60,7 +60,8 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
             $execution_type,
             $execution_date,
             $signatory_name,
-            $signatory_title)
+            $signatory_title,
+            $crc_number)
         """
     
     # --- Parameter Construction and Validation ---
@@ -84,6 +85,7 @@ def insert_data_into_surrealdb(logger,connection:Surreal,data):
             "execution_date": data["execution_date"],
             "signatory_name": data["signatory_name"],
             "signatory_title": data["signatory_title"],
+            "crc_number": str(data["crc_number"]),
             }
         # --- Execute the Query ---
 

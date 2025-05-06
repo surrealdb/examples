@@ -136,7 +136,8 @@ DEFINE FUNCTION OVERWRITE fn::filing_upsert(
     $execution_type_name: string,
     $execution_date: datetime,
     $signatory_name: string,
-    $signatory_title: string)
+    $signatory_title: string,
+    $crc_number: option<string>)
     {
         // Upserts the execution type using its name and retrieves its ID.
         LET $execution_type = fn::execution_type_upsert($execution_type_name);
@@ -170,6 +171,7 @@ DEFINE FUNCTION OVERWRITE fn::filing_upsert(
             firm: $firm,
             execution_type: $execution_type,
             signatory: $signatory,
+            crc_number: $crc_number,
         } RETURN NONE;
 
         // Returns the record ID of the upserted filing.
