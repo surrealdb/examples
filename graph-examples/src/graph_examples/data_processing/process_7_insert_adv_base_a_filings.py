@@ -22,11 +22,14 @@ args_loader = ArgsLoader("Insert latest filings",db_params)
 FIELD_MAPPING = [
 {"dataframe_field_name": "FilingID", "field_display_name": "Filing ID", "surql_field_name": "filing_id", "python_type": int},
 {"dataframe_field_name": "1D", "field_display_name": "SEC#", "surql_field_name": "sec_number", "python_type": str},
+{"dataframe_field_name": "1E1", "field_display_name": "CRC number", "surql_field_name": "crc_number", "python_type": int},
 {"dataframe_field_name": "Execution Type", "field_display_name": "Execution Type", "surql_field_name": "execution_type", "python_type": str},
 {"dataframe_field_name": "Execution Date", "field_display_name": "Execution Date", "surql_field_name": "execution_date", "python_type": datetime},
 {"dataframe_field_name": "Signatory", "field_display_name": "Signatory", "surql_field_name": "signatory_name", "python_type": str},
 {"dataframe_field_name": "Title", "field_display_name": "Signatory Title", "surql_field_name": "signatory_title", "python_type": str},
 ]
+
+# need to add 1E1 for CRC number for link to pdf
 
 
 def insert_data_into_surrealdb(logger,connection:Surreal,data):

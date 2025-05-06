@@ -198,10 +198,13 @@ DEFINE FIELD IF NOT EXISTS master_fund_name ON TABLE master_of_feeder TYPE Optio
 
 DEFINE TABLE IF NOT EXISTS filing SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS filing_id ON TABLE filing TYPE int;
+DEFINE FIELD IF NOT EXISTS crc_number ON TABLE filing TYPE string;
 DEFINE FIELD IF NOT EXISTS firm ON TABLE filing TYPE Record<firm> REFERENCE;
 DEFINE FIELD IF NOT EXISTS execution_type ON TABLE filing TYPE Record<ia_filing_execution_type>;
 DEFINE FIELD IF NOT EXISTS signatory ON TABLE filing TYPE Record<person> REFERENCE;
 DEFINE FIELD IF NOT EXISTS references ON TABLE filing TYPE references;
+
+
 
 // Defines a RELATION table named 'filed' between 'firm' and 'filing'.
 DEFINE TABLE IF NOT EXISTS filed TYPE RELATION
