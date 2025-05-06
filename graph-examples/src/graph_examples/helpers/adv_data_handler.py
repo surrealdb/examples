@@ -105,7 +105,6 @@ class ADVDataHandler():
                 LET $firm_list = array::group( SELECT VALUE firm.id FROM firm_alias 
                                 WHERE 
                                 name @@ $firm_filter OR
-                                legal_name @@ $firm_filter OR 
                                 sec_number = $firm_filter OR 
                                 (cik IS NOT NONE AND <string>cik = $firm_filter) OR 
                                 pfid = $firm_filter OR 

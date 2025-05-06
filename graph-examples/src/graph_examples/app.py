@@ -18,7 +18,7 @@ from graph_examples.helpers.adv_data_handler import ADVDataHandler
 
 from fastapi.responses import JSONResponse
 
-from graph_examples.data_processing.process_adviser_firms import FIELD_MAPPING as firm_field_mapping
+from graph_examples.data_processing.process_5_insert_adviser_firms import FIELD_MAPPING as firm_field_mapping
 
 
 # Load configuration parameters

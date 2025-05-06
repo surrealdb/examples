@@ -19,8 +19,8 @@ This file defines the SurrealQL for this project.
 // 3. 'ngram(2, 10)': Creates n-grams (sequences of characters) of length 2 to 10.
 //    This is useful for partial name matching and handling typos.
 
-DEFINE ANALYZER OVERWRITE name_analyzer TOKENIZERS
-    class FILTERS lowercase, ascii, edgengram(2, 5);
+DEFINE ANALYZER IF NOT EXISTS large_name_analyzer TOKENIZERS class FILTERS lowercase, ascii, edgengram(2, 10);
+DEFINE ANALYZER IF NOT EXISTS name_analyzer TOKENIZERS class FILTERS lowercase, ascii, edgengram(2, 5);
 
 
 DEFINE TABLE IF NOT EXISTS firm_type SCHEMAFULL;
@@ -41,7 +41,6 @@ UPSERT firm_type:`PF Custodian` CONTENT{
 
 DEFINE TABLE IF NOT EXISTS parent_firm SCHEMAFULL;
 DEFINE FIELD IF NOT EXISTS name ON TABLE parent_firm TYPE string;
-DEFINE FIELD IF NOT EXISTS simple_name ON TABLE parent_firm TYPE string;
 DEFINE FIELD IF NOT EXISTS firms ON TABLE parent_firm TYPE references<firm>;
 
 

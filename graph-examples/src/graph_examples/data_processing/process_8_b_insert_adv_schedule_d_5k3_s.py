@@ -190,6 +190,16 @@ def process_filing_5k3_data_files():
         connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
         connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
 
+
+        logger.info(f"Adding indexes to firm tables if not extist") 
+        with open(ADV_FIRM_TABLES_INDEX_DDL) as f: 
+            for surlql_to_execute in f:
+                # Process the line
+                logger.info(f"{surlql_to_execute}") 
+                SurrealParams.ParseResponseForErrors( connection.query_raw(surlql_to_execute))
+
+
+
         logger.info(f"Processing part 1 adv base a firms data in directory {PART1_DIR}")
 
         # Define regular expression pattern to identify relevant CSV files.

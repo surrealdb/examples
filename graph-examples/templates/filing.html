@@ -3,7 +3,7 @@
 <a hx-get="/firms/{{filing["firm"]["identifier"]}}"
                     hx-target="#node_detail" hx-swap="innerHTML">
                     {{filing["firm"]["name"]}}
-                </a> : {{filing["signatory_id"]}} Filing {{filing["filing_id"]}} Detail
+                </a> : {{filing["signatory_id"]}} Filing <a target="new" href="https://reports.adviserinfo.sec.gov/reports/ADV/{{filing["filing_id"]}}/PDF/{{filing["filing_id"]}}.pdf">{{filing["filing_id"]}}</a>  Detail
 
 </h1>
 
