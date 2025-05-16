@@ -196,7 +196,7 @@ async def raum_graph(request: fastapi.Request,
         graph_size_limit = GRAPH_SIZE_LIMIT
     graph_data = await data_handler.get_custodian_graph(custodian_type="RAUM",
                                                         order_by="assets_under_management DESC",
-                                                        person_graph_filter=person_graph_filter,
+                                                        person_filter=person_graph_filter,
                                                         firm_filter=firm_filter,
                                                         limit=graph_size_limit,
                                                         firm_type=firm_type)
@@ -220,7 +220,7 @@ async def raum_graph(request: fastapi.Request,
               
 @app.get("/pf_graph", response_class=responses.HTMLResponse)
 async def pf_graph(request: fastapi.Request,
-    person_filter: str = fastapi.Query(None),
+    person_graph_filter: str = fastapi.Query(None),
     firm_filter: str = fastapi.Query(None),
     graph_size_limit: int = fastapi.Query(None),
     firm_type: str = fastapi.Query(None)) -> responses.HTMLResponse:
@@ -230,7 +230,7 @@ async def pf_graph(request: fastapi.Request,
         graph_size_limit = GRAPH_SIZE_LIMIT
     graph_data = await data_handler.get_custodian_graph(custodian_type="PF",
                                                         order_by="assets_under_management DESC",
-                                                        person_filter=person_filter,
+                                                        person_filter=person_graph_filter,
                                                         firm_filter=firm_filter,
                                                         limit=graph_size_limit,
                                                         firm_type=firm_type)
@@ -264,7 +264,7 @@ async def b_r_graph(request: fastapi.Request,
     data_handler = ADVDataHandler(life_span["surrealdb"])
     graph_data = await data_handler.get_custodian_graph(custodian_type='A third-party unaffiliated record keeper',
                                                         description_matches = ["cloud","data"],
-                                                        person_graph_filter=person_graph_filter,
+                                                        person_filter=person_graph_filter,
                                                         firm_filter=firm_filter,
                                                         limit=graph_size_limit,
                                                         firm_type=firm_type)
