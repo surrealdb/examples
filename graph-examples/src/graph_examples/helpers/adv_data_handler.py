@@ -132,8 +132,8 @@ class ADVDataHandler():
 
         surql_query = pre_query_clause + """
         SELECT id,description,custodian_type.custodian_type AS custodian_type,assets_under_management,
-        in.{name,identifier,firm_type,section_5f},
-        out.{name,identifier,firm_type,section_5f} FROM custodian_for
+        in.{name,identifier,firm_type,section_5f,parent_firm},
+        out.{name,identifier,firm_type,section_5f,parent_firm} FROM custodian_for
         """
         
         if where_clause:

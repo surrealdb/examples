@@ -391,10 +391,15 @@ def train_firm_fast_text():
     union_df["legal_name"] = union_df["legal_name"].apply(clean_initials_and_punctuation_for_company_string)
     union_df["master_fund_name"] = union_df["master_fund_name"].apply(clean_initials_and_punctuation_for_company_string)
     
-    union_df = union_df.drop_duplicates(subset=["name", "legal_name", "master_fund_name"])
+    all_company_names_combined = pd.concat([union_df['name'], union_df['legal_name'], union_df['master_fund_name']])
+    cleaned_names = all_company_names_combined.dropna()
+    unique_sorted_names = sorted(cleaned_names.unique())
+    #union_df['all_company_names'] = pd.Series(unique_company_names) 
+    
+    #union_df = union_df.drop_duplicates(subset=["name", "legal_name", "master_fund_name"])
 
     # Sort by name
-    union_df = union_df.sort_values(by="name")
+    #union_df = union_df.sort_values(by="name")
 
     ensure_dir(FAST_TEXT_DIR)
     training_file =  os.path.join(FAST_TEXT_DIR, 'corpus.txt')
@@ -406,12 +411,9 @@ def train_firm_fast_text():
        logger.info(f"Writing training data to {training_file}")
 
 
-       for index, row in tqdm.tqdm(union_df.iterrows(), desc="Processing 5k3", total=len(union_df), unit="row"):
-            if row['master_fund_name'] != None:
-                f.write(f"{(row['master_fund_name'])}\n")
-            f.write(f"{(row['name'])}\n")
-            if row['legal_name'] != None:
-                f.write(f"{(row['legal_name'])}\n")
+       for name in tqdm.tqdm(unique_sorted_names, desc="Processing 5k3", total=len(union_df), unit="row"):
+            
+            f.write(f"{(name)}\n")
             #f.write("\n")
 
     model = train_model(logger,training_file,bin_file)

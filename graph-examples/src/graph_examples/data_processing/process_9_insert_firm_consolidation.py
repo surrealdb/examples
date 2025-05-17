@@ -179,12 +179,60 @@ def process_firm_consolidation():
         connection.signin({"username": db_params.DB_PARAMS.username, "password": db_params.DB_PARAMS.password})
         connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
 
-        process_hedges(connection)
-        process_vcs(connection)
-        process_books_records_holders(connection)
-        dedupe_out_registered(connection)
-        process_custodian_subisdiaries(connection)
+        simple_firm_reductiuon_surql = """
+            LET $mean_reg_assets = (SELECT VALUE mean FROM
+            (SELECT math::mean(section_5f.total_regulatory_assets) AS mean FROM firm WHERE section_5f.total_regulatory_assets IS NOT NONE GROUP ALL)[0])[0];
+            RETURN $mean_reg_assets;
 
+            LET $reduced_names = 
+            SELECT id,
+            name_clean,name,section_5f.total_regulatory_assets,section_5f.total_regulatory_assets> 10*$mean_reg_assets as _t,
+            IF name_clean.words().len()>0 THEN
+                IF name_clean.words()[0].len() > 5 THEN 
+                    name_clean.words()[0]
+                ELSE
+                    IF section_5f.total_regulatory_assets > 10*$mean_reg_assets THEN
+                        (name_clean.words()[0..2] ?? name_clean.words()[0..1]).join(' ')
+                    ELSE
+                        (name_clean.words()[0..2] ?? ['OTHER']).join(' ')
+                    END
+                END
+            //ELSE ' __OTHER' END
+
+            as _n FROM firm ORDER BY _n;
+
+            FOR $parent_name in 
+            $reduced_names._n.group()
+            {
+                IF $parent_name IS NOT NONE{
+                UPSERT type::thing("parent_firm",$parent_name)  CONTENT{
+                    name:$parent_name
+                }
+                };
+            };
+
+
+            FOR $firm in $reduced_names{
+                UPDATE type::record($firm.id) SET parent_firm = type::thing("parent_firm",$firm._n); 
+            };
+            """
+
+        # process_hedges(connection)
+        # process_vcs(connection)
+        # process_books_records_holders(connection)
+        # dedupe_out_registered(connection)
+        # process_custodian_subisdiaries(connection)
+        try:
+            # Execute the SurrealQL query with the constructed parameters.
+            # 'SurrealParams.ParseResponseForErrors' is assumed to be a helper function
+            # to handle potential errors in the SurrealDB response.
+            SurrealParams.ParseResponseForErrors(
+                connection.query_raw(simple_firm_reductiuon_surql)
+            )
+        except Exception as e:
+            # Log and raise an exception if there's an error during insertion.
+            logger.error(f"Error inserting data into SurrealDB: {e}")
+            raise
 
             
 

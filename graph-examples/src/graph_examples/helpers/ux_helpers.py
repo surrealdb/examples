@@ -120,6 +120,7 @@ def convert_adv_custodian_graph_to_ux_data(
     source_node_weight_field: Optional[str],
     target_node_weight_field: Optional[str],
     edge_weight_field: Optional[str],
+    use_parent_aggregation: Optional[bool] = False,
 ) -> Optional[Dict[str, Any]]:
     """
     Transforms data retrieved from a SurrealDB graph query about ADV custodians
@@ -180,9 +181,16 @@ def convert_adv_custodian_graph_to_ux_data(
     edge_weight_max = -edge_weight_min
 
     for row in data:
+        in_id = None
+        out_id = None
+        if use_parent_aggregation:
+            in_id = "p:" + row["in"]["parent_firm"] if row["in"] else None
+            out_id = "p:" + row["out"]["parent_firm"] if row["out"] else None
+        else:
+            in_id = row["in"]["identifier"] if row["in"] else None
+            out_id = row["out"]["identifier"] if row["out"] else None
 
-        in_id = row["in"]["identifier"] if row["in"] else None
-        out_id = row["out"]["identifier"] if row["out"] else None
+        
         if in_id and out_id:
             if in_id not in nodes:
                 node = {
@@ -197,6 +205,8 @@ def convert_adv_custodian_graph_to_ux_data(
                 nodes[in_id] = node
             else:
                 nodes[in_id]["edge_count"] += 1
+                if use_parent_aggregation and "assets_under_management" in row:
+                    nodes[in_id]["assets_under_management"] += row["assets_under_management"]
 
             node_weight = nodes[in_id].get(source_node_weight_field)
             if node_weight is not None:
@@ -206,7 +216,6 @@ def convert_adv_custodian_graph_to_ux_data(
                     source_node_weight_min = node_weight
 
             if out_id not in nodes:
-                
                 node = {
                     "id": out_id,
                     "name": f"{row['out']['name']}",  
@@ -219,6 +228,8 @@ def convert_adv_custodian_graph_to_ux_data(
                 nodes[out_id] = node
             else:
                 nodes[out_id]["edge_count"] += 1
+                if use_parent_aggregation and "assets_under_management" in row:
+                    nodes[out_id]["assets_under_management"] += row["assets_under_management"]
 
             
             node_weight = nodes[out_id].get(target_node_weight_field)
@@ -230,15 +241,35 @@ def convert_adv_custodian_graph_to_ux_data(
 
 
             edge_id_counter += 1
+            edge_id = None
+            edge = None
+            if use_parent_aggregation:
+                edge_id = f"{in_id},{out_id},{row["custodian_type"]}"
+                if edge_id not in edges:
+                    edge = {
+                            "id": edge_id,
+                            "source": in_id,
+                            "target": out_id,
+                            "custodian_type": row["custodian_type"],
+                            "description": row.get("description"),  
+                            "assets_under_management": row.get("assets_under_management"),
+                        }
+                else:   
+                    edge = edges[edge_id]
+                    edge["description"] += row.get("description")
+                    edge["assets_under_management"] += row.get("assets_under_management")
 
-            edge = {
-                        "id": f"{row["id"].id}",
-                        "source": row["in"]["identifier"],
-                        "target": row["out"]["identifier"],
+            else:
+                edge_id = f"{row["id"].id}"
+                edge = {
+                        "id": edge_id,
+                        "source": in_id,
+                        "target": out_id,
                         "custodian_type": row["custodian_type"],
                         "description": row.get("description"),  
                         "assets_under_management": row.get("assets_under_management"),
                     }
+                  
 
             if edge_weight_field:
                 edge_weight = row.get(edge_weight_field)
@@ -248,8 +279,8 @@ def convert_adv_custodian_graph_to_ux_data(
                     if edge_weight < edge_weight_min:
                         edge_weight_min = edge_weight
 
-            edges.append(edge)
-            
+            edges[edge_id] = edge
+                
 
     return {"nodes": list(nodes.values()), "edges": edges, 
             "source_node_weight_min":source_node_weight_min, "source_node_weight_max":source_node_weight_max, 
