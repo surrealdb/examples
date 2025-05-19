@@ -13,6 +13,22 @@
 </div>
 {% endif %}
     <script>
+        function formatMillions(number) {
+            if (isNaN(number)) {
+                return number;
+            }
+
+            const millions = number / 1000000;
+            const formattedMillions = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }).format(millions);
+
+            return formattedMillions + "M";
+        }
+
  
 
         edge_weight_field = {{ edge_weight_field | tojson }};
@@ -75,7 +91,7 @@
                     edge_count: node.edge_count,
                     weight: node[node_weight_field],
                     is_source:is_source,
-                    font_size: calculateWeightFactor( node[node_weight_field], node_weight_min, node_weight_max, 10, 100)
+                    font_size: calculateWeightFactor( node[node_weight_field], node_weight_min, node_weight_max, 10, 30)
                 });
             });
 
@@ -99,7 +115,7 @@
 
                         
                         graph.addLink(edge.source, edge.target, {
-                            label: edge[edge_label_field],
+                            label: formatMillions(edge[edge_label_field]),
                             weight: edge[edge_weight_field],
                             link: use_parent_aggregation ? "#" : "/is_custodian_for/" + edge.id,
                             //    + "&identifier_in=" + edge.source

@@ -179,19 +179,26 @@ def convert_adv_custodian_graph_to_ux_data(
     for row in data:
         in_id = None
         out_id = None
+        in_name = None
+        out_name = None
         if use_parent_aggregation:
             in_id = "p:" + row["in"]["parent_firm"].id if row["in"] else None
             out_id = "p:" + row["out"]["parent_firm"].id if row["out"] else None
+            in_name = row["in"]["parent_firm"].id
+            out_name = row["out"]["parent_firm"].id
+            
         else:
             in_id = row["in"]["identifier"] if row["in"] else None
             out_id = row["out"]["identifier"] if row["out"] else None
+            in_name = row['in']['name']
+            out_name = row['out']['name']
 
         
         if in_id and out_id:
             if in_id not in nodes:
                 node = {
                     "id": in_id,
-                    "name": f"{row['in']['name']}", 
+                    "name": in_name, 
                     "firm_type": row["in"]["firm_type"].id, 
                     "edge_count": 0,
                     "total_assets": row["in"]["section_5f"].get("total_regulatory_assets") if ("section_5f" in row["in"] and row["in"]["section_5f"]) else None,
@@ -214,7 +221,7 @@ def convert_adv_custodian_graph_to_ux_data(
             if out_id not in nodes:
                 node = {
                     "id": out_id,
-                    "name": f"{row['out']['name']}",  
+                    "name": out_name,  
                     "firm_type": row["out"]["firm_type"].id, 
                     "edge_count": 0,
                     "total_assets": row["out"]["section_5f"].get("total_regulatory_assets") if ("section_5f" in row["out"] and row["out"]["section_5f"]) else None,
