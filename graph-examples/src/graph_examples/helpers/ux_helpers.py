@@ -184,14 +184,14 @@ def convert_adv_custodian_graph_to_ux_data(
         if use_parent_aggregation:
             in_id = "p:" + row["in"]["parent_firm"].id if row["in"] else None
             out_id = "p:" + row["out"]["parent_firm"].id if row["out"] else None
-            in_name = row["in"]["parent_firm"].id
-            out_name = row["out"]["parent_firm"].id
+            in_name = row["in"]["parent_firm"].id if row["out"] else None
+            out_name = row["out"]["parent_firm"].id if row["out"] else None
             
         else:
             in_id = row["in"]["identifier"] if row["in"] else None
             out_id = row["out"]["identifier"] if row["out"] else None
-            in_name = row['in']['name']
-            out_name = row['out']['name']
+            in_name = row['in']['name'] if row["out"] else None
+            out_name = row['out']['name'] if row["out"] else None
 
         
         if in_id and out_id:
