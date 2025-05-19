@@ -3,6 +3,8 @@ from urllib.parse import quote
 from surrealdb import RecordID
 import datetime
 
+from typing import Dict, List, Any, Optional
+
 
 """Format a SurrealDB RecordID for use in a URL.
 
@@ -109,12 +111,6 @@ def extract_field_value(data, field_name):
 
 
 
-def convert_adv_custodian_graph_to_ux_data(data,source_node_weight_field,target_node_weight_field,edge_weight_field):
-   
-    Python
-
-from typing import Dict, List, Any, Optional
-
 def convert_adv_custodian_graph_to_ux_data(
     data: List[Dict[str, Any]],
     source_node_weight_field: Optional[str],
@@ -168,7 +164,7 @@ def convert_adv_custodian_graph_to_ux_data(
         return None
     
     nodes = {}
-    edges = []
+    edges = {}
     edge_id_counter = 0
 
     source_node_weight_min = float("inf")
@@ -184,8 +180,8 @@ def convert_adv_custodian_graph_to_ux_data(
         in_id = None
         out_id = None
         if use_parent_aggregation:
-            in_id = "p:" + row["in"]["parent_firm"] if row["in"] else None
-            out_id = "p:" + row["out"]["parent_firm"] if row["out"] else None
+            in_id = "p:" + row["in"]["parent_firm"].id if row["in"] else None
+            out_id = "p:" + row["out"]["parent_firm"].id if row["out"] else None
         else:
             in_id = row["in"]["identifier"] if row["in"] else None
             out_id = row["out"]["identifier"] if row["out"] else None
@@ -199,14 +195,14 @@ def convert_adv_custodian_graph_to_ux_data(
                     "firm_type": row["in"]["firm_type"].id, 
                     "edge_count": 0,
                     "total_assets": row["in"]["section_5f"].get("total_regulatory_assets") if ("section_5f" in row["in"] and row["in"]["section_5f"]) else None,
-                    "assets_under_management": row.get("assets_under_management"),
+                    "assets_under_management": 0 if row.get("assets_under_management") is None else row.get("assets_under_management"),
                     "is_source": True,
                 }
                 nodes[in_id] = node
             else:
                 nodes[in_id]["edge_count"] += 1
-                if use_parent_aggregation and "assets_under_management" in row:
-                    nodes[in_id]["assets_under_management"] += row["assets_under_management"]
+                if use_parent_aggregation:
+                    nodes[in_id]["assets_under_management"] += 0 if row.get("assets_under_management") is None else row.get("assets_under_management")
 
             node_weight = nodes[in_id].get(source_node_weight_field)
             if node_weight is not None:
@@ -222,14 +218,14 @@ def convert_adv_custodian_graph_to_ux_data(
                     "firm_type": row["out"]["firm_type"].id, 
                     "edge_count": 0,
                     "total_assets": row["out"]["section_5f"].get("total_regulatory_assets") if ("section_5f" in row["out"] and row["out"]["section_5f"]) else None,
-                    "assets_under_management": row.get("assets_under_management"),
+                    "assets_under_management": 0 if row.get("assets_under_management") is None else row.get("assets_under_management"),
                     "is_source": False,
                 }
                 nodes[out_id] = node
             else:
                 nodes[out_id]["edge_count"] += 1
-                if use_parent_aggregation and "assets_under_management" in row:
-                    nodes[out_id]["assets_under_management"] += row["assets_under_management"]
+                if use_parent_aggregation:
+                    nodes[out_id]["assets_under_management"] += 0 if row.get("assets_under_management") is None else row.get("assets_under_management")
 
             
             node_weight = nodes[out_id].get(target_node_weight_field)
@@ -251,13 +247,13 @@ def convert_adv_custodian_graph_to_ux_data(
                             "source": in_id,
                             "target": out_id,
                             "custodian_type": row["custodian_type"],
-                            "description": row.get("description"),  
-                            "assets_under_management": row.get("assets_under_management"),
+                            "description": "" if row.get("description") is None else row.get("description") ,  
+                            "assets_under_management": 0 if row.get("assets_under_management") is None else row.get("assets_under_management"),
                         }
                 else:   
                     edge = edges[edge_id]
-                    edge["description"] += row.get("description")
-                    edge["assets_under_management"] += row.get("assets_under_management")
+                    edge["description"] += "" if row.get("description") is None else row.get("description") 
+                    edge["assets_under_management"] += 0 if row.get("assets_under_management") is None else row.get("assets_under_management") 
 
             else:
                 edge_id = f"{row["id"].id}"
@@ -267,7 +263,7 @@ def convert_adv_custodian_graph_to_ux_data(
                         "target": out_id,
                         "custodian_type": row["custodian_type"],
                         "description": row.get("description"),  
-                        "assets_under_management": row.get("assets_under_management"),
+                        "assets_under_management":  0 if row.get("assets_under_management") is None else row.get("assets_under_management"),
                     }
                   
 
@@ -282,7 +278,7 @@ def convert_adv_custodian_graph_to_ux_data(
             edges[edge_id] = edge
                 
 
-    return {"nodes": list(nodes.values()), "edges": edges, 
+    return {"nodes": list(nodes.values()), "edges": list(edges.values()), 
             "source_node_weight_min":source_node_weight_min, "source_node_weight_max":source_node_weight_max, 
             "target_node_weight_min":target_node_weight_min, "target_node_weight_max":target_node_weight_max, 
             "edge_weight_min":edge_weight_min, "edge_weight_max":edge_weight_max }

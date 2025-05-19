@@ -273,6 +273,44 @@ class ADVDataHandler():
         return report_data
 
 
+
+    async def get_parent_firm_firms(self,parent_firm_id):
+        """
+        Generates a report on hedge fund custodians, for a parent firm name.
+
+        Returns:
+            A list of dictionaries, where each dictionary represents a hedge fund
+            and includes information about its custodians and total assets under management.
+        """
+       
+        firms = await self.connection.query(
+            """
+                  SELECT identifier,
+                    legal_name,
+                    name,
+                    firm_type.firm_type AS firm_type,
+                    city,
+                    state,
+                    country,
+                    city,
+                    postal_code,
+                                chief_compliance_officer.full_name AS chief_compliance_officer
+            FROM 
+            (SELECT firms.{identifier,
+                                legal_name,
+                                name,
+                                firm_type,
+                                city,
+                                state,
+                                country,
+                                city,
+                                postal_code,
+                                chief_compliance_officer}
+                FROM type::thing('parent_firm',$parent_firm_id)).firms[0];
+        """,params={"parent_firm_id": parent_firm_id}
+        )
+        return firms
+        
     async def get_firms(self):
         """
         Generates a report on hedge fund custodians, ordered by assets under management.

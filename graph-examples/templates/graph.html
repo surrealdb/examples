@@ -23,7 +23,7 @@
         
         the_data = {{ graph_data | tojson }};
 
-
+        use_parent_aggregation = {{ use_parent_aggregation | tojson }};
 
 
 
@@ -71,7 +71,7 @@
                     label: node.name,
                     firm_type: node.firm_type,
                     source_document: node.source_document,
-                    link: "/firms/" + node.id,
+                    link: use_parent_aggregation ? "/parent_firms/" + node.id : "/firms/" + node.id,
                     edge_count: node.edge_count,
                     weight: node[node_weight_field],
                     is_source:is_source,
@@ -101,7 +101,7 @@
                         graph.addLink(edge.source, edge.target, {
                             label: edge[edge_label_field],
                             weight: edge[edge_weight_field],
-                            link: "/is_custodian_for/" + edge.id 
+                            link: use_parent_aggregation ? "#" : "/is_custodian_for/" + edge.id,
                             //    + "&identifier_in=" + edge.source
                             //    + "&identifier_out=" + edge.target
                             //    + "&relationship=" + edge.label 
