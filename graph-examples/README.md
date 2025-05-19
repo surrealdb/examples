@@ -111,9 +111,7 @@ The project follows a sequential processing pipeline executed by Python scripts:
     ```bash
     python3 -m venv .venv
     source .venv/bin/activate
-    pip install -r requirements.txt # Assuming you have a requirements.txt
-    # Or if using setup.py/pyproject.toml:
-    # pip install -e ./
+    pip install -e ./
     ```
 
 3.  **Run the data processing pipeline scripts sequentially:**
