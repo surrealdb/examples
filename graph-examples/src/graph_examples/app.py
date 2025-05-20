@@ -304,7 +304,6 @@ async def b_r_graph(request: fastapi.Request,
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: fastapi.Request, exc: RequestValidationError):
 	exc_str = f'{exc}'.replace('\n', ' ').replace('   ', ' ')
-	#logging.error(f"{request}: {exc_str}")
 	content = {'status_code': 10422, 'message': exc_str, 'data': None}
 	return JSONResponse(content=content, status_code=fastapi.status.HTTP_422_UNPROCESSABLE_ENTITY)
 
@@ -312,10 +311,7 @@ async def validation_exception_handler(request: fastapi.Request, exc: RequestVal
 
 def run_app():
     uvicorn.run("__main__:app", host="0.0.0.0", port=8082, reload=True)
-    # uvicorn.run(
-    #     "__main__:app",  reload=True
-    # )
-
+   
 
 if __name__ == "__main__":
     run_app()

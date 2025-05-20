@@ -157,3 +157,4 @@ data/*
 history.txt
 .python-version
 
+.vscode/
