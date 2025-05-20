@@ -18,7 +18,7 @@ from graph_examples.helpers.adv_data_handler import ADVDataHandler
 
 from fastapi.responses import JSONResponse
 
-from graph_examples.data_processing.process_adviser_firms import FIELD_MAPPING as firm_field_mapping
+from graph_examples.data_processing.process_5_insert_adviser_firms import FIELD_MAPPING as firm_field_mapping
 
 
 # Load configuration parameters
@@ -97,6 +97,15 @@ async def firms(request: fastapi.Request) -> responses.HTMLResponse:
             "request": request,"firms":firms})
 
 
+@app.get("/parent_firms/{parent_firm_id}", response_class=responses.HTMLResponse)
+async def firms(request: fastapi.Request,parent_firm_id: str) -> responses.HTMLResponse:
+
+    data_handler = ADVDataHandler(life_span["surrealdb"])
+    parent_firm_id = parent_firm_id.replace("p:","")
+    firms = await data_handler.get_parent_firm_firms(parent_firm_id)
+    return templates.TemplateResponse("firms.html", {
+            "request": request,"firms":firms})
+
 
 @app.get("/firms/{firm_id}", response_class=responses.HTMLResponse)
 async def firm(request: fastapi.Request,firm_id: str) -> responses.HTMLResponse:
@@ -161,7 +170,8 @@ async def firm_graph(request: fastapi.Request,firm_id: str) -> responses.HTMLRes
                 "source_node_weight_field":source_node_weight_field,
                 "target_node_weight_field":target_node_weight_field,
                 "graph_size":len(graph_data),
-                "graph_size_limit":GRAPH_SIZE_LIMIT})
+                "graph_size_limit":GRAPH_SIZE_LIMIT,
+                "use_parent_aggregation":False})
 
 @app.get("/filings/{filing_id}/graph", response_class=responses.HTMLResponse)
 async def filing_graph(request: fastapi.Request,filing_id: int) -> responses.HTMLResponse:
@@ -181,7 +191,8 @@ async def filing_graph(request: fastapi.Request,filing_id: int) -> responses.HTM
                 "source_node_weight_field":source_node_weight_field,
                 "target_node_weight_field":target_node_weight_field,
                 "graph_size":len(graph_data),
-                "graph_size_limit":GRAPH_SIZE_LIMIT})
+                "graph_size_limit":GRAPH_SIZE_LIMIT,
+                "use_parent_aggregation":False})
 
                 
 @app.get("/raum_graph", response_class=responses.HTMLResponse)
@@ -189,14 +200,15 @@ async def raum_graph(request: fastapi.Request,
     person_graph_filter: str = fastapi.Query(None),
     firm_filter: str = fastapi.Query(None),
     graph_size_limit: int = fastapi.Query(None),
-    firm_type: str = fastapi.Query(None)) -> responses.HTMLResponse:
+    firm_type: str = fastapi.Query(None),
+    use_parent_aggregation: bool = fastapi.Query(None)) -> responses.HTMLResponse:
 
     data_handler = ADVDataHandler(life_span["surrealdb"])
     if not graph_size_limit:
         graph_size_limit = GRAPH_SIZE_LIMIT
     graph_data = await data_handler.get_custodian_graph(custodian_type="RAUM",
                                                         order_by="assets_under_management DESC",
-                                                        person_graph_filter=person_graph_filter,
+                                                        person_filter=person_graph_filter,
                                                         firm_filter=firm_filter,
                                                         limit=graph_size_limit,
                                                         firm_type=firm_type)
@@ -204,7 +216,7 @@ async def raum_graph(request: fastapi.Request,
     source_node_weight_field = "assets_under_management"
     target_node_weight_field = "total_assets"
     edge_weight_field = "assets_under_management"
-    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data,source_node_weight_field,target_node_weight_field,edge_weight_field)
+    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data,source_node_weight_field,target_node_weight_field,edge_weight_field,use_parent_aggregation)
 
 
     return templates.TemplateResponse("graph.html", {
@@ -215,22 +227,24 @@ async def raum_graph(request: fastapi.Request,
                 "source_node_weight_field":source_node_weight_field,
                 "target_node_weight_field":target_node_weight_field,
                 "graph_size":len(graph_data),
-                "graph_size_limit":GRAPH_SIZE_LIMIT})
+                "graph_size_limit":GRAPH_SIZE_LIMIT,
+                "use_parent_aggregation":use_parent_aggregation})
 
               
 @app.get("/pf_graph", response_class=responses.HTMLResponse)
 async def pf_graph(request: fastapi.Request,
-    person_filter: str = fastapi.Query(None),
+    person_graph_filter: str = fastapi.Query(None),
     firm_filter: str = fastapi.Query(None),
     graph_size_limit: int = fastapi.Query(None),
-    firm_type: str = fastapi.Query(None)) -> responses.HTMLResponse:
+    firm_type: str = fastapi.Query(None),
+    use_parent_aggregation: bool = fastapi.Query(None)) -> responses.HTMLResponse:
 
     data_handler = ADVDataHandler(life_span["surrealdb"])
     if not graph_size_limit:
         graph_size_limit = GRAPH_SIZE_LIMIT
     graph_data = await data_handler.get_custodian_graph(custodian_type="PF",
                                                         order_by="assets_under_management DESC",
-                                                        person_filter=person_filter,
+                                                        person_filter=person_graph_filter,
                                                         firm_filter=firm_filter,
                                                         limit=graph_size_limit,
                                                         firm_type=firm_type)
@@ -238,7 +252,7 @@ async def pf_graph(request: fastapi.Request,
     source_node_weight_field = "assets_under_management"
     target_node_weight_field = "total_assets"
     edge_weight_field = "assets_under_management"
-    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data,source_node_weight_field,target_node_weight_field,edge_weight_field)
+    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data,source_node_weight_field,target_node_weight_field,edge_weight_field,use_parent_aggregation)
 
 
     return templates.TemplateResponse("graph.html", {
@@ -249,14 +263,16 @@ async def pf_graph(request: fastapi.Request,
                 "source_node_weight_field":source_node_weight_field,
                 "target_node_weight_field":target_node_weight_field,
                 "graph_size":len(graph_data),
-                "graph_size_limit":GRAPH_SIZE_LIMIT})
+                "graph_size_limit":GRAPH_SIZE_LIMIT,
+                "use_parent_aggregation":use_parent_aggregation})
 
 @app.get("/b_r_graph", response_class=responses.HTMLResponse)
 async def b_r_graph(request: fastapi.Request,
     person_graph_filter: str = fastapi.Query(None),
     firm_filter: str = fastapi.Query(None),
     graph_size_limit: int = fastapi.Query(None),
-    firm_type: str = fastapi.Query(None)) -> responses.HTMLResponse:
+    firm_type: str = fastapi.Query(None),
+    use_parent_aggregation: bool = fastapi.Query(None)) -> responses.HTMLResponse:
 
     if not graph_size_limit:
         graph_size_limit = GRAPH_SIZE_LIMIT
@@ -264,14 +280,14 @@ async def b_r_graph(request: fastapi.Request,
     data_handler = ADVDataHandler(life_span["surrealdb"])
     graph_data = await data_handler.get_custodian_graph(custodian_type='A third-party unaffiliated record keeper',
                                                         description_matches = ["cloud","data"],
-                                                        person_graph_filter=person_graph_filter,
+                                                        person_filter=person_graph_filter,
                                                         firm_filter=firm_filter,
                                                         limit=graph_size_limit,
                                                         firm_type=firm_type)
     source_node_weight_field = "edge_count"
     target_node_weight_field = "total_assets"
     edge_weight_field = "assets_under_management"
-    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data,source_node_weight_field,target_node_weight_field,edge_weight_field)
+    ux_graph_data  = convert_adv_custodian_graph_to_ux_data(graph_data,source_node_weight_field,target_node_weight_field,edge_weight_field,use_parent_aggregation)
 
 
     return templates.TemplateResponse("graph.html", {
@@ -282,12 +298,12 @@ async def b_r_graph(request: fastapi.Request,
                 "source_node_weight_field":source_node_weight_field,
                 "target_node_weight_field":target_node_weight_field,
                 "graph_size":len(graph_data),
-                "graph_size_limit":GRAPH_SIZE_LIMIT})
+                "graph_size_limit":GRAPH_SIZE_LIMIT,
+                "use_parent_aggregation":use_parent_aggregation})
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: fastapi.Request, exc: RequestValidationError):
 	exc_str = f'{exc}'.replace('\n', ' ').replace('   ', ' ')
-	#logging.error(f"{request}: {exc_str}")
 	content = {'status_code': 10422, 'message': exc_str, 'data': None}
 	return JSONResponse(content=content, status_code=fastapi.status.HTTP_422_UNPROCESSABLE_ENTITY)
 
@@ -295,10 +311,7 @@ async def validation_exception_handler(request: fastapi.Request, exc: RequestVal
 
 def run_app():
     uvicorn.run("__main__:app", host="0.0.0.0", port=8082, reload=True)
-    # uvicorn.run(
-    #     "__main__:app",  reload=True
-    # )
-
+   
 
 if __name__ == "__main__":
     run_app()

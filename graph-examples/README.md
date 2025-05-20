@@ -1,594 +1,176 @@
-#   ADV Filing Graph Extractor and Visualization Tool 
+# ADV Filing Graph Extractor and Firm Disambiguation Tool
 
-This project provides tools for extracting and visualizing data from ADV (Uniform Application for Investment Adviser Registration) filings. It focuses on specific data points relevant to the hedge fund and investor communities, as well as those related to fintech and cloud data processing. The system leverages SurrealDB for data storage and retrieval and employs full-text search for efficient entity matching.
+This project provides tools for extracting, processing, and visualizing data from SEC ADV (Uniform Application for Investment Adviser Registration) filings. It specifically focuses on data points relevant to hedge funds, venture capital firms, banks, custodians, and technology providers. A core feature is the sophisticated firm name disambiguation pipeline using custom cleaning functions and a FastText embedding model to resolve inconsistencies and identify entities across different filing sections. The processed data is stored and queried using SurrealDB, leveraging its graph capabilities, and visualized through a web application.
 
+## Key Capabilities
 
+* **Targeted Data Extraction:** Scrapes and parses ADV filings from the SEC, focusing on:
+    * **Section 7b1:** Separately Managed Account (SMA) details, highlighting assets managed by Hedge Funds and VCs (valuable for competitive analysis within the HF/VC community).
+    * **Section 5k3:** SMA custodian information (primarily relevant for banks, custodians, and regulators monitoring market share and infrastructure).
+    * **Schedule D (Books and Records):** Lists third-party service providers, including cloud hosting platforms like AWS and Snowflake (useful for technology firms tracking market adoption).
+* **Advanced Firm Name Disambiguation:**
+    * Implements a custom cleaning function (`fn::clean_company_string`) to normalize firm names by removing common jargon, geographic terms, punctuation, and standardizing initial formats (e.g., "J. P. Morgan" -> "JP MORGAN").
+    * Trains a FastText (skipgram) embedding model specifically on the cleaned, distinct firm names found in the filings (`minn=2` to capture initials, `minCount=1` to ensure coverage).
+    * Generates representative vectors for firms (`fn::firm_name_to_vector`) by averaging the embeddings of their constituent cleaned words.
+    * Utilizes vector similarity search combined with a weighted string-similarity scoring function (`fn::firm_match_score`) considering legal name, common name, cleaned name, and geographic data (city, state, country) to accurately match firms across different sections, even with messy input data.
+* **Knowledge Graph Construction:** Builds relationships within SurrealDB:
+    * `is_compliance_officer`: Links firms to their compliance officers.
+    * `signed`: Links filings to the signing officer.
+    * `custodian_for`: Links firms (clients) to their custodians, capturing the type of relationship (Third-party, Affiliate, Other, Private Fund, RAUM).
+    * `parent_firm`: Establishes hierarchical relationships between parent firms and subsidiaries based on name analysis.
+* **Data Storage and Querying:** Leverages SurrealDB for efficient storage, graph traversal, and querying using semantic (vector), full-text, and filtered approaches.
+* **Web-Based Visualization:**
+    * Provides table views for structured data like asset holdings.
+    * Enables hierarchical navigation of firm relationships.
+    * Offers dynamic graph visualization (using VivaGraphJS) of the connections between entities (e.g., firms, custodians, officers).
 
-##   Key Capabilities
+## The Firm Name Challenge
 
-* **Data Extraction:** Extracts structured data from ADV filings, focusing on:
-    * Separately Managed Account (SMA) listings for hedge funds.
-    * SMA custodians for investors.
-    * Books and records listings for fintech and cloud data processors.
-* **Data Storage and Retrieval:** Utilizes SurrealDB for efficient storage and retrieval of extracted data.
-* **Entity Matching:** Employs full-text search to accurately match entities within the filings.
-* **Data Visualization:**
-    * Table-based visualization of asset holdings.
-    * Hierarchical navigation within the data via knowledge graphs.
-    * Dynamic graph visualization of relationships.
+A significant challenge with ADV data is the inconsistency in how firm names are reported, especially in free-text fields within sections like Schedule D. The master list of advisers provides relatively clean names but lacks parent-subsidiary links. Names extracted from other sections can be variations, include abbreviations, or miss legal identifiers. This project addresses this by:
 
-The backend is built with FastAPI, the UI with Jinja2, and dynamic interactivity is achieved with htmx.
+1.  **Cleaning:** Applying a robust cleaning function to strip away noise and standardize name components.
+2.  **Embedding:** Training a FastText model to learn semantic relationships between words and sub-words (like initials) specific to the financial domain context found in the filings.
+3.  **Vectorization:** Representing each firm name as a numerical vector based on its cleaned components.
+4.  **Matching:** Using efficient vector search to find likely candidates, followed by a fine-grained scoring function that blends vector similarity (implied) with weighted string comparisons across multiple fields (name, location) to confirm matches.
 
-##   Data Sources
+## Workflow & Processing Pipeline
 
-* **SEC ADV Filings:** Data is extracted from the official [Investment Adviser Public Disclosure website](https://adviserinfo.sec.gov/) using custom Python scripts.
+The project follows a sequential processing pipeline executed by Python scripts:
 
-##   Technology Stack
+1.  **Download Data (`process_1_download_adv_data.py`):** Scrapes the SEC website using Beautiful Soup to download ADV filing zip archives containing CSVs and XLS files.
+2.  **Train Embedding Model (`process_2_train_firm_fast_text.py`):**
+    * Extracts all firm names from various sections.
+    * Applies the `fn::clean_company_string` function.
+    * Trains a FastText model on the distinct cleaned names and saves the model.
+3.  **Setup Database (`process_3_create_database.py`):** Initializes the SurrealDB schema, namespaces, and tables.
+4.  **Insert Embedding Model (`process_4_insert_firm_ft_model.py`):** Loads the trained FastText word vectors into the `embeddings` table in SurrealDB for efficient lookup.
+5.  **Load Master Firms (`process_5_insert_adviser_firms.py`):**
+    * Inserts firms from the master adviser list.
+    * Creates aliases for lookup (SEC number, legal name).
+    * Populates the `is_compliance_officer` graph relationship.
+6.  **Add Initial Indexes (`process_6_add_adv_firm_indexes.py`):** Creates indexes, including vector indexes, on the firm data to accelerate searching.
+7.  **Load Base Filings (`process_7_insert_adv_base_a_filings.py`):**
+    * Inserts core filing information, linking back to the master firms.
+    * Populates the `signed` graph relationship.
+8.  **Load Section D Data & Match (`process_8_a/b/c_*.py`):**
+    * Processes Section 7b1 (HF/VC SMAs), 5k3 (Custodian SMAs), and Books & Records data.
+    * For each firm mentioned in these sections:
+        * Cleans the name.
+        * Generates its vector using `fn::firm_name_to_vector`.
+        * Performs a vector search in SurrealDB to find potential matches from the master list.
+        * Applies the `fn::firm_match_score` function to score and confirm the best match above a threshold.
+        * Inserts the data, linking to the matched firm or creating a new firm record if no suitable match is found (common for many custodians or service providers).
+    * Populates the `custodian_for` graph relationship.
+9.  **Consolidate Firms (`process_9_insert_firm_consolidation.py`):** Analyzes firm names (potentially using the cleaned strings) to identify and create `parent_firm` entities using reference records.
+10. **Add Final Indexes (`process_10_add_adv_app_search_indexes.py`):** Creates additional indexes optimized for the application's search and exploration features.
+11. **Launch Application (`app.py`):** Starts the FastAPI web server providing the UI for querying and visualizing the graph.
+
+## Technology Stack
 
 * **Backend:** FastAPI (Python)
-* **Frontend:** Jinja2 (Templating), htmx (Dynamic HTML)
-* **Database:** SurrealDB
-* **Entity Matching:** Full-text search (SurrealDB)
+* **Frontend:** Jinja2 (Templating), htmx (Dynamic HTML Interactivity)
+* **Database:** SurrealDB (v2.2.x+ or Cloud) - Handles storage, graph relationships, vector search, and full-text search.
+* **Data Processing:** Python, Beautiful Soup (Scraping), Pandas (Data Handling), FastText (Embeddings)
 
-##   Visualization
+## Graph Relationships Created
 
-* **Tables:** Display asset holding information in a structured, tabular format.
-* **Hierarchy Navigation:** Enables users to explore relationships and data structures within the ADV filings.
-* **Dynamic Graph Visualization:** Presents relationships between entities (e.g., custodians and funds) using a dynamic graph interface. (Uses VivaGraphJS - similar to the example).
+* `(Firm)-[:is_compliance_officer]->(Person)`
+* `(Filing)-[:signed]->(Person)`
+* `(Firm)-[:custodian_for {type: string}]->(Firm)` (Where type is 'Third-party unaffiliated', 'Branch/Affiliate', 'Other', 'PF', 'RAUM')
+* `(Firm)-[:parent]->(Firm)`
 
-##   Setup
+## Visualization
 
-* **Hardware:** A machine with sufficient resources to handle data processing and visualization is recommended.
-* **SurrealDB:** Version 2.2.x or later or [SurrealDB Cloud](https://surrealdb.com/cloud) is required. [SurrealDB Installation](https://surrealdb.com/install).
-* **Python:** Version 3.11 is recommended.
-* **Environment Variables:**
-    * Set these in your shell configuration (e.g., `.bashrc`, `.zshrc`) or use a `.env` file.
-    ```
+* **Tables:** Structured display of extracted data points.
+* **Hierarchy Navigation:** Tree-like views to explore parent-subsidiary structures.
+* **Dynamic Graph Visualization:** Interactive graph powered by VivaGraphJS showing connections between firms, custodians, and potentially officers.
+
+## Setup
+
+* **Hardware:** A machine with sufficient RAM and CPU for data processing (especially embedding training and vector indexing) and running SurrealDB.
+* **SurrealDB:** Version 2.2.x or later or [SurrealDB Cloud](https://surrealdb.com/cloud). See [SurrealDB Installation](https://surrealdb.com/install).
+* **Python:** Version 3.11 recommended.
+* **Environment Variables:** Set these in your environment (e.g., `.bashrc`, `.zshrc`, `.env` file):
+    ```bash
     SURREAL_ADV_USER=<SurrealDB username>
     SURREAL_ADV_PASS=<SurrealDB password>
-    SURREAL_ADV_DB_URL=<SurrealDB connection URL> (e.g., ws://localhost:8000 or wss://xxx_cloud_id_xxx.surreal.cloud)
-    SURREAL_ADV_DB_NS=<SurrealDB namespace> (e.g., ADV_NS)
-    SURREAL_ADV_DB_DB=<SurrealDB database> (e.g., ADV_DB)
+    SURREAL_ADV_DB_URL=<SurrealDB connection URL (e.g., ws://localhost:8000 or wss://cloud_id.surreal.cloud)>
+    SURREAL_ADV_DB_NS=<SurrealDB namespace (e.g., ADV_NS)>
+    SURREAL_ADV_DB_DB=<SurrealDB database (e.g., ADV_DB)>
     ```
 
-##   Getting Started
+## Getting Started
 
-1.  **Clone:**
-
+1.  **Clone the repository:**
     ```bash
     git clone <your_repo_url>
     cd <your_repo_directory>
     ```
 
-2.  **Install:**
-
+2.  **Set up Python environment and install dependencies:**
     ```bash
     python3 -m venv .venv
     source .venv/bin/activate
     pip install -e ./
     ```
 
-3.  **Setup:**
-
-    Run the python files in order
-
-    ###   Processing ADV Filings
-
+3.  **Run the data processing pipeline scripts sequentially:**
     ```bash
-   
-    python /src/graph_examples/data_processing/download_adv_data.py
-    python /src/graph_examples/data_processing/create_database.py 
-    python /src/graph_examples/data_processing/process_adviser_firms.py 
-    python /src/graph_examples/data_processing/process_adv_base_a_filings.py 
-    python /src/graph_examples/data_processing/process_adv_schedule_d_7b1_s.py 
-    python /src/graph_examples/data_processing/process_adv_schedule_d_5k3_s.py 
-    python /src/graph_examples/data_processing/process_adv_schedule_d_books_records.py 
+    # 1. Download
+    python src/graph_examples/data_processing/process_1_download_adv_data.py
+
+    # 2. Train Embeddings
+    python src/graph_examples/data_processing/process_2_train_firm_fast_text.py
+
+    # 3. Setup DB Schema
+    python src/graph_examples/data_processing/process_3_create_database.py --url_env SURREAL_ADV_DB_URL --user_env SURREAL_ADV_USER --pass_env SURREAL_ADV_PASS --namespace_env SURREAL_ADV_DB_NS --database_env SURREAL_ADV_DB_DB # Pass args or rely on defaults
+
+    # 4. Insert Embedding Model into DB
+    python src/graph_examples/data_processing/process_4_insert_firm_ft_model.py # Args as above
+
+    # 5. Insert Master Adviser Firms & Compliance Officers
+    python src/graph_examples/data_processing/process_5_insert_adviser_firms.py # Args as above
+
+    # 6. Add Vector & Other Indexes
+    python src/graph_examples/data_processing/process_6_add_adv_firm_indexes.py # Args as above
+
+    # 7. Insert Base Filings & Signers
+    python src/graph_examples/data_processing/process_7_insert_adv_base_a_filings.py # Args as above
+
+    # 8. Insert Section D data (matching firms using embeddings)
+    python src/graph_examples/data_processing/process_8_a_insert_adv_schedule_d_7b1_s.py # Args as above
+    python src/graph_examples/data_processing/process_8_b_insert_adv_schedule_d_5k3_s.py # Args as above
+    python src/graph_examples/data_processing/process_8_c_insert_adv_schedule_d_books_records.py # Args as above
+
+    # 9. Create Parent-Child Firm Links
+    python src/graph_examples/data_processing/process_9_insert_firm_consolidation.py # Args as above
+
+    # 10. Add Final Application Search Indexes
+    python src/graph_examples/data_processing/process_10_add_adv_app_search_indexes.py # Args as above
     ```
+    *Note: Ensure the script arguments (for DB connection etc.) are passed correctly, either via command line flags or by relying on the environment variables being picked up within the scripts.*
 
-
-
-    ###   Launch the app (currently hardcoded as http://0.0.0.0:8082/):
-
+4.  **Launch the web application:**
     ```bash
-    python /src/graph_examples/app.py
+    python src/graph_examples/app.py
     ```
+    Access the application in your browser (typically `http://localhost:8082` or as configured).
 
+## Key Libraries
 
-    ###   Script Details (Example - Adjust as needed)
+* **FastAPI:** Modern web framework for building APIs.
+* **Jinja2:** Templating engine for generating HTML.
+* **htmx:** Enables dynamic front-end interactions without complex JavaScript.
+* **SurrealDB (Client):** Python library for interacting with SurrealDB.
+* **Beautiful Soup:** Library for parsing HTML/XML, used for scraping.
+* **Pandas:** Data manipulation and analysis library.
+* **FastText:** Library for efficient text classification and representation learning (word embeddings).
 
-    * **`paramaters for the scripts`:**
-        * Downloads, extracts, and processes ADV filings data.
-        * Arguments (Example - adjust based on your scripts):
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
+## UI Libraries
 
-##   Key Libraries
+* **Lightpick:** Lightweight date range picker. [https://wakirin.github.io/Lightpick/](https://wakirin.github.io/Lightpick/)
+* **VivaGraphJS:** Library for graph drawing and visualization. [https://github.com/anvaka/VivaGraphJS/](https://github.com/anvaka/VivaGraphJS/)
 
-This project leverages several powerful libraries to achieve its functionality:
+## Acknowledgments
 
-* **FastAPI:** A modern, fast (high-performance), web framework for building APIs with Python 3.7+ based on standard Python type hints.
-* **Jinja2:** A fast, expressive, and extensible templating engine. HTML, XML or other markup formats can be generated via templates.
-* **SurrealDB:** A multi-model database system that supports SQL, graph queries, and real-time collaboration. [SurrealDB Installation](https://surrealdb.com/install)
-
-##   UI Libraries
-
-* **Lightpick:** A lightweight, customizable date range picker. [https://wakirin.github.io/Lightpick/](https://wakirin.github.io/Lightpick/)
-* **VivaGraphJS:** A graph drawing library. [https://github.com/anvaka/VivaGraphJS/](https://github.com/anvaka/VivaGraphJS/)
-
-##   Acknowledgments
-
-
-
-
-
-## Key Capabilities
-
-* **Data Ingestion and Processing:** Import and process data from diverse sources (Wikipedia, SEC Edgar filings).
-* **Knowledge Graph Extraction:** Extract structured knowledge (entities and relationships) from text.
-* **Knowledge Graph-Augmented RAG:** Explore different strategies for incorporating knowledge graphs into RAG pipelines.
-* **Embedding Model Flexibility:** Integrate and manage multiple embedding models (GloVe, FastText, OpenAI).
-* **LLM Integration:** Support for both API-hosted and locally hosted LLMs, with configurable invocation methods.
-* **Advanced RAG Techniques:** Fine-grained control over context management, prompt engineering, and response generation.
-* **User Interface:** A dynamic UI for chat interactions, message inspection, and graph visualization.
-
-The backend is built with FastAPI, the UI with Jinja2, and dynamic interactivity is achieved with htmx.
-
-## Data Sources
-
-* **Wikipedia (Simple English):** For broad knowledge retrieval. The data is downloaded from [OpenAI Wikipedia articles](https://cdn.openai.com/API/examples/data/vector_database_wikipedia_articles_embedded.zip).
-* **SEC Edgar Filings:** Detailed financial and business data. Filings are retrieved from the official [SEC's EDGAR database](https://www.sec.gov/edgar/searchedgar/companysearch.html) using the [EDGAR tools library](https://github.com/dgunning/edgartools/)
-
-## Knowledge Graph Features
-
-* **Extraction:** An NLP pipeline extracts entities and relationships from text, forming knowledge graphs using the [spaCy library](https://spacy.io/).
-* **Visualization:** The UI visualizes the extracted knowledge graphs and allows you to explore how the entities are related.
-
-## Embedding Model Support
-
-* **Supported Models:**
-    * OpenAI's `text-embedding-ada-002`: A strong general-purpose model. [OpenAI Embeddings Documentation](https://platform.openai.com/docs/guides/embeddings)
-    * GloVe (Global Vectors for Word Representation): A classic word embedding model. (Sentence embeddings are created by averaging word vectors). [GloVe Project Page](https://nlp.stanford.edu/projects/glove/)
-    * FastText: Efficient word representations, particularly good with morphology [FastText Project Page](https://fasttext.cc/).
-    * Integrate other models by modifying `surrealdb_rag/data_processing/embeddings.py`.
-* **Configuration:** You can configure which embedding models are used for different corpus tables, allowing for tailored retrieval strategies.
-* **Extensibility:** Easily integrate other embedding models.
-
-##   LLM Integration
-
-* **LLM Providers:**
-    * **API-hosted:** ChatGPT, Gemini, etc. (API keys are required).
-        * ChatGPT: [OpenAI Developer Quickstart](https://platform.openai.com/docs/quickstart)
-        * Gemini: [Google AI Studio](https://ai.google.dev/)
-    * **Locally hosted (Ollama):** Any LLM from `ollama pull`. [Ollama](https://ollama.ai/) and [Ollama Model Library](https://ollama.ai/library)
-    * LLM calls can be made via API calls or HTTP requests within SurrealDB.
-* **Control:**
-    * Prompt engineering via the UI
-    * Context management (chat history, chunk count)
-
-##   User Interface
-
-* Chat history management
-* Detailed message inspection
-* Knowledge graph visualization
-* RAG parameter configuration
-
-##   Setup
-
-* **Hardware:** A modern machine with sufficient RAM is recommended, especially for local LLM execution and handling large embedding models. An Apple M2 Pro was used for development.
-* **SurrealDB:** Version 2.2.x or later or [SurrealDB Cloud](https://surrealdb.com/cloud) is required. [SurrealDB Installation](https://surrealdb.com/install).
-* **Python:** Version 3.11 is recommended. 
-* **LLM API Keys:**
-    * OpenAI: Required for using OpenAI's embedding and LLM models. Obtain one from the [OpenAI Developer Quickstart](https://platform.openai.com/docs/quickstart).
-    * Google Gemini: Required if using Gemini. Obtain from [Google AI Studio](https://ai.google.dev/).
-* **Environment Variables:**
-    * Set these in your shell configuration (e.g., `.bashrc`, `.zshrc`) or use a `.env` file.
-    ```
-    SURREAL_RAG_USER=<SurrealDB username>
-    SURREAL_RAG_PASS=<SurrealDB password>
-    SURREAL_RAG_DB_URL=<SurrealDB connection URL> (e.g., ws://localhost:8000 or wss://xxx_cloud_id_xxx.surreal.cloud)
-    SURREAL_RAG_DB_NS=<SurrealDB namespace> (e.g. RAG_NS)
-    SURREAL_RAG_DB_DB=<SurrealDB namespace> (e.g. RAG_DB)
-
-    OPENAI_API_KEY     # OpenAI API Key (if using ChatGPT)
-    GOOGLE_GENAI_API_KEY # Google Gemini API Key (if using Gemini)
-    ```
-    * **Crucially:** Ensure your OpenAI and Gemini keys are also added to the `surrealdb_rag/schema/common_function_ddl.surql` file. This allows SurrealDB functions to access them when making external API calls.
-
-##   Getting Started
-
-1.  **Clone:**
-
-    ```bash
-    git clone [https://github.com/apireno/examples.git](https://github.com/apireno/examples.git)
-    cd examples/surrealdb-rag
-    ```
-
-2.  **Install:**
-
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate
-    pip install -e ./
-    ```
-
-3.  **Run Scripts:**
-
-    Execute scripts using the script names defined in `pyproject.toml` (under `[project.scripts]`). You no longer need to explicitly call `python3 surrealdb_rag/scripts.py`.
-
-    **Important Notes:**
-
-    * Replace `<SURREALDB_URL>`, `<START_DATE>`, `<END_DATE>`, `<FORM_TYPES>`, and `<TICKERS>` with your actual values.
-    * Dates should be in the format `YYYY-MM-DD`.
-    * Form types and tickers should be comma-separated lists (e.g., `"10-K,10-Q"`, `"AAPL,MSFT"`).
-
-    Here are some examples of how to run the scripts.
-
-    ###   Wikipedia Setup (End-to-End)
-
-
-    ```bash
-    create_db -url http://localhost:8000
-    download_glove
-    insert_glove -url http://localhost:8000 -emtr GLOVE -emv "6b 300d" -emp data/glove.6B.300d.txt -des "Wikipedia 2014 + Gigaword 5 (6B tokens, 400K vocab, uncased) [https://nlp.stanford.edu/projects/glove/](https://nlp.stanford.edu/projects/glove/)" -cor "Wikipedia 2014 + Gigaword 5 (6B tokens, 400K vocab, uncased)"
-    download_wiki
-    train_wiki
-    insert_wiki_fs
-    add_wiki_vectors
-    insert_wiki -fsv "wiki" -ems GLOVE,FASTTEXT,OPENAI -url http://localhost:8000
-    ```
-
-    Or Just run the script which will call the commands above in order
-
-    ```bash
-        setup_wiki
-    ```
-
-
-    ###   Edgar Data Setup (End-to-End)
-
-    ```bash
-    create_db -url http://localhost:8000
-    download_edgar -edsd 2025-01-01 -edf "10-K,10-Q"
-    train_edgar
-    insert_edgar_fs -url http://localhost:8000
-    add_edgar_vectors -edsd 2025-01-01 -edf "10-K,10-Q" 
-    insert_edgar -fsv "EDGAR Data" -ems GLOVE,FASTTEXT -tn embedded_edgar -dn "Latest SEC filings" -url http://localhost:8000 -il False
-    ```
-
-    Or Just run the script which will call the commands above in order
-
-    ```bash
-        setup_edgar
-    ```
-
-    You can also incrimentally add new data to the EDGAR data source 
-
-    ```bash
-        download_edgar -edsd <some date as of last load> -edf "10-K,10-Q"
-        add_edgar_vectors -edsd <some date as of last load>
-        insert_edgar -fsv "EDGAR Data" -ems GLOVE,FASTTEXT -tn embedded_edgar -dn "Latest SEC filings" -url http://localhost:8000 -il True
-    ```
-
-    Running the following will incrementally load data from 5 days prior
-
-    ```bash
-        incriment_latest_edgar
-    ```
-
-
-
-    ###   Edgar Graph Setup (End-to-End) 
-
-
-    ```bash
-        #First run the setup for edgar data processing
-        edgar_graph_extraction
-        insert_edgar_graph -il False -edsd 2025-01-01
-    ```
-
-    Or Just run the script which will call the commands above in order
-
-    ```bash
-        #First run the setup for edgar data processing
-        setup_edgar_graph
-    ```
-
-    You can also incrimentally add new data to the EDGAR graph data source 
-
-    ```bash
-        download_edgar -edsd <some date as of last load> -edf "10-K,10-Q" -url http://localhost:8000
-        insert_edgar_graph -il True -edsd <some date as of last load>
-    ```
-
-    Running the following will incrementally load data from 5 days prior
-
-    ```bash
-        incriment_latest_edgar_graph
-    ```
-
-
-
-
-    ###   Other samples scripts to be found:
-    * add_ai_edgar: Creates an Edgar data set limited to certain industries
-    * add_large_edgar: Creates an Edgar data set with a large chunking strategy
-
-    ###   Script Details with Arguments
-
-    * **`create_db`:**
-        * Creates the SurrealDB database and schema.
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-    * **`download_glove`:**
-        * Downloads the GloVe word embeddings.
-        * Arguments: None
-    * **`insert_glove`:**
-        * Inserts GloVe embeddings into SurrealDB.
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-            * `-emtr` or `--model_trainer`: The training algorithm ("GLOVE").
-            * `-emv` or `--model_version`: The model version ("6b 300d").
-            * `-emp` or `--model_path`: Path to the GloVe text file.
-            * `-des` or `--description`: Description of the model.
-            * `-cor` or `--corpus`: Description of the training corpus.
-    * **`download_wiki`:**
-        * Downloads the Wikipedia dataset from [OpenAI Wikipedia articles](https://cdn.openai.com/API/examples/data/vector_database_wikipedia_articles_embedded.zip).
-        * Arguments: None
-    * **`train_wiki`:**
-        * Trains a FastText model on the Wikipedia dataset.
-        * Arguments: None
-    * **`insert_wiki_fs`:**
-        * Inserts the FastText model for Wikipedia data.
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-            * `-emtr` or `--model_trainer`: The training algorithm ("FASTTEXT").
-            * `-emv` or `--model_version`: The model version ("wiki").
-            * `-emp` or `--model_path`: Path to the FastText model text file.
-            * `-des` or `--description`: Description of the model.
-            * `-cor` or `--corpus`: Description of the training corpus.
-    * **`add_vectors_to_wiki`:**
-        * Calculates and appends GloVe and FastText vectors to the Wikipedia CSV.
-        * Arguments: None
-    * **`insert_wiki`:**
-        * Inserts the Wikipedia data (including vectors) into SurrealDB.
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-            * `-fsv` or `--fast_text_version`: The FastText model version ("wiki").
-            * `-ems` or `--embed_models`: Comma-separated list of embedding models ("GLOVE,FASTTEXT,OPENAI").
-    * **`setup_wiki`:**
-        * Runs the complete Wikipedia data pipeline.
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-    * **`download_edgar`:**
-        * Downloads SEC Edgar filings from the official [SEC's EDGAR database](https://www.sec.gov/edgar/searchedgar/companysearch.html).
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-            * `-edsd` or `--start_date`: Start date for filing retrieval (YYYY-MM-DD).
-            * `-eded` or `--end_date`: End date for filing retrieval (YYYY-MM-DD).
-            * `-edf` or `--form`: Comma-separated list of form types (e.g., "10-K,10-Q").
-            * `-tic` or `--ticker`: Comma-separated list of ticker symbols (e.g., "AAPL,MSFT").
-    * **`train_edgar`:**
-        * Trains a FastText model on the Edgar filings.
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-    * **`insert_edgar_fs`:**
-        * Inserts the FastText model for Edgar data.
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-            * `-emtr` or `--model_trainer`: The training algorithm ("FASTTEXT").
-            * `-emv` or `--model_version`: The model version ("EDGAR Data").
-            * `-emp` or `--model_path`: Path to the FastText model text file.
-            * `-des` or `--description`: Description of the model.
-            * `-cor` or `--corpus`: Description of the training corpus.
-    * **`add_vectors_to_edgar`:**
-        * Calculates and appends GloVe and FastText vectors to the Edgar CSV.
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-            * `-edsd` or `--start_date`: Start date for filtering filings (YYYY-MM-DD).
-            * `-edf` or `--form`: Comma-separated list of form types (e.g., "10-K,10-Q").
-    * **`insert_edgar`:**
-        * Inserts the Edgar data (including vectors) into SurrealDB.
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-            * `-fsv` or `--fast_text_version`: The FastText model version ("EDGAR Data").
-            * `-ems` or `--embed_models`: Comma-separated list of embedding models ("GLOVE,FASTTEXT").
-            * `-tn` or `--table_name`: Name of the SurrealDB table.
-            * `-dn` or `--display_name`: Display name for the data.
-            * `-il` or `--incrimental_load`: Boolean flag for incremental load (True/False).
-    * **`edgar_graph_extraction`:**
-        * Extracts knowledge graphs from the processed Edgar filings.
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-    * **`insert_edgar_graph`:**
-        * Inserts the extracted knowledge graphs into SurrealDB.
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-            * `-edsd` or `--start_date`: Start date for filtering filings (YYYY-MM-DD).
-            * `-tn` or `--table_name`: Name of the SurrealDB table.
-            * `-il` or `--incrimental_load`: Boolean flag for incremental load (True/False).
-    * **`setup_edgar`:**
-        * Runs the complete Edgar data pipeline.
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-    * **`incriment_latest_edgar_graph`:**
-        * Downloads and inserts the latest Edgar data and its knowledge graph.
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-    * **`app`:**
-        * Starts the FastAPI application.
-        * Arguments:
-            * `-url` or `--url`: The URL of the SurrealDB instance.
-            * `-u` or `--username`: The database username.
-            * `-p` or `--password`: The database password.
-            * `-ns` or `--namespace`: The SurrealDB namespace.
-            * `-db` or `--database`: The SurrealDB database.
-            * `-urlenv` or `--url_env`: The environment variable name for the SurrealDB URL.
-            * `-uenv` or `--user_env`: The environment variable name for the database username.
-            * `-penv` or `--pass_env`: The environment variable name for the database password.
-            * `-nsenv` or `--namespace_env`: The environment variable name for the SurrealDB namespace.
-            * `-dbenv` or `--database_env`: The environment variable name for the SurrealDB database.
-
-##   Key Libraries
-
-This project leverages several powerful libraries to achieve its functionality:
-
-* **FastAPI:** A modern, fast (high-performance), web framework for building APIs with Python 3.7+ based on standard Python type hints.
-* **Jinja2:** A fast, expressive, and extensible templating engine. HTML, XML or other markup formats can be generated via templates.
-* **htmx:** Allows you to access AJAX, CSS Transitions, WebSockets and Server Sent Events directly in HTML, using attributes.
-* **SurrealDB:** A multi-model database system that supports SQL, graph queries, and real-time collaboration. [SurrealDB Installation](https://surrealdb.com/install)
-* **edgar:** A Python library to interact with the SEC EDGAR database.
-* **Transformers:** Provides general-purpose architectures for Natural Language Understanding (NLU) and Natural Language Generation (NLG).
-* **SpaCy:** A library for advanced Natural Language Processing in Python.
-* **FuzzyWuzzy:** A library for string matching and fuzzy string comparison.
-* **python-Levenshtein:** A Python extension for fast computation of the Levenshtein distance and string similarity.
-* **Ollama:** A tool for running Language Models locally. [Ollama](https://ollama.ai/) and [Ollama Model Library](https://ollama.ai/library)
-* **google.generativeai:** Google's library for interacting with their generative AI models (e.g., Gemini).
-* **openai:** OpenAI's Python library for accessing their models and APIs.
-* **wget:** A non-interactive network downloader.
-* **pandas:** A fast, powerful, flexible and easy to use open source data analysis and manipulation tool, built on top of the Python programming language.
-* **pandas-stubs:** Type hints for pandas.
-* **python-multipart:** A parser for multipart/form-data content in Python.
-
-##   UI Libraries
-
-* **Lightpick:** A lightweight, customizable date range picker. [https://wakirin.github.io/Lightpick/](https://wakirin.github.io/Lightpick/)
-* **VivaGraphJS:** A graph drawing library. [https://github.com/anvaka/VivaGraphJS/](https://github.com/anvaka/VivaGraphJS/)
-
-
-##   Acknowledgments
-
-This project builds upon and extends the original work by [Ce11an](https://github.com/Ce11an). Thanks for the initial inspiration and codebase!
+* (Thanks to Andrey)

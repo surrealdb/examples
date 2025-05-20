@@ -23,21 +23,16 @@ DEFINE FUNCTION OVERWRITE fn::firm_type_upsert($firm_type_name:string){
     RETURN $firm_type;
 };
 
-// Defines or overwrites a function to calculate a string match score using normalized Damerau-Levenshtein distance.
 DEFINE FUNCTION OVERWRITE fn::string_match_score($match:option<string>,$value:option<string>){
     // Handles cases where both input strings are NONE, returning a neutral score of 0.5.
-    IF $value IS NONE AND $match IS NONE THEN {
-        RETURN 0.5; #neutral if both are none
-    }
-    ELSE{
-        // If one of the strings is NONE, returns a score of 0, indicating no match.
-        IF $value IS NONE OR $match IS NONE THEN { RETURN 0; }
-        // If both strings have values, calculate the normalized Damerau-Levenshtein distance
-        // between their lowercase versions to get a similarity score.
-        ELSE { RETURN string::distance::normalized_damerau_levenshtein($match.lowercase(),$value.lowercase()); }
-        END ;
-    } END;
+
+    IF $value IS NONE OR $match IS NONE THEN { RETURN 0; }
+    ELSE {
+         RETURN string::distance::normalized_damerau_levenshtein($match.lowercase(),$value.lowercase()); 
+        
+    }END;
 };
+
 
 // Defines or overwrites a function to upsert an IA filing execution type.
 DEFINE FUNCTION OVERWRITE fn::execution_type_upsert($execution_type_name:string){
@@ -49,6 +44,10 @@ DEFINE FUNCTION OVERWRITE fn::execution_type_upsert($execution_type_name:string)
     // Returns the ID of the upserted execution type record.
     RETURN $execution_type;
 };
+
+
+
+
 
 // Defines or overwrites a function to upsert a firm record.
 DEFINE FUNCTION OVERWRITE fn::firm_upsert(
@@ -71,7 +70,6 @@ DEFINE FUNCTION OVERWRITE fn::firm_upsert(
     {  
         // Determines the best identifier for the firm based on the provided optional identifiers.
         LET $identifier = fn::firm_best_identifier($legal_name, $sec_number, $pfid, $legal_entity_identifier,$cik);
-        
         // Upserts the firm type using its name and retrieves its ID.
         LET $firm_type = fn::firm_type_upsert($firm_type_name);
         // Constructs the record ID for the firm.
@@ -90,11 +88,11 @@ DEFINE FUNCTION OVERWRITE fn::firm_upsert(
                 NONE
             END;
 
-
         // Upserts the firm record, merging the provided data with any existing data.
         // Existing values are preserved if the new values are NONE.
         UPSERT $firm MERGE{
             name:IF name IS NONE THEN $name ELSE name END,
+            name_clean:fn::clean_company_string($name),
             identifier:IF identifier IS NONE THEN $identifier ELSE identifier END,
             firm_type:IF firm_type IS NONE THEN $firm_type ELSE firm_type END,
             legal_name:IF legal_name IS NONE THEN $legal_name ELSE legal_name END,
@@ -131,8 +129,6 @@ DEFINE FUNCTION OVERWRITE fn::firm_upsert(
 
 
 
-
-
 // Defines or overwrites a function to upsert a filing record.
 DEFINE FUNCTION OVERWRITE fn::filing_upsert(
     $filing_id: int,
@@ -140,7 +136,8 @@ DEFINE FUNCTION OVERWRITE fn::filing_upsert(
     $execution_type_name: string,
     $execution_date: datetime,
     $signatory_name: string,
-    $signatory_title: string)
+    $signatory_title: string,
+    $crc_number: option<string>)
     {
         // Upserts the execution type using its name and retrieves its ID.
         LET $execution_type = fn::execution_type_upsert($execution_type_name);
@@ -154,7 +151,6 @@ DEFINE FUNCTION OVERWRITE fn::filing_upsert(
 
         // Upserts the signatory information.
         LET $signatory = fn::signatory_upsert(
-            $firm,
             $filing,
             $signatory_name,
             $execution_date,
@@ -175,6 +171,7 @@ DEFINE FUNCTION OVERWRITE fn::filing_upsert(
             firm: $firm,
             execution_type: $execution_type,
             signatory: $signatory,
+            crc_number: $crc_number,
         } RETURN NONE;
 
         // Returns the record ID of the upserted filing.
@@ -244,55 +241,62 @@ DEFINE FUNCTION OVERWRITE fn::firm_best_identifier(
 
 
 
+
 // Defines or overwrites a function to calculate a match score between two firm records based on various string fields.
 DEFINE FUNCTION OVERWRITE fn::firm_match_score(
 $legal_name_match:string,$legal_name:string,
 $name_match:string,$name:string,
+$name_clean_match:string,$name_clean:string,
 $city_match:option<string>,$city:option<string>,
 $state_match:option<string>,$state:option<string>,
-$country_match:option<string>,$country:option<string>)
+$country_match:option<string>,$country:option<string>,
+$min_score:option<float>)
 
 {
     // Calculates individual string match scores for legal name, name, city, state, and country.
     LET $legal_name_score = fn::string_match_score($legal_name_match,$legal_name);
     LET $name_score = fn::string_match_score($name_match,$name);
+    LET $name_clean_score = fn::string_match_score($name_clean_match,$name_clean);
+
+    
     LET $city_score = fn::string_match_score($city_match,$city);
     LET $state_score = fn::string_match_score($state_match,$state);
     LET $country_score = fn::string_match_score($country_match,$country);
     
     // Sets a threshold; if both legal name and name scores are below this, it's considered no match.
-    LET $similarity_threshold = 0.4; #1 is identical
-
-    IF $legal_name_score<$similarity_threshold AND $name_score<$similarity_threshold THEN { RETURN NONE } END;
+    LET $similarity_threshold = 0.1; #1 is identical
     
-    // Defines a factor to penalize large differences between legal name and name scores.
-    LET $similarity_delta_factor = 0.6; #if legal name is wildly different than name
-
+    #IF $legal_name_score<$similarity_threshold AND $name_score<$similarity_threshold THEN { RETURN NONE } END;
     
-    // If the name score is 0, it's considered no match.
-    IF $name_score = 0 THEN { RETURN NONE; } END;
-    // Calculates the relative difference between legal name and name scores.
-    LET $score_delta = math::abs(($legal_name_score-$name_score)/$name_score);
-
-    // If the relative difference is too high, it's considered no match.
-    IF $score_delta > $similarity_delta_factor THEN { RETURN NONE; } END;
-
-
-    // Assigns a higher weight to the legal name score.
-    LET $legal_factor = 4.0; #the higher the more weight to legal name
-    // Calculates a base firm score.
-    LET $ft_score = $legal_factor * $legal_name_score + $name_score;
+    LET $name_score = math::mean([$name_score,$legal_name_score,$name_clean_score]);
 
     // Assigns a lower weight to the geographic match scores.
-    LET $geo_factor = 4.0; #the higher the less weight to geo matching
+    # LET $geo_factor = 2.0; #the higher the less weight to geo matching
     // Combines the base firm score with the weighted geographic scores to produce the final match score.
-    RETURN $ft_score * ($geo_factor + $city_score + $state_score + $country_score) / $geo_factor;
+     
+
+    
+    LET $country_weight = IF $country_match THEN 0.05 ELSE 0 END;
+    LET $state_weight = IF $state_match THEN 0.05 ELSE 0 END;
+    LET $city_weight = IF $city_match THEN 0.05 ELSE 0 END;
+    
+    LET $name_weight = 1 - $country_weight  - $state_weight - $city_weight;
+    
+    LET $final_score = $name_weight * $name_score 
+                        + $country_weight * $country_score 
+                        + $state_weight * $state_score
+                        + $city_weight * $city_score;
+
+
+    LET $min_score = $min_score ?? 0.5;
+
+    RETURN IF $final_score > $min_score THEN $final_score ELSE NONE END;
 };
  
 
 
-
 // Defines or overwrites a function to find a matching firm based on name and optional geographic details.
+
 DEFINE FUNCTION OVERWRITE fn::find_match_for_firm(
     $name: string,
     $legal_name: string,
@@ -302,22 +306,49 @@ DEFINE FUNCTION OVERWRITE fn::find_match_for_firm(
 
     // Queries for firms where either the legal name or name loosely matches the input,
     // calculates a match score for each, and orders the results by score in descending order.
-    LET $matched_firms = SELECT * FROM
+    
+    LET $name_clean = fn::clean_company_string($name);
+    LET $name_clean_vector = fn::firm_name_to_vector($name_clean);
+    
+
+    
+    LET $matched_firms = 
+        IF $name_clean_vector[0] != MATH::NEG_INF THEN 
+                SELECT * FROM
+                (
+                    SELECT id,name,section_5f.total_regulatory_assets AS assets, fn::firm_match_score(
+                            $legal_name,legal_name,
+                            $name,name,
+                            $name_clean,name_clean,
+                            $city,city,
+                            $state,state,
+                            $country,country
+                        ) AS _score FROM firm WHERE
+                                     name_embedding <|10,50|> $name_clean_vector )
+                    WHERE _score IS NOT NONE ORDER BY _score DESC, assets DESC
+
+        ELSE 
+            SELECT * FROM
             (
-                SELECT *, fn::firm_match_score(
+                SELECT id,name,section_5f.total_regulatory_assets AS assets, fn::firm_match_score(
                         $legal_name,legal_name,
                         $name,name,
+                        $name_clean,name_clean,
                         $city,city,
                         $state,state,
                         $country,country
                     ) AS _score FROM firm WHERE
-                                (legal_name @1@ $legal_name OR name @2@ $name))
-                WHERE _score IS NOT NONE ORDER BY _score DESC;
+                                 name_clean.starts_with($name_clean) )
+                WHERE _score IS NOT NONE ORDER BY _score DESC, assets DESC
 
+        END;
+    
     // If any matches are found, return the ID of the top-scoring firm; otherwise, return NONE.
-    IF array::len($matched_firms) > 0 THEN {RETURN $matched_firms.id[0];} ELSE {RETURN NONE;} END;
+    RETURN IF array::len($matched_firms) > 0 THEN $matched_firms.id[0] ELSE NONE END;
+    
 
 };
+
 // Defines or overwrites a function to find a matching firm based on firm aliases.
 DEFINE FUNCTION OVERWRITE fn::find_alias_match_for_firm(
     $legal_name: string, // The legal name of the firm to search for.
@@ -426,11 +457,11 @@ DEFINE FUNCTION OVERWRITE fn::firm_aliases_upsert(
                 country:IF country IS NONE THEN $country ELSE country END
             } RETURN NONE;
 
-            // Updates the primary firm record by adding the newly created/updated alias to its list of aliases.
-            UPDATE $firm
-                SET
-                firm_aliases = IF $firm["firm_aliases"] IS  NONE THEN [$firm_alias] ELSE firm_aliases.union([$firm_alias]) END
-                RETURN NONE;
+            -- // Updates the primary firm record by adding the newly created/updated alias to its list of aliases.
+            -- UPDATE $firm
+            --     SET
+            --     firm_aliases = IF $firm["firm_aliases"] IS  NONE THEN [$firm_alias] ELSE firm_aliases.union([$firm_alias]) END
+            --     RETURN NONE;
         };
 
         // Returns an array of the newly created/updated firm alias record IDs.
@@ -563,7 +594,10 @@ DEFINE FUNCTION OVERWRITE fn::raum_upsert(
         LET $filing = type::thing("filing",$filing_id);
         // Retrieves the firm associated with the filing.
         LET $filing_firm = $filing["firm"];
-
+        IF $filing_firm IS NONE THEN {
+            # invalid filing!
+            RETURN NONE;
+        } END;
         // Retrieves or creates the custodian firm for the RAUM.
         LET $custodian_firm = fn::raum_custodian_get_or_upsert(
             $filing,
@@ -578,6 +612,10 @@ DEFINE FUNCTION OVERWRITE fn::raum_upsert(
         // Determines if the RAUM is a related person (converts string options to boolean).
         LET $related_person = IF $is_related_person IS NONE THEN FALSE ELSE $is_related_person.lowercase() in ["yes","true","1","y"] END;
 
+
+
+
+
         // Creates a relationship indicating the custodian for the filing firm is the RAUM custodian.
         RELATE $custodian_firm->custodian_for:[$custodian_firm,$filing_firm]->$filing_firm  CONTENT{
             in: $custodian_firm,
@@ -586,7 +624,16 @@ DEFINE FUNCTION OVERWRITE fn::raum_upsert(
             custodian_type: custodian_type:`RAUM`,
             legal_entity_identifier: $legal_entity_identifier,
             assets_under_management: $assets_under_management,
-            related_person: $related_person
+            related_person: $related_person,
+            custodian_as_listed:{
+                legal_entity_identifier: $legal_entity_identifier,
+                sec_number: $sec_number,
+                name: $primary_business_name,
+                legal_name: $legal_name,
+                country: $country,
+                state: $state,
+                city: $city,
+            }
         } RETURN NONE;
     };
 
@@ -670,6 +717,10 @@ DEFINE FUNCTION OVERWRITE fn::pf_upsert(
         LET $filing = type::thing("filing",$filing_id);
         // Retrieves the firm associated with the filing.
         LET $filing_firm = $filing["firm"];
+        IF $filing_firm IS NONE THEN {
+            # invalid filing!
+            RETURN NONE;
+        } END;
 
         // Retrieves or creates the custodian firm for the private fund.
         LET $custodian_firm = fn::pf_custodian_get_or_upsert(
@@ -682,6 +733,7 @@ DEFINE FUNCTION OVERWRITE fn::pf_upsert(
             $master_fund_name,
             $state,
             $country);
+
 
         // Creates a relationship indicating the custodian for the filing firm is the private fund custodian.
         RELATE $custodian_firm->custodian_for:[$custodian_firm,$filing_firm]->$filing_firm  CONTENT{
@@ -696,6 +748,16 @@ DEFINE FUNCTION OVERWRITE fn::pf_upsert(
                 percentage_invested: $percentage_invested,
                 unqualified_opinion: $unqualified_opinion,
                 fund_type_other: $fund_type_other
+            },
+            custodian_as_listed:{
+                legal_entity_identifier: NONE,
+                sec_number: NONE,
+                pfid: $fund_id,
+                name: $name,
+                legal_name: $name,
+                country: $country,
+                state: $state,
+                city: $city
             }
         } RETURN NONE;
     };
@@ -746,7 +808,10 @@ DEFINE FUNCTION OVERWRITE fn::b_and_r_upsert(
 
         // Retrieves the firm associated with the filing.
         LET $filing_firm = $filing["firm"];
-
+        IF $filing_firm IS NONE THEN {
+            # invalid filing!
+            RETURN NONE;
+        } END;
         // If there's no firm associated with the filing, return NONE.
         IF $filing_firm IS NONE THEN {
             # no filing!
@@ -765,13 +830,25 @@ DEFINE FUNCTION OVERWRITE fn::b_and_r_upsert(
             $postal_code,
             $country);
 
+
         // Creates a relationship indicating the custodian for the filing firm is the B&R custodian.
         RELATE $custodian_firm->custodian_for:[$custodian_firm,$filing_firm]->$filing_firm  CONTENT{
             in: $custodian_firm,
             out: $filing_firm,
             source_filing: $filing,
             custodian_type: $custodian_type,
-            description: $description
+            description: $description,
+            custodian_as_listed:{
+                legal_entity_identifier: NONE,
+                sec_number: NONE,
+                pfid: NONE,
+                name: $name,
+                legal_name: $name,
+                country: $country,
+                state: $state,
+                city: $city,
+                postal_code: $postal_code
+            }
         } RETURN NONE;
     };
 
@@ -808,18 +885,35 @@ DEFINE FUNCTION OVERWRITE fn::get_name_parts_from_full_name(
         };
     };
 
+// Defines or overwrites a function to generate an array of potential firm identifiers.
+DEFINE FUNCTION OVERWRITE fn::person_identifier_array(
+    $full_name: Option<string>,
+    $email: Option<string>,
+)
+{
+    // Creates an array of potential identifiers, formatting each with a prefix.
+    LET $identifiers =  [
+        IF $full_name IS NOT NONE THEN {
+            "fn:" + $full_name.lowercase();
+        }END,
+        IF $email IS NOT NONE THEN {
+            "e:" + $email.lowercase();
+        }END
+    ];
+    // Filters out any NULL values from the array and returns the remaining identifiers.
+    RETURN $identifiers.filter(|$v| $v IS NOT NONE);
+};
+
 
 // Defines or overwrites a function to find a matching person alias for a given firm, full name, and optional email.
 DEFINE FUNCTION OVERWRITE fn::find_alias_match_for_person(
-    $firm: Record<firm>, // The firm the person is associated with.
     $full_name: string, // The full name of the person.
     $email: Option<string> // The email address of the person, if available.
     ){
-
     // If an email is provided, try to find a person alias based on the firm and email.
     IF $email IS NOT NONE THEN {
         // Construct the record ID for the person alias using the firm and a prefixed email.
-        LET $person_alias = type::thing("person_alias",[$firm,"e:" +$email.lowercase()]);
+        LET $person_alias = type::thing("person_alias","e:" +$email.lowercase());
         // If a person alias with this ID exists and has a linked person, return that person.
         IF $person_alias["person"] IS NOT NONE THEN {
             RETURN $person_alias["person"];
@@ -828,7 +922,7 @@ DEFINE FUNCTION OVERWRITE fn::find_alias_match_for_person(
 
     // If no match is found via email (or no email was provided), try to find a person alias
     // based on the firm and the full name.
-    LET $person_alias = type::thing("person_alias",[$firm,"fn:" +$full_name.lowercase()]);
+    LET $person_alias = type::thing("person_alias","fn:" +$full_name.lowercase());
     // If a person alias with this ID exists and has a linked person, return that person.
     IF $person_alias["person"] IS NOT NONE THEN {
         RETURN $person_alias["person"];
@@ -867,7 +961,6 @@ $title_match:option<string>,$title:option<string>){
 
 // Defines or overwrites a function to find a matching person for a given firm based on name and optional title.
 DEFINE FUNCTION OVERWRITE fn::find_match_for_person(
-    $firm: Record<firm>, // The firm the person is associated with.
     $full_name: string, // The full name of the person to match.
     $first_name: Option<string>, // The first name of the person to match.
     $last_name: Option<string>, // The last name of the person to match.
@@ -881,8 +974,8 @@ DEFINE FUNCTION OVERWRITE fn::find_match_for_person(
             $last_name,last_name,
             $first_name,first_name,
             $title,title
-        ) AS _score FROM person WHERE firm = $firm AND
-                    (full_name @1@ $full_name OR (last_name @2@ $last_name AND first_name @3@ $first_name)) ORDER BY _score DESC;
+        ) AS _score FROM person WHERE 
+                    full_name @1@ $full_name OR (full_name @2@ $last_name AND full_name @3@ $first_name) ORDER BY _score DESC;
     // Return the ID of the top-scoring person, if any.
     RETURN $matched_people.id[0];
 };
@@ -890,7 +983,6 @@ DEFINE FUNCTION OVERWRITE fn::find_match_for_person(
 
 // Defines or overwrites a function to either retrieve an existing person or create a new one.
 DEFINE FUNCTION OVERWRITE fn::get_person_or_upsert(
-    $firm: Record<firm>, // The firm the person is associated with.
     $full_name: string, // The full name of the person.
     $filing:Option<Record<filing>>, // The filing record associated with this person information.
     $first_name: Option<string>, // The first name of the person.
@@ -901,7 +993,6 @@ DEFINE FUNCTION OVERWRITE fn::get_person_or_upsert(
 
     // Attempt to find an existing person by matching against their aliases.
     LET $person = fn::find_alias_match_for_person(
-            $firm,
             $full_name,
             NONE // Initially search without email for broader matching.
         );
@@ -913,7 +1004,6 @@ DEFINE FUNCTION OVERWRITE fn::get_person_or_upsert(
         // If no person is found via alias, try to find a match based on name.
         LET $name_parts = fn::get_name_parts_from_full_name($full_name);
         LET $person_match_id = fn::find_match_for_person(
-            $firm,
             $full_name,
             $name_parts["first_name"],
             $name_parts["last_name"],
@@ -923,8 +1013,7 @@ DEFINE FUNCTION OVERWRITE fn::get_person_or_upsert(
         IF $person_match_id IS NOT NONE THEN{
             LET $person = type::thing("person",$person_match_id);
             // If a match is found, upsert a new alias for this person with the provided details.
-            LET $person_alias = fn::person_alias_upsert(
-                $firm,
+            LET $person_alias = fn::person_aliases_upsert(
                 $person,
                 $full_name,
                 $filing,
@@ -936,7 +1025,6 @@ DEFINE FUNCTION OVERWRITE fn::get_person_or_upsert(
         } ELSE {
             // If no match is found, upsert a new person record.
             LET $person = fn::person_upsert(
-                $firm,
                 $full_name,
                 $first_name,
                 $last_name,
@@ -945,8 +1033,7 @@ DEFINE FUNCTION OVERWRITE fn::get_person_or_upsert(
             );
 
             // Also, create a new alias for this newly created person.
-            LET $person_alias = fn::person_alias_upsert(
-                $firm,
+            LET $person_alias = fn::person_aliases_upsert(
                 $person,
                 $full_name,
                 $filing,
@@ -962,8 +1049,7 @@ DEFINE FUNCTION OVERWRITE fn::get_person_or_upsert(
 
 // Defines or overwrites a function to upsert a person alias record.
 // These aliases provide alternative names and contact information for a person within a specific firm.
-DEFINE FUNCTION OVERWRITE fn::person_alias_upsert(
-    $firm: Record<firm>, // The firm the person is associated with.
+DEFINE FUNCTION OVERWRITE fn::person_aliases_upsert(
     $person: Record<person>, // The primary person record to which this alias belongs.
     $full_name: string, // The full name of the person alias.
     $source_filing : Option<Record<filing>>, // The filing record that provided this alias information.
@@ -974,40 +1060,42 @@ DEFINE FUNCTION OVERWRITE fn::person_alias_upsert(
     )
     {
         // Determine the identifier for the person alias based on email or full name.
-        LET $identifier =
-            IF $email IS NOT NONE THEN
-                [$firm,"e:" + $email.lowercase()]
-            ELSE IF $full_name IS NOT NONE THEN
-                [$firm,"fn:" + $full_name.lowercase()]
-            END;
 
-        // Upsert the person alias record, merging new information with existing data.
-        LET $person_alias = type::thing("person_alias",$identifier);
-        UPSERT $person_alias MERGE{
-            source_filing: $source_filing,
-            firm: $firm,
-            person: $person,
-            full_name: $full_name,
-            first_name: $first_name,
-            last_name: $last_name,
-            title: $title,
-            email: $email
-        } RETURN NONE;
+        LET $identifiers =
+            fn::person_identifier_array($full_name, $email);
+        // Upserts the firm type.
+
+        // Iterates through each generated identifier to upsert a firm alias record.
+        FOR $identifier IN $identifiers{
+
+
+            // Upsert the person alias record, merging new information with existing data.
+            LET $person_alias = type::thing("person_alias",$identifier);
+            UPSERT $person_alias MERGE{
+                source_filing: $source_filing,
+                person: $person,
+                full_name: $full_name,
+                first_name: $first_name,
+                last_name: $last_name,
+                title: $title,
+                email: $email
+            } RETURN NONE;
+        };
+        
 
         // Update the primary person record by adding the newly created/updated alias to its list of aliases.
-        UPDATE $person
-            SET
-            person_aliases = IF $person["person_aliases"] IS  NONE THEN [$person_alias] ELSE person_aliases.union([$person_alias]) END
-            RETURN NONE;
+        -- UPDATE $person
+        --     SET
+        --     person_aliases = IF $person["person_aliases"] IS  NONE THEN [$person_alias] ELSE person_aliases.union([$person_alias]) END
+        --     RETURN NONE;
 
         // Return the record ID of the upserted person (using full name and firm as a unique key).
-        RETURN  type::thing("person",[$full_name,$firm]);
+        RETURN  type::thing("person",$full_name);
     };
 
 
 // Defines or overwrites a function to upsert a person record.
 DEFINE FUNCTION OVERWRITE fn::person_upsert(
-    $firm: Record<firm>, // The firm the person is associated with.
     $full_name: string, // The full name of the person.
     $first_name: Option<string>, // The first name of the person.
     $last_name: Option<string>, // The last name of the person.
@@ -1016,8 +1104,8 @@ DEFINE FUNCTION OVERWRITE fn::person_upsert(
     )
     {
         // Upsert the person record, using full name and firm as a unique key, and merge the provided data.
-        UPSERT type::thing("person",[$full_name,$firm]) MERGE{
-            firm: $firm,
+        LET $person = type::thing("person",$full_name);
+        UPSERT $person MERGE{
             full_name: $full_name,
             first_name: $first_name,
             last_name: $last_name,
@@ -1025,7 +1113,7 @@ DEFINE FUNCTION OVERWRITE fn::person_upsert(
             email: $email
         };
         // Return the record ID of the upserted person.
-        RETURN  type::thing("person",[$full_name,$firm]);
+        RETURN  $person;
     };
 
 
@@ -1033,18 +1121,17 @@ DEFINE FUNCTION OVERWRITE fn::person_upsert(
 
 // Defines or overwrites a function to upsert a signatory (a person who signed a filing) record and create a relationship.
 DEFINE FUNCTION OVERWRITE fn::signatory_upsert(
-$firm:Record<firm>, // The firm associated with the signatory.
 $filing:Record<filing>, // The filing the person signed.
 $full_name:string, // The full name of the signatory.
 $execution_date:datetime, // The date the filing was executed.
 $title:Option<string> // The title of the signatory at the time of signing.
 )
 {
+    LET $full_name = fn::clean_name_string($full_name);
     // Extract first and last names from the full name.
     LET $name_parts = fn::get_name_parts_from_full_name($full_name);
     // Get or upsert the person record for the signatory.
     LET $signatory = fn::get_person_or_upsert(
-                $firm,
                 $full_name,
                 $filing,
                 $name_parts["first_name"],
@@ -1065,6 +1152,168 @@ $title:Option<string> // The title of the signatory at the time of signing.
     RETURN $signatory;
 };
 
+DEFINE FUNCTION OVERWRITE fn::clean_name_string($name: string){
+    LET $name = IF $name IS NONE THEN NONE ELSE 
+        $name.lowercase()
+        .replace("/s/","")
+        .replace("/ss/","")
+        .replace("/","")
+        .replace("jr","")
+        .replace("ii","")
+        .replace("iii","")
+        .replace("  "," ")
+        .replace(".","").trim()
+    END;
+    LET $name_arr = $name.split(",");
+    LET $name_arr_len = $name_arr.len();
+    IF $name_arr_len > 0 THEN {
+        // If the name contains a comma, split it and return the second part (after the comma).
+        LET $last_name = $name_arr[0].trim();
+        LET $rest_of_name = $name_arr.slice(1,$name_arr_len).join(" ").trim();
+        RETURN ($rest_of_name + " " + $last_name).trim();
+    } END;
+    RETURN $name;
+};
+
+
+DEFINE FUNCTION OVERWRITE fn::clean_company_string($name: string){
+    IF $name IS NONE THEN RETURN NONE; END;
+
+    LET $geo_words = [
+    "AMERICAN",
+    "AMERICAS",
+    "ASIA",
+    "ASIAPACIFIC",
+    "BOSTON",
+    "EUROPE",
+    "GLOBAL",
+    "INTERNATIONAL",
+    "IRELAND",
+    "LONDON",
+    "LUXEMBOURG",
+    "PACIFIC",
+    "UK",
+    "US",
+    "USA",
+    "WORLD"
+    ];
+
+    
+    LET $jargon_words = [
+    "ADVISER",
+    "ADVISERS",
+    "ADVISOR",
+    "ADVISORS",
+    "ADVOCATE",
+    "ADVOCATES",
+    "ADVISORY",
+    "ALTERNATIVE",
+    "ASSET",
+    "ASSETS",
+    "ASSOCIATES",
+    "CAPITAL",
+    "CENTER",
+    "CLIENT",
+    "CO",
+    "COMPANY",
+    "CONSULTING",
+    "CORNERSTONE",
+    "CORPORATION",
+    "COUNSEL",
+    "CREDIT",
+    "DIVERSIFIED",
+    "EQUITIES",
+    "EQUITY",
+    "ESTATE",
+    "ETF",
+    "FAMILY",
+    "FIDUCIARY",
+    "FINANCIAL",
+    "FOR",
+    "FUND",
+    "FUNDS",
+    "GLOBAL",
+    "GROWTH",
+    "GROUP",
+    "HARVEST",
+    "HERITAGE",
+    "IMPACT",
+    "INC",
+    "INCOME",
+    "INCORPORATED",
+    "INDEPENDENCE",
+    "INDEPENDENT",
+    "INFRASTRUCTURE",
+    "INSURANCE",
+    "INTEGRATED",
+    "INTEGRITY",
+    "INVESTMENT",
+    "INVESTMENTS",
+    "INVESTOR",
+    "INVESTORS",
+    "LEGACY",
+    "LIMITED",
+    "LLC",
+    "LLP",
+    "LP",
+    "LTD",
+    "MANAGEMENT",
+    "MANAGER",
+    "NETWORK",
+    "PARTNERS",
+    "PLANNING",
+    "PORTFOLIO",
+    "PRIVATE",
+    "PROFESSIONAL",
+    "PUBLIC",
+    "QUANTITATIVE",
+    "REAL",
+    "RESOURCE",
+    "RETIREMENT",
+    "SAGE",
+    "SARL",
+    "SECURITIES",
+    "SERVICES",
+    "SOLUTIONS",
+    "STRATEGIC",
+    "STRATEGIES",
+    "STRATEGY",
+    "THE",
+    "TRUST",
+    "UNITED",
+    "VALUE",
+    "VENTURES",
+    "WEALTH"
+    ];
+   
+
+    LET $name_array = $name.uppercase().words().map(|$a| fn::remove_punctuation($a,""));
+
+    
+    LET $name_array = $name_array[WHERE $this != '' AND $this NOT IN $jargon_words AND $this NOT IN $geo_words];
+    LET $name_array_len = $name_array.len();
+    IF $name_array_len<1 THEN { 
+        RETURN $name;
+    } END;
+    
+    RETURN ($name_array.map(|$word,$index|
+        IF $word.len() == 1 THEN 
+            "_" + $word + '_'
+        ELSE 
+            $word + ' '
+        END).join('').replace("__","").replace("_"," ").trim()
+    );
+    };
+
+
+
+DEFINE FUNCTION OVERWRITE fn::company_token_string($name: string){
+     LET $name = IF $name IS NONE THEN NONE ELSE 
+        fn::clean_company_string($name)
+        .replace(" ","")
+    END;
+    RETURN $name;
+};
 
 
 // Defines or overwrites a function to upsert a chief compliance officer (CCO) record and create a relationship.
@@ -1076,12 +1325,13 @@ $title:Option<string>, // The title of the CCO.
 $email:Option<string> // The email address of the CCO.
 )
 {
+
+    LET $full_name = fn::clean_name_string($full_name);
     // Extract first and last names from the full name.
     LET $name_parts = fn::get_name_parts_from_full_name($full_name);
 
     // Get or upsert the person record for the chief compliance officer.
     LET $chief_compliance_officer = fn::get_person_or_upsert(
-                $firm,
                 $full_name,
                 NONE, // No specific filing context for CCO in this function.
                 $name_parts["first_name"],
@@ -1103,3 +1353,57 @@ $email:Option<string> // The email address of the CCO.
     RETURN $chief_compliance_officer;
 };
 
+
+
+
+
+
+
+DEFINE FUNCTION OVERWRITE fn::firm_name_to_vector($name: string) {
+    
+    
+    #select the vectors from the embedding table that match the words
+    LET $vectors = fn::retrieve_vectors_for_firm_name($name);
+
+    #remove any non-matches
+    LET $vectors = array::filter($vectors, |$v| { RETURN $v != NONE; });
+    
+    #transpose the vectors to be able to average them
+    LET $transposed = array::transpose($vectors);
+
+    #sum up the individual floats in the arrays
+    LET $sum_vector = $transposed.map(|$sub_array| math::sum($sub_array));
+
+    # calculate the mean of each vector by dividing by the total number of 
+    # vectors in each of the floats
+    LET $mean_vector = vector::scale($sum_vector, 1.0 / array::len($vectors));
+
+    #if the array size > 0
+    RETURN IF $mean_vector.len() > 0 THEN $mean_vector ELSE array::repeat(MATH::NEG_INF,100) END;
+};
+
+
+DEFINE FUNCTION OVERWRITE fn::retrieve_vectors_for_firm_name($sentence:string) 
+{
+    LET $sentence = fn::remove_punctuation($sentence.uppercase(), " ");
+    LET $words = $sentence.words();
+    LET $words = array::filter($words, |$word: any| $word != '');   
+    #select the vectors from the embedding table that match the words
+    RETURN (SELECT VALUE type::thing('firm_name_embedding_model',$this).embedding FROM $words);
+};
+
+DEFINE  FUNCTION OVERWRITE fn::remove_punctuation($input: string,$replace_with:"" | " ") -> string {
+
+    LET $punctuation = [
+        '.', ',', '&', '(', ')', '"', "'", "+", "!", '-', "{", "}", "[", "]", ":", ";", "<", ">", "`", "/", "\\", "—", "–"
+    ];
+    IF $replace_with = " " THEN{
+        RETURN $punctuation.fold($input,|$a, $b| 
+            $a.replace($b, " ")
+        );
+    }ELSE{
+        RETURN $punctuation.fold($input,|$a, $b| 
+            $a.replace($b, "")
+        );
+    }END;
+};

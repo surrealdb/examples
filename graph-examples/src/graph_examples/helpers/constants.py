@@ -5,10 +5,14 @@ import pandas as pd
 from graph_examples.helpers.params import DatabaseParams
 import subprocess
 import re
+
+import tqdm
+import numpy as np
 # --- Configuration (Assuming these constants are defined elsewhere) ---
 # Make sure these paths are correctly defined in your constants file or here
 # Example definitions if constants not available:
 BASE_OUTPUT_DIR = './data/'
+FAST_TEXT_DIR = os.path.join(BASE_OUTPUT_DIR, 'fast_text/')
 
 
 PART1_DIR = os.path.join(BASE_OUTPUT_DIR, 'adv_data/part1/')
@@ -20,6 +24,121 @@ ADVISER_DATA_PAGE = "https://www.sec.gov/data-research/sec-markets-data/informat
 
 ADV_TABLES_DDL= "./schema/ADV_tables_ddl.surql"
 ADV_FUNCTIONS_DDL= "./schema/ADV_functions_ddl.surql"
+ADV_PERSON_TABLES_INDEX_DDL= "./schema/ADV_person_tables_indexes_ddl.surql"
+ADV_FIRM_TABLES_INDEX_DDL= "./schema/ADV_indexes_for_firm_matching_ddl.surql"
+ADV_APP_SEARCH_INDEX_DDL= "./schema/ADV_search_indexes_ddl.surql"
+
+GEO_WORDS = [
+    "AMERICAN",
+    "AMERICAS",
+    "ASIA",
+    "ASIAPACIFIC",
+    "BOSTON",
+    "EUROPE",
+    "GLOBAL",
+    "INTERNATIONAL",
+    "IRELAND",
+    "LONDON",
+    "LUXEMBOURG",
+    "PACIFIC",
+    "UK",
+    "US",
+    "USA",
+    "WORLD"
+]
+
+JARGON_WORDS = [
+    "ADVISER",
+    "ADVISERS",
+    "ADVISOR",
+    "ADVISORS",
+    "ADVOCATE",
+    "ADVOCATES",
+    "ADVISORY",
+    "ALTERNATIVE",
+    "ASSET",
+    "ASSETS",
+    "ASSOCIATES",
+    "CAPITAL",
+    "CENTER",
+    "CLIENT",
+    "CO",
+    "COMPANY",
+    "CONSULTING",
+    "CORNERSTONE",
+    "CORPORATION",
+    "COUNSEL",
+    "CREDIT",
+    "DIVERSIFIED",
+    "EQUITIES",
+    "EQUITY",
+    "ESTATE",
+    "ETF",
+    "FAMILY",
+    "FIDUCIARY",
+    "FINANCIAL",
+    "FOR",
+    "FUND",
+    "FUNDS",
+    "GLOBAL",
+    "GROWTH",
+    "GROUP",
+    "HARVEST",
+    "HERITAGE",
+    "IMPACT",
+    "INC",
+    "INCOME",
+    "INCORPORATED",
+    "INDEPENDENCE",
+    "INDEPENDENT",
+    "INFRASTRUCTURE",
+    "INSURANCE",
+    "INTEGRATED",
+    "INTEGRITY",
+    "INVESTMENT",
+    "INVESTMENTS",
+    "INVESTOR",
+    "INVESTORS",
+    "LEGACY",
+    "LIMITED",
+    "LLC",
+    "LLP",
+    "LP",
+    "LTD",
+    "MANAGEMENT",
+    "MANAGER",
+    "NETWORK",
+    "PARTNERS",
+    "PLANNING",
+    "PORTFOLIO",
+    "PRIVATE",
+    "PROFESSIONAL",
+    "PUBLIC",
+    "QUANTITATIVE",
+    "REAL",
+    "RESOURCE",
+    "RETIREMENT",
+    "SAGE",
+    "SARL",
+    "SECURITIES",
+    "SERVICES",
+    "SOLUTIONS",
+    "STRATEGIC",
+    "STRATEGIES",
+    "STRATEGY",
+    "THE",
+    "TRUST",
+    "UNITED",
+    "VALUE",
+    "VENTURES",
+    "WEALTH"
+]
+
+PUNCTUATION = [
+    '.', ',', '&', '(', ')', '"', "'", "+", "!", '-', "{", "}", "[", "]", ":", ";", "<", ">", "`", "/", "\\", "—", "–"
+]
+    
+    
 
 
 def get_file_encoding(filepath):
@@ -51,6 +170,212 @@ def get_file_encoding(filepath):
     except Exception as e:
         print(f"Warning: An unexpected error occurred while getting encoding for {filepath}: {e}. Trying 'iso-8859-1'.")
         return 'iso-8859-1'
+    
+
+
+
+def extract_csv_data(logger,filenames:list[str],                    
+                                      filter_func = None,
+                                      sort_by=None,key=None,ascending=True):
+    
+    """
+    Processes multiple CSV files, optionally filters and sorts the combined data,
+    and then returns a combined DataFrame.
+
+    Args:
+        
+        field_mapping: A list of dictionaries defining how DataFrame columns map to SurrealDB fields.
+                        Each dictionary should have keys like 'dataframe_field_name' and 'surql_field_name'.
+        logger: A logger object for logging information and errors.
+        filenames: A list of CSV filenames to process.
+        filter_func: An optional function to filter the combined DataFrame.
+                        It should accept a pandas DataFrame and return a filtered DataFrame.
+        sort_by:   An optional column name to sort the combined DataFrame by.
+        key:       An optional function to use for sorting (e.g., to sort by string length).
+        ascending: An optional boolean indicating whether to sort in ascending order (default is True).
+    """
+
+    dfs: list[pd.DataFrame] = []  # List to store individual dataframes
+
+
+    pbar = tqdm.tqdm(filenames, desc="Processing files", unit="file")
+
+    for filename in pbar:
+
+        filepath = os.path.join(PART1_DIR, filename)
+        pbar.set_postfix(file=filename)  # Update progress bar with current file name
+
+        encoding_hint = get_file_encoding(filepath)  # Get the encoding hint
+        # Prioritize latin1/ISO-8859-1
+        encodings_to_try = ['iso-8859-1', encoding_hint]  # Try iso-8859-1 first
+
+        df = None
+        for enc in encodings_to_try:
+            try:
+                df = pd.read_csv(filepath, encoding=enc, encoding_errors='replace')  # Use errors='replace'
+                #if enc != encoding_hint:
+                #    logger.warning(f"Successfully read {filepath} using {enc} instead of {encoding_hint}.")
+                break  # If successful, stop trying other encodings
+            except UnicodeDecodeError:
+                logger.warning(f"UnicodeDecodeError for {filepath} with {enc}.")
+            except Exception as e:
+                logger.error(f"An unexpected error occurred while processing {filepath}: {e}")
+                break  # Stop trying if a different error occurs
+            
+        if df is not None:
+            dfs.append(df)
+
+
+    if dfs:
+        concat_df = pd.concat(dfs, ignore_index=True)  # Concatenate all dataframes
+
+        if concat_df is not None:
+            if filter_func:
+                concat_df = filter_func(concat_df)
+
+
+            if sort_by:
+                if key:
+                    concat_df = concat_df.sort_values(by=sort_by, key=key, ascending=ascending)
+                else:
+                    concat_df = concat_df.sort_values(by=sort_by, ascending=ascending)
+
+            concat_df = concat_df.replace([np.nan], [None])
+            return concat_df
+    else:
+        logger.error("No valid dataframes to process. Skipping.")
+        return  # Exit if no dataframes were loaded
+    
+def pre_process_firm_name_token_text(text:str) ->str:
+        """
+        Preprocesses text for storage in a text-based embedding file.
+
+        This method converts text to lowercase, removes punctuation, normalizes whitespace,
+        and escapes spaces with a special character (!).
+
+        Args:
+            text (str): The text to preprocess.
+
+        Returns:
+            str: The preprocessed text.
+        """
+
+        token = str(text).lower()
+        token = token.strip()
+        token = token.replace(" ","!") # escape character should be no punctuation
+        return token
+
+def clean_non_breaking_space(text: str) -> str:
+    if text is None: return None
+    else: 
+        text = text.replace('\xa0', ' ')  # Replace non-breaking space with a regular space
+        text = re.sub(r'\s+', ' ', text).strip() # Normalize whitespace
+        return text
+    
+def clean_initials_and_punctuation_for_company_string(name: str) -> str:
+    
+    if name is None: return None
+    name = str(name)
+    name = name.upper()
+    for term in PUNCTUATION:
+        name = name.replace(term, '')
+    name = clean_non_breaking_space(name)
+    name_array = name.split(' ')
+    clean_firm_string = ''
+    for word in name_array:
+        text = word
+        text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation and symbols
+        if len(text) > 1:
+            clean_firm_string += word + ' '
+        else:
+            clean_firm_string += '_' + word + '_'
+    clean_firm_string = clean_firm_string.replace("__", "").replace("_", " ").replace("  ", " ").strip()
+    if clean_firm_string == '':
+        return None 
+    else:
+        return clean_firm_string
+
+
+
+def clean_company_string(name: str) -> str:
+    """
+    Cleans a company name string by removing jargon and geographical terms.
+
+    This function takes a company name string, removes common jargon and geographical
+    terms, and returns a cleaned version of the name.
+
+    Args:
+        name (str): The company name to clean.
+
+    Returns:
+        str: The cleaned company name.
+    """
+    
+    if name is None: return None
+    name = str(name)
+    name = name.upper()
+    for term in PUNCTUATION:
+        name = name.replace(term, '')
+    
+    name = clean_non_breaking_space(name)
+
+    name_array = name.split(' ')
+    clean_firm_string = ''
+    for word in name_array:
+        if word not in GEO_WORDS and word not in JARGON_WORDS:
+            text = word
+            text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation and symbols
+            
+            if len(text) > 1:
+                clean_firm_string += word + ' '
+            else:
+                #combine initials to make non-single letter words
+                clean_firm_string += '_' + text + '_'
+    clean_firm_string = clean_firm_string.replace("__", "").replace("_", " ").replace("  ", " ").strip()
+    if clean_firm_string == '':
+        return name 
+    else:
+        return clean_firm_string
+    
+
+
+def escape_token_text_for_txt_file(text:str) ->str:
+
+    """
+    Unescapes text read from a text-based embedding file.
+
+    This method reverses the space escaping performed by `process_token_text_for_txt_file`.
+
+    Args:
+        text (str): The text to unescape.
+
+    Returns:
+        str: The unescaped text.
+    """
+
+    if text:
+        return text.replace(" ","!") 
+    else:
+        return ""
+
+def unescape_token_text_for_txt_file(text:str) ->str:
+
+    """
+    Unescapes text read from a text-based embedding file.
+
+    This method reverses the space escaping performed by `process_token_text_for_txt_file`.
+
+    Args:
+        text (str): The text to unescape.
+
+    Returns:
+        str: The unescaped text.
+    """
+
+    if text:
+        return text.replace("!"," ") # unescape to get back the space
+    else:
+        return ""
 
 def get_parsed_data_from_field_mapping(row, field_mapping:dict):
     """

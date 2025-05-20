@@ -105,7 +105,6 @@ class ADVDataHandler():
                 LET $firm_list = array::group( SELECT VALUE firm.id FROM firm_alias 
                                 WHERE 
                                 name @@ $firm_filter OR
-                                legal_name @@ $firm_filter OR 
                                 sec_number = $firm_filter OR 
                                 (cik IS NOT NONE AND <string>cik = $firm_filter) OR 
                                 pfid = $firm_filter OR 
@@ -133,8 +132,8 @@ class ADVDataHandler():
 
         surql_query = pre_query_clause + """
         SELECT id,description,custodian_type.custodian_type AS custodian_type,assets_under_management,
-        in.{name,identifier,firm_type,section_5f},
-        out.{name,identifier,firm_type,section_5f} FROM custodian_for
+        in.{name,identifier,firm_type,section_5f,parent_firm},
+        out.{name,identifier,firm_type,section_5f,parent_firm} FROM custodian_for
         """
         
         if where_clause:
@@ -274,6 +273,44 @@ class ADVDataHandler():
         return report_data
 
 
+
+    async def get_parent_firm_firms(self,parent_firm_id):
+        """
+        Generates a report on hedge fund custodians, for a parent firm name.
+
+        Returns:
+            A list of dictionaries, where each dictionary represents a hedge fund
+            and includes information about its custodians and total assets under management.
+        """
+       
+        firms = await self.connection.query(
+            """
+                  SELECT identifier,
+                    legal_name,
+                    name,
+                    firm_type.firm_type AS firm_type,
+                    city,
+                    state,
+                    country,
+                    city,
+                    postal_code,
+                                chief_compliance_officer.full_name AS chief_compliance_officer
+            FROM 
+            (SELECT firms.{identifier,
+                                legal_name,
+                                name,
+                                firm_type,
+                                city,
+                                state,
+                                country,
+                                city,
+                                postal_code,
+                                chief_compliance_officer}
+                FROM type::thing('parent_firm',$parent_firm_id)).firms[0];
+        """,params={"parent_firm_id": parent_firm_id}
+        )
+        return firms
+        
     async def get_firms(self):
         """
         Generates a report on hedge fund custodians, ordered by assets under management.

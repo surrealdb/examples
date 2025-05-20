@@ -34,6 +34,12 @@ button:hover {
     flex-direction: row;
 }
 
+span.sub_info{
+    color:060606;
+    font-size: 8px;
+    display: inline-block;
+
+}
 
 #graphSizeLimit {
     text-overflow: ellipsis;
@@ -194,6 +200,7 @@ select {
 }
 .graphTitle{
     color: #ff00a0;
+    display: inline-block;
 }
 
 .graph_warning {

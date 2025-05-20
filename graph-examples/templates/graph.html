@@ -1,5 +1,9 @@
 
 <h4 class="graphTitle">{{graph_title}} ({{graph_size}} relations displayed)</h4>
+<span class="sub_info"> Edge weight: {{ edge_weight_field }} ---- 
+       Source weight: {{ source_node_weight_field  }} ---- 
+       Target weight: {{ target_node_weight_field  }}
+</span>
 
 
 
@@ -13,6 +17,22 @@
 </div>
 {% endif %}
     <script>
+        function formatMillions(number) {
+            if (isNaN(number)) {
+                return number;
+            }
+
+            const millions = number / 1000000;
+            const formattedMillions = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }).format(millions);
+
+            return formattedMillions + "M";
+        }
+
  
 
         edge_weight_field = {{ edge_weight_field | tojson }};
@@ -23,7 +43,7 @@
         
         the_data = {{ graph_data | tojson }};
 
-
+        use_parent_aggregation = {{ use_parent_aggregation | tojson }};
 
 
 
@@ -71,11 +91,11 @@
                     label: node.name,
                     firm_type: node.firm_type,
                     source_document: node.source_document,
-                    link: "/firms/" + node.id,
+                    link: use_parent_aggregation ? "/parent_firms/" + node.id : "/firms/" + node.id,
                     edge_count: node.edge_count,
                     weight: node[node_weight_field],
                     is_source:is_source,
-                    font_size: calculateWeightFactor( node[node_weight_field], node_weight_min, node_weight_max, 10, 100)
+                    font_size: calculateWeightFactor( node[node_weight_field], node_weight_min, node_weight_max, 10, 30)
                 });
             });
 
@@ -99,9 +119,9 @@
 
                         
                         graph.addLink(edge.source, edge.target, {
-                            label: edge[edge_label_field],
+                            label: formatMillions(edge[edge_label_field]),
                             weight: edge[edge_weight_field],
-                            link: "/is_custodian_for/" + edge.id 
+                            link: use_parent_aggregation ? "#" : "/is_custodian_for/" + edge.id,
                             //    + "&identifier_in=" + edge.source
                             //    + "&identifier_out=" + edge.target
                             //    + "&relationship=" + edge.label 

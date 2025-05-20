@@ -99,15 +99,15 @@
         </div>
         <div class="graph-nav">
             <span>
-                <button hx-get="/pf_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personFilter,#firmFilter,#graphSizeLimit,#firmType">
+                <button hx-get="/pf_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personFilter,#firmFilter,#graphSizeLimit,#firmType,#useParentAggregation">
                     <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
                     PF SMA Graph
                 </button>
-                <button hx-get="/raum_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personFilter,#firmFilter,#graphSizeLimit,#firmType">
+                <button hx-get="/raum_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personFilter,#firmFilter,#graphSizeLimit,#firmType,#useParentAggregation">
                     <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
                     RAUM SMA Graph
                 </button>
-                <button hx-get="/b_r_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personFilter,#firmFilter,#graphSizeLimit,#firmType">
+                <button hx-get="/b_r_graph" hx-target="main" hx-swap="innerHTML" hx-include="#personFilter,#firmFilter,#graphSizeLimit,#firmType,#useParentAggregation">
                     <img src="{{ url_for('static', path='/surrealdb-icon.svg') }}" alt="SurrealDB Logo" class="surrealdb-logo">
                     Tech Partners Graph
                 </button>
@@ -130,6 +130,11 @@
                     <option value='100000'>Max nodes: 100,000</option>
                     <option value='1000000'>Max nodes: 1,000,000</option>
                 </select>
+
+                <span> 
+                    <label>Use Parent</label>
+                    <input type="checkbox" name="use_parent_aggregation" id="useParentAggregation" />
+                </span>
             </span>
         </div>
     </div>
