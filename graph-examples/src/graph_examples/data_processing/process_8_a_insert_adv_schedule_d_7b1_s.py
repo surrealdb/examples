@@ -10,11 +10,6 @@ from graph_examples.helpers.surreal_dml import SurrealDML
 
 
 
-# "FilingID","Fund Name","Fund ID","ReferenceID","State","Country","3(c)(1) Exclusion","3(c)(7) Exclusion","Master Fund","Feeder Fund","Master Fund Name","Master Fund ID","Fund of Funds","Fund Invested Self or Related","Fund Invested in Securities","Fund Type","Fund Type Other","Gross Asset Value","Minimum Investment","Owners","%Owned You or Related","%Owned Funds","Sales Limited","%Owned Non-US","Subadviser","Other IAs Advise","Clients Solicited","Percentage Invested","Exempt from Registration","Annual Audit","GAAP","FS Distributed","Unqualified Opinion","Prime Brokers","Custodians","Administrator","% Assets Valued","Marketing"
-# need a 7b https://files.adviserinfo.sec.gov/IAPD/content/viewform/adv/Sections/iapd_AdvPrivateFundReportingSection.aspx?ORG_PK=130819&FLNG_PK=02A0D5BE000801E404F057E105A82089056C8CC0
-# who manages money for boothbay
-
-#find out why corbin is kicking butt
 db_params = DatabaseParams()
 args_loader = ArgsLoader("Insert private fund SMA listings from section D 7b1",db_params)
 

@@ -3,10 +3,8 @@ from graph_examples.helpers.constants import *
 from graph_examples.helpers import loggers   
 import pandas as pd
 import os
-from surrealdb import Surreal
-from graph_examples.helpers.params import DatabaseParams, SurrealParams
+from graph_examples.helpers.params import DatabaseParams
 import re
-from graph_examples.helpers.surreal_dml import SurrealDML
 import fasttext
 
 FILING_FIELD_MAPPING = [
@@ -103,15 +101,21 @@ FILING_53k_FIELD_MAPPING = [
 ]
 
 
-#find out why corbin is kicking butt
 db_params = DatabaseParams()
 args_loader = ArgsLoader("Generate fast text firm model",db_params)
 
 
 
-
 def get_filing_5k3_df(logger):
-   
+    """
+    Processes and returns a Pandas DataFrame from 5K3 filing data.
+
+    Args:
+        logger:  A logger object.
+
+    Returns:
+        A Pandas DataFrame.
+    """
     logger.info(f"Processing 5k3_df {PART1_DIR}")
 
     
@@ -146,7 +150,7 @@ def filter_vc_hedge(df: pd.DataFrame) -> pd.DataFrame:
     """
     Filters a DataFrame to include only rows that meet the following criteria:
     - 'Fund Type' is 'Hedge Fund' or 'VC Fund' (case-insensitive)
-    
+
     Args:
         df: The input pandas DataFrame.
 
@@ -167,7 +171,15 @@ def filter_vc_hedge(df: pd.DataFrame) -> pd.DataFrame:
  
 
 def get_filing_7b1_df(logger):
-   
+    """
+    Processes and returns a Pandas DataFrame from 7B1 filing data.
+
+     Args:
+        logger:  A logger object.
+
+    Returns:
+        A Pandas DataFrame.
+    """
     logger.info(f"Processing 7b1_df {PART1_DIR}")
 
     # Define regular expression patterns to identify relevant CSV files.
@@ -198,7 +210,15 @@ def get_filing_7b1_df(logger):
 
 
 def get_filing_b_r_df(logger):
-   
+    """
+    Processes and returns a Pandas DataFrame from books and records filing data.
+
+     Args:
+        logger:  A logger object.
+
+    Returns:
+        A Pandas DataFrame.
+    """
     logger.info(f"Processing b_r_df {PART1_DIR}")
 
     # Define regular expression patterns to identify relevant CSV files.
@@ -230,7 +250,15 @@ def get_filing_b_r_df(logger):
         
 
 def get_filing_firm_df(logger):
-   
+    """
+    Processes and returns a Pandas DataFrame of firm filing data.
+
+     Args:
+        logger:  A logger object.
+
+    Returns:
+        A Pandas DataFrame.
+    """
     logger.info("Getting filing firm dictionary")
 
     # Define regular expression patterns to identify relevant CSV files.
@@ -256,12 +284,19 @@ def get_filing_firm_df(logger):
     filing_df["master_fund_name"] = None 
 
 
-    return filing_df #.set_index("FilingID").to_dict('index')
-
+    return filing_df 
 
 
 def get_adv_firms_df(logger):
-   
+    """
+    Processes and returns a concatenated Pandas DataFrame of investment advisor firms from Excel files.
+
+     Args:
+        logger:  A logger object.
+
+    Returns:
+        A Pandas DataFrame.
+    """
 
 
     dfs: list[pd.DataFrame] = []  # List to store individual dataframes
@@ -308,14 +343,23 @@ def train_model(logger,traning_data_file, model_bin_file):
     Returns:
         fasttext.FastText._FastText: The trained FastText model.
     """
-    # if os.path.exists(model_bin_file):
-    #     logger.info(f"Model already exists delete if you want to regenerate '{model_bin_file}'")
-    #     return fasttext.load_model(model_bin_file)
-    # else:
+   
     logger.info("Training model")
-    model = fasttext.train_unsupervised(traning_data_file, model='skipgram',minn=2, maxn=10, dim=100, epoch=5, lr=0.05, loss='ns', wordNgrams=2,minCount=1)
+    model = fasttext.train_unsupervised(
+        traning_data_file,  # Path to the training data file containing firm names.
+        model='skipgram',  # Use the skip-gram model architecture, which predicts context words from a target word.
+        minn=2,          # Minimum length of character n-grams (2).  
+                         # Crucial for capturing short tokens like 'DE', 'JP'.
+        maxn=10,         # Maximum length of character n-grams (10).  Captures longer sub-word units.
+        dim=100,         # Dimensionality of the word vectors (100).  Output embedding vector size.
+        epoch=5,         # Number of training epochs (5).
+        lr=0.05,        # Learning rate (0.05).
+        loss='ns',       # Use negative sampling for loss function (efficient for large vocabularies).
+        wordNgrams=2,    # Use word n-grams (2) in addition to sub-word n-grams.
+        minCount=1       # Include all words, even those with frequency 1.  Ensures all firm names are represented.
+    )
+    
     model.save_model(model_bin_file) 
-    #os.remove(traning_data_file)
     return model
         
 
@@ -351,11 +395,16 @@ def write_model_to_text_file(logger,model,model_txt_file):
 
     
 def train_firm_fast_text():
+    """
+    Orchestrates the training of a FastText model on firm names from various sources.
 
+    This function retrieves firm names from 5K3, 7B1, Books and Records filings,
+    ADV filings, and Investment Advisor Firms data, concatenates them, preprocesses
+    the names, trains a FastText model, and saves the model to a text file.
+    """
     logger = loggers.setup_logger("TrainFastTextModel")
     args_loader.LoadArgs() # Parse command-line arguments
     logger.info(args_loader.string_to_print())
-    # filing_dict = get_filing_firm_dict(logger)
     filing_5k3_df = get_filing_5k3_df(logger)
     filing_7b1_df = get_filing_7b1_df(logger)
     filing_filing_firm_df = get_filing_firm_df(logger)
@@ -383,10 +432,6 @@ def train_firm_fast_text():
         ignore_index=True,
     )
 
-    # union_df["name"] = union_df["name"].apply(clean_company_string)
-    # union_df["legal_name"] = union_df["legal_name"].apply(clean_company_string)
-    # union_df["master_fund_name"] = union_df["master_fund_name"].apply(clean_company_string)
-
     union_df["name"] = union_df["name"].apply(clean_initials_and_punctuation_for_company_string)
     union_df["legal_name"] = union_df["legal_name"].apply(clean_initials_and_punctuation_for_company_string)
     union_df["master_fund_name"] = union_df["master_fund_name"].apply(clean_initials_and_punctuation_for_company_string)
@@ -394,13 +439,7 @@ def train_firm_fast_text():
     all_company_names_combined = pd.concat([union_df['name'], union_df['legal_name'], union_df['master_fund_name']])
     cleaned_names = all_company_names_combined.dropna()
     unique_sorted_names = sorted(cleaned_names.unique())
-    #union_df['all_company_names'] = pd.Series(unique_company_names) 
     
-    #union_df = union_df.drop_duplicates(subset=["name", "legal_name", "master_fund_name"])
-
-    # Sort by name
-    #union_df = union_df.sort_values(by="name")
-
     ensure_dir(FAST_TEXT_DIR)
     training_file =  os.path.join(FAST_TEXT_DIR, 'corpus.txt')
     bin_file =  os.path.join(FAST_TEXT_DIR, 'model.bin')
@@ -409,12 +448,8 @@ def train_firm_fast_text():
 
     with open(training_file,"w") as f:
        logger.info(f"Writing training data to {training_file}")
-
-
-       for name in tqdm.tqdm(unique_sorted_names, desc="Processing 5k3", total=len(union_df), unit="row"):
-            
+       for name in tqdm.tqdm(unique_sorted_names, desc="Writing corpus", total=len(union_df), unit="row"):
             f.write(f"{(name)}\n")
-            #f.write("\n")
 
     model = train_model(logger,training_file,bin_file)
     write_model_to_text_file(logger,model,raw_file)

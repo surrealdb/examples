@@ -14,7 +14,10 @@ db_params = DatabaseParams()
 args_loader = ArgsLoader("Conoslidate firms based on names,relationships and firm types",db_params)
 
 """
-WIP
+WIP - Initial analysis of firm types.  This block is a multi-line
+string, which is okay, but a triple-quoted string is usually used
+for multi-line strings.  I've left it as is.
+
 [
 	{
 		count: 5658,
@@ -43,10 +46,21 @@ WIP
 ]
 """
 
-def process_hedges(connection:Surreal):
 
+def process_hedges(connection: Surreal):
+    """
+    Processes hedge fund related data (WIP).
+
+    This function is intended to process data related to hedge funds,
+    but it's currently a placeholder.  It includes a SurrealQL query
+    that is commented out.
+
+    Args:
+        connection: The SurrealDB connection object.
+    """
+    logger = loggers.setup_logger("Process Hedge Funds") #Added Logger
     top_hedge_surql = """
-        
+
         LET $hedge_deals = SELECT in.name AS in, math::sum(assets_under_management) AS assets_under_management FROM custodian_for WHERE in.firm_type = firm_type:⟨Hedge Fund⟩ OR out.firm_type = firm_type:⟨Hedge Fund⟩
             GROUP BY in;
         LET $total_hedge_deals = $hedge_deals.len();
@@ -54,121 +68,102 @@ def process_hedges(connection:Surreal):
 
         SELECT * FROM $hedge_deals ORDER BY assets_under_management DESC LIMIT  <int>($total_hedge_deals/10);
     """
-    return
-
-def process_vcs(connection:Surreal):
-    return
-
-def process_books_records_holders(connection:Surreal):
-    return
-
-def dedupe_out_registered(connection:Surreal):
-    return
-
-def process_custodian_subisdiaries(connection:Surreal):
+    try:
+        # SurrealParams.ParseResponseForErrors(connection.query_raw(top_hedge_surql)) # commented out
+        pass
+    except Exception as e:
+        logger.error(f"Error processing hedges: {e}")
+        raise # re-raise the error so that it is caught in process_firm_consolidation
     return
 
 
-def insert_data_into_surrealdb(logger,connection:Surreal,data):
+
+def process_vcs(connection: Surreal):
     """
-    Inserts data into SurrealDB using the 'fn::firm_upsert' function.
+    Processes venture capital fund related data (WIP).
 
-    This function takes data (presumably parsed from a row of a DataFrame)
-    and constructs a SurrealQL query to insert or update a 'firm' record.
-    It handles various optional fields and logs any errors during the insertion process.
+    This function is intended to process data related to venture capital funds,
+    but it's currently a placeholder.
 
     Args:
-        logger: A logger object for logging information and errors.
-        connection: A SurrealDB connection object.
-        data: A dictionary containing the data to be inserted/updated.
-              This dictionary should align with the parameters of the 'fn::firm_upsert'
-              SurrealQL function.
+        connection: The SurrealDB connection object.
     """
+    logger = loggers.setup_logger("Process Venture Capital") #Added Logger
+    try:
+        pass
+    except Exception as e:
+        logger.error(f"Error processing VCs: {e}")
+        raise  # re-raise the error
+    return
 
-    # --- SurrealQL Query ---
 
-    # The SurrealQL query string that calls the 'fn::firm_upsert' function.
-    # This function is assumed to exist in the SurrealDB database and handles
-    # the upsert (update or insert) logic for 'firm' records.
-
-    insert_surql = """ 
-    fn::firm_upsert(
-        $name,
-        $firm_type,
-        $legal_name,
-        $sec_number,
-        NONE, #not private funds
-        $legal_entity_identifier,
-        $cik,
-        $city,
-        $state,
-        $postal_code,
-        $country,
-        $section1,
-        $section_5d,
-        $section_5f,
-        NONE #not processing filings yet
-        ); 
+def process_books_records_holders(connection: Surreal):
     """
+    Processes books and records holders data (WIP).
+
+    This function is intended to process data related to books and records holders,
+    but it's currently a placeholder.
+
+    Args:
+        connection: The SurrealDB connection object.
+    """
+    logger = loggers.setup_logger("Process Book and Record Holders") #Added Logger
+
+    try:
+        pass
+    except Exception as e:
+        logger.error(f"Error processing book/record holders: {e}")
+        raise # re-raise the error
+    return
+
+
+def dedupe_out_registered(connection: Surreal):
+    """
+    Deduplicates registered firms (WIP).
+
+    This function is intended to deduplicate registered firms, but it's
+    currently a placeholder.
+
+    Args:
+        connection: The SurrealDB connection object.
+    """
+    logger = loggers.setup_logger("Dedupe Registered Firms") #Added Logger
+    try:
+        pass
+    except Exception as e:
+        logger.error(f"Error deduplicating registered firms: {e}")
+        raise # re-raise the error
+    return
+
+
+def process_custodian_subisdiaries(connection: Surreal):
+    """
+    Processes custodian subsidiaries data (WIP).
+
+    This function is intended to process data related to custodian subsidiaries,
+    but it's currently a placeholder.
+
+    Args:
+        connection: The SurrealDB connection object.
+    """
+    logger = loggers.setup_logger("Process Custodian Subsidaries") #Added Logger
+    try:
+        pass
+    except Exception as e:
+        logger.error(f"Error processing custodian subsidiaries: {e}")
+        raise # re-raise the error
+    return
 
 
 
-    # --- Parameter Construction ---
+def process_firm_consolidation(): 
+    """
+    Consolidates firm data in SurrealDB.
 
-    # Check if the necessary 'section1' data is present.
-    # The 'primary_business_name', 'sec_number', and 'firm_type' are considered
-    # essential for inserting a firm.
-
-    if ("section1" in data 
-        and "primary_business_name" in data["section1"]
-        and "sec_number" in data["section1"]
-        and "firm_type" in data["section1"]):
-        params = {
-            "name": data["section1"]["primary_business_name"],
-            "sec_number": data["section1"]["sec_number"],
-            "firm_type": data["section1"]["firm_type"],        
-            "section1": data["section1"]
-            }
-        
-
-        if "cik" in data["section1"]:
-            params["cik"] = data["section1"]["cik"]
-        if "legal_entity_identifier" in data["section1"]:
-            params["legal_entity_identifier"] = data["section1"]["legal_entity_identifier"]
-
-        if "legal_name" in data["section1"]:
-            params["legal_name"] = data["section1"]["legal_name"]
-        if "main_office_city" in data["section1"]:
-            params["city"] = data["section1"]["main_office_city"]
-        if "main_office_state" in data["section1"]:
-            params["state"] = data["section1"]["main_office_state"]
-        if "main_office_postal_code" in data["section1"]:
-            params["country"] = data["section1"]["main_office_postal_code"]
-        if "main_office_country" in data["section1"]:
-            params["country"] = data["section1"]["main_office_country"]
-
-        if "section_5d" in data:
-            params["section_5d"] = data["section_5d"]
-        if "section_5f" in data:
-            params["section_5f"] = data["section_5f"]
-
-         # --- Execute the Query ---
-        try:
-            # Execute the SurrealQL query with the constructed parameters.
-            # 'SurrealParams.ParseResponseForErrors' is assumed to be a helper function
-            # to handle potential errors in the SurrealDB response.
-            SurrealParams.ParseResponseForErrors(
-                connection.query_raw(insert_surql, params=params)
-            )
-        except Exception as e:
-            # Log and raise an exception if there's an error during insertion.
-            logger.error(f"Error inserting data into SurrealDB: {data}: {e}")
-            raise
-
-
-
-
-def process_firm_consolidation():
+    This function connects to SurrealDB, retrieves firm data, and consolidates
+    firms based on name similarity and other criteria.  It's the main function
+    for firm consolidation.
+    """
 
     logger = loggers.setup_logger("SurrealProcessFirms")
     args_loader.LoadArgs() # Parse command-line arguments

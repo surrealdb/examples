@@ -216,7 +216,13 @@ def process_excel_file_and_extract(logger,connection:Surreal,filepath:str):
 
 
 def process_adviser_firms():
+    """
+    Processes adviser firm data from Excel files in a directory and inserts it into SurrealDB.
 
+    This function sets up logging, connects to SurrealDB, reads Excel files from the
+    specified directory, extracts relevant data from each file, and inserts that data
+    into the SurrealDB database.
+    """
     logger = loggers.setup_logger("SurrealProcessFirms")
     args_loader.LoadArgs() # Parse command-line arguments
     logger.info(args_loader.string_to_print())

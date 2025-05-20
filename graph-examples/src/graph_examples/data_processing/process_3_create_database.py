@@ -12,19 +12,14 @@ import graph_examples.helpers.constants as constants
 db_params = DatabaseParams()
 args_loader = ArgsLoader("Create database",db_params)
 
-"""
-Creates a SurrealDB database and namespace, and executes schema DDL.
-"""
+
 def surreal_create_database() -> None:
     """
-    Initializes and configures a SurrealDB database for Wikipedia embeddings.
+    Creates a SurrealDB database and defines necessary tables and functions.
 
-    This function performs the following steps:
-    1.  Parses command-line arguments using ArgsLoader.
-    2.  Establishes a connection to the SurrealDB server.
-    3.  Creates a namespace and database if they do not exist, or removes and recreates the database if it already exists.
-    4.  Executes schema definition language (DDL) queries from specified files to define tables and functions.
-    5.  Handles any errors encountered during database operations.
+    This function connects to SurrealDB, creates a namespace and database (optionally deleting
+    existing ones if the 'overwrite' flag is set), and then executes SurrealQL
+    scripts to define common tables and functions.
     """
     logger = loggers.setup_logger("SurrealCreateDatabase")
 

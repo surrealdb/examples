@@ -1,9 +1,6 @@
 
 from graph_examples.helpers.constants import * 
-from graph_examples.helpers import loggers     
-import tqdm
-import numpy as np
-import pandas as pd
+from graph_examples.helpers import loggers   
 import os
 from surrealdb import Surreal
 from graph_examples.helpers.params import DatabaseParams, SurrealParams
@@ -29,7 +26,6 @@ FIELD_MAPPING = [
 {"dataframe_field_name": "Title", "field_display_name": "Signatory Title", "surql_field_name": "signatory_title", "python_type": str},
 ]
 
-# need to add 1E1 for CRC number for link to pdf
 
 
 def insert_data_into_surrealdb(logger,connection:Surreal,data):

@@ -1,14 +1,10 @@
 
 
 from graph_examples.helpers.constants import * 
-from graph_examples.helpers import loggers     
-import tqdm
-import numpy as np
-import pandas as pd
+from graph_examples.helpers import loggers  
 import os
 from surrealdb import Surreal
 from graph_examples.helpers.params import DatabaseParams, SurrealParams
-import datetime
 import re
 from graph_examples.helpers.surreal_dml import SurrealDML
 
@@ -69,7 +65,7 @@ FIELD_MAPPING = [
         "field_display_name": "Custodian Office Postal Code",
         "surql_field_name": "postal_code",
         "python_type": str,
-        "description": "Country of the custodian's office responsible for custody of the books or records.",
+        "description": "Postal Code of the custodian's office responsible for custody of the books or records.",
     },
     {
         "dataframe_field_name": "Country",

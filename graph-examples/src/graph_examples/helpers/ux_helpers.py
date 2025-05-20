@@ -133,10 +133,15 @@ def convert_adv_custodian_graph_to_ux_data(
               structure (see example query in docstring).
         source_node_weight_field: Optional. The name of the field in the 'in' node
                                   to use for calculating source node weight ranges.
+                                  e.g., 'assets_under_management'
         target_node_weight_field: Optional. The name of the field in the 'out' node
                                   to use for calculating target node weight ranges.
+                                  e.g., 'assets_under_management'
         edge_weight_field: Optional. The name of the field in the edge data to use
                           for calculating edge weight ranges.
+                          e.g., 'assets_under_management'
+        use_parent_aggregation: Optional.  If True, aggregate nodes by their parent firm,
+                                  combining data from subsidiary firms. Defaults to False.
 
     Returns:
         A dictionary containing the transformed data, or None if the input data is empty.
@@ -155,8 +160,8 @@ def convert_adv_custodian_graph_to_ux_data(
     Example SurrealDB query (illustrative):
         SELECT id, description, custodian_type.custodian_type AS custodian_type,
                assets_under_management,
-               in.{name, identifier, firm_type, section_5f},
-               out.{name, identifier, firm_type, section_5f}
+               in.{name, identifier, firm_type, parent_firm, section_5f},  -- 'in' node details, added parent_firm
+               out.{name, identifier, firm_type, parent_firm, section_5f} -- 'out' node details, added parent_firm
         FROM custodian_for
     """
 
@@ -181,6 +186,7 @@ def convert_adv_custodian_graph_to_ux_data(
         out_id = None
         in_name = None
         out_name = None
+        # Use parent firm ID if aggregation is enabled
         if use_parent_aggregation:
             in_id = "p:" + row["in"]["parent_firm"].id if row["in"] else None
             out_id = "p:" + row["out"]["parent_firm"].id if row["out"] else None

@@ -1,18 +1,19 @@
 ----------------------------------------------------------------------------------
--- AMLSim Data Generation with SurrealQL (Version 3 - Schema and Feature Polish)
+-- AMLSim Data Generation with SurrealQL (Version 4 - Change Feeds)
+
+--this is non-functional and a WIP
 ----------------------------------------------------------------------------------
-note to self use change feeds to capture balance changes intead
+
 ----------------------------------------------------------------------------------
 -- 0. SIMULATION PARAMETERS
 ----------------------------------------------------------------------------------
 LET $total_simulation_steps = 720;
-LET $base_date = time::from::unix(time::timestamp("2017-01-01T00:00:00Z"));
+LET $base_date = d"2017-01-01T00:00:00Z"; -- Using SurrealDB datetime literal
 LET $default_min_balance = 50000.0;
 LET $default_max_balance = 100000.0;
 LET $default_tx_min_amount = 100.0;
 LET $default_tx_max_amount = 1000.0;
 LET $margin_ratio = 0.1;
-LET $enable_balance_history = true; -- SET TO true TO ENABLE BALANCE HISTORY LOGGING
 LET $num_initial_accounts = 20;
 
 ----------------------------------------------------------------------------------
@@ -28,11 +29,11 @@ REMOVE TABLE bank;
 REMOVE TABLE account_type;
 REMOVE TABLE account_status;
 REMOVE TABLE currency_code;
+REMOVE TABLE party_type;
 REMOVE TABLE transaction_type_def;
 REMOVE TABLE alert_type_def;
 REMOVE TABLE country_code;
 REMOVE TABLE business_category;
-REMOVE TABLE account_balance_history;
 REMOVE TABLE account_holder;
 
 -- Define Lookup/Enum Tables
@@ -52,6 +53,11 @@ DEFINE TABLE currency_code SCHEMAFULL;
 DEFINE FIELD code ON currency_code TYPE string ASSERT $value != NONE AND string::len($value) == 3;
 DEFINE FIELD name ON currency_code TYPE string;
 DEFINE INDEX currency_code_code_unique ON TABLE currency_code COLUMNS code UNIQUE;
+
+DEFINE TABLE party_type SCHEMAFULL;
+DEFINE FIELD code ON party_type TYPE string ASSERT $value != NONE AND $value != "";
+DEFINE FIELD name ON party_type TYPE string;
+DEFINE INDEX party_type_code_unique ON TABLE party_type COLUMNS code UNIQUE;
 
 DEFINE TABLE transaction_type_def SCHEMAFULL;
 DEFINE FIELD code ON transaction_type_def TYPE string ASSERT $value != NONE AND $value != "";
@@ -102,7 +108,7 @@ DEFINE INDEX acct_id_unique ON TABLE account COLUMNS acct_id UNIQUE;
 
 DEFINE TABLE party SCHEMAFULL;
 DEFINE FIELD party_id ON party TYPE string ASSERT $value != NONE AND $value != "";
-DEFINE FIELD party_type ON party TYPE string ASSERT $value IN ["Individual", "Organization"];
+DEFINE FIELD party_type_link ON party TYPE record<party_type> ASSERT $value != NONE; -- Changed
 DEFINE FIELD legal_name ON party TYPE string;
 DEFINE FIELD first_name ON party TYPE option<string>;
 DEFINE FIELD last_name ON party TYPE option<string>;
@@ -113,6 +119,7 @@ DEFINE FIELD zip_code ON party TYPE option<string>;
 DEFINE FIELD gender ON party TYPE option<string>;
 DEFINE FIELD birth_date ON party TYPE option<datetime>;
 DEFINE INDEX party_id_unique ON TABLE party COLUMNS party_id UNIQUE;
+
 
 DEFINE TABLE transaction SCHEMAFULL;
 DEFINE FIELD tran_id ON transaction TYPE string ASSERT $value != NONE AND $value != "";
@@ -136,16 +143,6 @@ DEFINE FIELD max_amount_spec ON alert TYPE float;
 DEFINE FIELD main_account ON alert TYPE option<record<account>>;
 DEFINE INDEX alert_id_unique ON TABLE alert COLUMNS alert_id UNIQUE;
 
--- Optional Table for Balance History
-DEFINE TABLE account_balance_history SCHEMAFULL IF $enable_balance_history == true;
-DEFINE FIELD account_link ON account_balance_history TYPE record<account> ASSERT $value != NONE;
-DEFINE FIELD step ON account_balance_history TYPE int ASSERT $value >= 0;
-DEFINE FIELD timestamp ON account_balance_history TYPE datetime ASSERT $value != NONE;
-DEFINE FIELD balance_before ON account_balance_history TYPE float;
-DEFINE FIELD balance_after ON account_balance_history TYPE float;
-DEFINE FIELD transaction_link ON account_balance_history TYPE option<record<transaction>>;
-DEFINE INDEX idx_account_step_history ON TABLE account_balance_history COLUMNS account_link, step, timestamp UNIQUE; -- Added timestamp for more uniqueness
-
 -- Relationship table: account_holder
 DEFINE TABLE account_holder SCHEMAFULL;
 DEFINE FIELD in ON account_holder TYPE record<party>;
@@ -155,77 +152,72 @@ DEFINE FIELD start_date ON account_holder TYPE datetime;
 DEFINE FIELD end_date ON account_holder TYPE option<datetime>;
 DEFINE INDEX idx_account_holder_rel ON TABLE account_holder COLUMNS in, out UNIQUE;
 
+-- Change Feed for Account Balance History
+DEFINE CHANGEFEED cb_account_balance ON TABLE account TYPE UPDATE WHEN $before.balance != $after.balance THEN {
+    "event_type": $event,
+    "account_id": $after.id, -- or $after.acct_id if you prefer the business key
+    "timestamp": time::now(), -- Timestamp of the change feed event
+    "balance_before": $before.balance,
+    "balance_after": $after.balance,
+    "change_txid": $txid -- The transaction ID of this specific database change event
+};
+-- To consume this feed, a client application would typically connect and listen.
+-- Example: LIVE SELECT * FROM changefeed:cb_account_balance;
+
 
 ----------------------------------------------------------------------------------
 -- 2. CREATE LOOKUP/ENUM DATA
 ----------------------------------------------------------------------------------
 CREATE account_type:SAV CONTENT {code: "SAV", name: "Savings Account"};
 CREATE account_type:CHK CONTENT {code: "CHK", name: "Checking Account"};
+LET $SAV_ACCT_TYPE = account_type:SAV;
 
 CREATE account_status:A CONTENT {code: "A", name: "Active"};
+LET $ACTIVE_ACCT_STATUS = account_status:A;
 
 CREATE currency_code:USD CONTENT {code: "USD", name: "US Dollar"};
+LET $USD_CURRENCY = currency_code:USD;
+
+CREATE party_type:Individual CONTENT {code: "IND", name: "Individual"};
+CREATE party_type:Organization CONTENT {code: "ORG", name: "Organization"};
+LET $INDIVIDUAL_PARTY_TYPE = party_type:Individual;
+LET $ORGANIZATION_PARTY_TYPE = party_type:Organization;
+
 
 CREATE transaction_type_def:TRANSFER CONTENT {code: "TRANSFER", name: "Transfer"};
 CREATE transaction_type_def:CREDIT CONTENT {code: "CREDIT", name: "Credit"};
+LET $TRANSFER_TX_TYPE = transaction_type_def:TRANSFER;
+LET $ALL_TX_TYPES = (SELECT VALUE id FROM transaction_type_def);
 
 CREATE alert_type_def:FAN_OUT CONTENT {code: "fan_out", name: "Fan Out"};
 CREATE alert_type_def:FAN_IN CONTENT {code: "fan_in", name: "Fan In"};
 CREATE alert_type_def:CYCLE CONTENT {code: "cycle", name: "Cycle"};
+LET $FAN_OUT_ALERT_TYPE = alert_type_def:FAN_OUT;
+LET $FAN_IN_ALERT_TYPE = alert_type_def:FAN_IN;
+LET $CYCLE_ALERT_TYPE = alert_type_def:CYCLE;
 
 CREATE country_code:US CONTENT {code: "US", name: "United States"};
+LET $US_COUNTRY_CODE = country_code:US;
 
 CREATE business_category:I CONTENT {code: "I", name: "Individual/Consumer"};
+LET $INDIVIDUAL_BIZ_CAT = business_category:I;
 
 ----------------------------------------------------------------------------------
 -- 3. FUNCTION DEFINITIONS
 ----------------------------------------------------------------------------------
 
-DEFINE FUNCTION fn::log_balance_change(
-    $account_id: record<account>,
-    $step: int,
-    $timestamp: datetime,
-    $bal_before: float,
-    $bal_after: float,
-    $tx_id: option<record<transaction>>
-) {
-    IF $enable_balance_history THEN {
-        CREATE account_balance_history CONTENT {
-            account_link: $account_id,
-            step: $step,
-            timestamp: $timestamp,
-            balance_before: $bal_before,
-            balance_after: $bal_after,
-            transaction_link: $tx_id
-        };
-    } END;
-    RETURN true;
-};
-
 DEFINE FUNCTION fn::create_single_transaction(
-    $originator_account_id: record<account>, // Expecting record ID
-    $beneficiary_account_id: record<account>, // Expecting record ID
+    $originator_account_id: record<account>,
+    $beneficiary_account_id: record<account>,
     $amount: float,
     $current_step: int,
     $tx_type_link: record<transaction_type_def>,
     $is_part_of_sar: bool,
     $alert_ref: option<record<alert>>
 ) {
-    LET $timestamp = समय::add($base_date, $current_step * 1d);
+    LET $timestamp = $base_date + ($current_step * 1d); // Corrected duration addition
 
-    // Fetch current balances before transaction
-    LET $orig_details = (SELECT balance FROM $originator_account_id)[0];
-    LET $bene_details = (SELECT balance FROM $beneficiary_account_id)[0];
-    LET $orig_bal_before = $orig_details.balance OR 0.0; // Default to 0 if balance is null
-    LET $bene_bal_before = $bene_details.balance OR 0.0;
-
-    // Check if originator has enough balance
-    IF $orig_bal_before < $amount THEN {
-        // RETURN { error: "Insufficient balance for originator.", id: NONE }; // Or handle error differently
-        // For simulation, we might allow it to go negative or just skip if strict
-        // For now, we'll proceed but this is a point of simulation rule design
-    } END;
-
+    // Balances are updated directly. Changefeed will capture before/after.
     LET $tx = CREATE transaction CONTENT {
         tran_id: rand::uuid(),
         orig_acct: $originator_account_id,
@@ -237,14 +229,9 @@ DEFINE FUNCTION fn::create_single_transaction(
         alert_link: $alert_ref
     };
 
-    LET $orig_bal_after = $orig_bal_before - $amount;
-    LET $bene_bal_after = $bene_bal_before + $amount;
-
-    UPDATE $originator_account_id SET balance = $orig_bal_after;
-    UPDATE $beneficiary_account_id SET balance = $bene_bal_after;
-
-    CALL fn::log_balance_change($originator_account_id, $current_step, $timestamp, $orig_bal_before, $orig_bal_after, $tx.id);
-    CALL fn::log_balance_change($beneficiary_account_id, $current_step, $timestamp, $bene_bal_before, $bene_bal_after, $tx.id);
+    // Update balances
+    UPDATE $originator_account_id SET balance -= $amount;
+    UPDATE $beneficiary_account_id SET balance += $amount;
 
     IF $alert_ref != NONE THEN {
         RELATE $tx->generated_by_alert->$alert_ref;
@@ -256,8 +243,8 @@ DEFINE FUNCTION fn::create_single_transaction(
 
 
 DEFINE FUNCTION fn::simulate_fan_out_fraud(
-    $main_acct_id: record<account>,      // Originator account ID
-    $bene_acct_ids_array: array,     // Array of beneficiary account IDs
+    $main_acct_id: record<account>,
+    $bene_acct_ids_array: array,
     $amount_per_tx: float,
     $current_step: int,
     $alert_record_id: record<alert>,
@@ -268,18 +255,23 @@ DEFINE FUNCTION fn::simulate_fan_out_fraud(
         LET $tx_step = $current_step + rand::int(0, $period_range - 1);
         LET $actual_amount = rand::float($amount_per_tx * 0.8, $amount_per_tx * 1.2);
         
-        LET $tx_id = CALL fn::create_single_transaction(
+        // It's good practice to check balance before calling, or handle potential errors if fn::create_single_transaction could fail
+        // For simplicity here, we assume the calling logic ensures $main_acct_id has enough funds for all legs.
+        LET $tx_id_obj = CALL fn::create_single_transaction(
             $main_acct_id,
             $bene_acct_id,
             $actual_amount,
             $tx_step,
-            transaction_type_def:TRANSFER,
+            $TRANSFER_TX_TYPE,
             true,
             $alert_record_id
         );
-        IF $tx_id.id != NONE THEN { // Check if transaction was successful (e.g. if error handling was added)
-            LET $created_tx_ids = array::push($created_tx_ids, $tx_id);
-        }
+        // Assuming fn::create_single_transaction returns the ID directly, not an object {id: ...}
+        // If it returns an object like { id: record_id }, then use $tx_id_obj.id
+        IF type::is::record($tx_id_obj) THEN # Check if $tx_id_obj is a record
+             LET $created_tx_ids = array::push($created_tx_ids, $tx_id_obj);
+        END;
+
     }
     RETURN $created_tx_ids;
 };
@@ -297,18 +289,18 @@ DEFINE FUNCTION fn::simulate_fan_in_fraud(
         LET $tx_step = $current_step + rand::int(0, $period_range - 1);
         LET $actual_amount = rand::float($amount_per_tx * 0.8, $amount_per_tx * 1.2);
 
-        LET $tx_id = CALL fn::create_single_transaction(
+        LET $tx_id_obj = CALL fn::create_single_transaction(
             $orig_acct_id,
             $main_acct_id,
             $actual_amount,
             $tx_step,
-            transaction_type_def:TRANSFER,
+            $TRANSFER_TX_TYPE,
             true,
             $alert_record_id
         );
-        IF $tx_id.id != NONE THEN {
-            LET $created_tx_ids = array::push($created_tx_ids, $tx_id);
-        }
+        IF type::is::record($tx_id_obj) THEN
+            LET $created_tx_ids = array::push($created_tx_ids, $tx_id_obj);
+        END;
     }
     RETURN $created_tx_ids;
 };
@@ -338,18 +330,18 @@ DEFINE FUNCTION fn::simulate_cycle_fraud(
         }
         LET $current_tx_amount = math::max($current_tx_amount, 0.01);
 
-        LET $tx_id = CALL fn::create_single_transaction(
+        LET $tx_id_obj = CALL fn::create_single_transaction(
             $orig_acct_id,
             $bene_acct_id,
             $current_tx_amount,
             $tx_step,
-            transaction_type_def:TRANSFER,
+            $TRANSFER_TX_TYPE,
             true,
             $alert_record_id
         );
-        IF $tx_id.id != NONE THEN {
-             LET $created_tx_ids = array::push($created_tx_ids, $tx_id);
-        }
+        IF type::is::record($tx_id_obj) THEN
+             LET $created_tx_ids = array::push($created_tx_ids, $tx_id_obj);
+        END;
     }
     RETURN $created_tx_ids;
 };
@@ -364,7 +356,7 @@ FOR $i IN 1..$num_initial_accounts {
     LET $acct_id_val = string::concat("ACC", $i);
     LET $initial_bal = rand::float($default_min_balance, $default_max_balance);
     LET $open_step = rand::int(0, 10);
-    LET $open_date = समय::add($base_date, $open_step * 1d);
+    LET $open_date = $base_date + ($open_step * 1d); // Corrected duration addition
 
     LET $created_account = CREATE account SET
         acct_id = $acct_id_val,
@@ -379,8 +371,9 @@ FOR $i IN 1..$num_initial_accounts {
         country_link = country_code:US,
         business_cat_link = business_category:I,
         bank_details = $default_bank_record.id;
-
-    CALL fn::log_balance_change($created_account.id, $open_step, $open_date, 0.0, $initial_bal, NONE);
+    -- Initial balance is set at creation, changefeed will capture this if it's an UPDATE after an initial 0.
+    -- Or, if you want to explicitly log the "deposit" that sets the initial balance:
+    -- (This would require a "source" for the initial deposit, e.g. a special bank or 'cash')
 };
 
 ----------------------------------------------------------------------------------
@@ -388,41 +381,106 @@ FOR $i IN 1..$num_initial_accounts {
 ----------------------------------------------------------------------------------
 /*
 -- Example of calling a fraud function (client would select accounts and parameters)
--- LET $all_accounts = SELECT id FROM account;
--- IF count($all_accounts) >= 5 THEN {
---     LET $main_fan_out_acct_id = $all_accounts[0].id;
---     LET $bene_acct_ids_for_fan_out = [$all_accounts[1].id, $all_accounts[2].id, $all_accounts[3].id];
---     LET $fan_out_alert_amount = 2000.0;
---     LET $fan_out_alert_period = 5;
+LET $all_accounts_for_sim = (SELECT VALUE id FROM account); // Get array of record IDs
 
---     LET $fan_out_alert_rec = CREATE alert CONTENT {
---         alert_id: rand::uuid(),
---         alert_type_link: alert_type_def:FAN_OUT,
---         is_sar_alert: true,
---         start_step: 10, end_step: 10 + $fan_out_alert_period - 1,
---         min_amount_spec: $fan_out_alert_amount, max_amount_spec: $fan_out_alert_amount,
---         main_account: $main_fan_out_acct_id
---     };
---     CALL fn::simulate_fan_out_fraud(
---         $main_fan_out_acct_id,
---         $bene_acct_ids_for_fan_out,
---         $fan_out_alert_amount,
---         10, -- current_step for the alert start
---         $fan_out_alert_rec.id,
---         $fan_out_alert_period
---     );
--- } END;
+IF count($all_accounts_for_sim) >= 5 THEN {
+    LET $main_fan_out_acct_id_for_sim = $all_accounts_for_sim[0];
+    LET $bene_acct_ids_for_fan_out_sim = [$all_accounts_for_sim[1], $all_accounts_for_sim[2], $all_accounts_for_sim[3]];
+    LET $fan_out_alert_amount_sim = 2000.0;
+    LET $fan_out_alert_period_sim = 5;
+
+    LET $fan_out_alert_rec_sim = CREATE alert CONTENT {
+        alert_id: rand::uuid(),
+        alert_type_link: $FAN_OUT_ALERT_TYPE,
+        is_sar_alert: true,
+        start_step: 10, end_step: 10 + $fan_out_alert_period_sim - 1,
+        min_amount_spec: $fan_out_alert_amount_sim, max_amount_spec: $fan_out_alert_amount_sim,
+        main_account: $main_fan_out_acct_id_for_sim
+    };
+    // Link alert to accounts (can be done via transaction links too)
+    RELATE $fan_out_alert_rec_sim->alerted_account->$main_fan_out_acct_id_for_sim;
+    FOR $b_id IN $bene_acct_ids_for_fan_out_sim { RELATE $fan_out_alert_rec_sim->alerted_account->$b_id; };
+
+
+    CALL fn::simulate_fan_out_fraud(
+        $main_fan_out_acct_id_for_sim,
+        $bene_acct_ids_for_fan_out_sim,
+        $fan_out_alert_amount_sim,
+        10, // current_step for the alert start
+        $fan_out_alert_rec_sim.id,
+        $fan_out_alert_period_sim
+    );
+} END;
+
 
 FOR $current_step IN 0..($total_simulation_steps - 1) {
     // PRINT "Processing step: ", $current_step;
-    // Client-driven logic would go here to:
-    // 1. Read current state of relevant accounts.
-    // 2. Decide which accounts transact (normal or fraudulent).
-    // 3. If fraudulent, select pattern, participants, amounts, period based on AMLSim parameters.
-    // 4. Call appropriate fn::simulate_..._fraud or fn::create_single_transaction.
+
+    // --- Section A: Trigger Fraudulent Patterns (Example: Cycle) ---
+    IF $current_step % 70 == 10 THEN { // Trigger cycle at specific steps
+        LET $cycle_size = rand::int(3, 4);
+        LET $cycle_candidate_acct_ids = (SELECT VALUE id FROM account WHERE balance > 1000 AND is_alert_candidate = true ORDER BY rand() LIMIT $cycle_size);
+
+        IF count($cycle_candidate_acct_ids) == $cycle_size THEN {
+            LET $cycle_alert_amount = rand::float(500, 1500);
+            LET $cycle_alert_period = rand::int(3, 8);
+
+            LET $cycle_alert_rec = CREATE alert CONTENT {
+                alert_id: rand::uuid(),
+                alert_type_link: $CYCLE_ALERT_TYPE,
+                is_sar_alert: true,
+                start_step: $current_step,
+                end_step: $current_step + $cycle_alert_period - 1,
+                min_amount_spec: $cycle_alert_amount,
+                max_amount_spec: $cycle_alert_amount
+            };
+            FOR $c_id IN $cycle_candidate_acct_ids { RELATE $cycle_alert_rec->alerted_account->$c_id; };
+
+            CALL fn::simulate_cycle_fraud(
+                $cycle_candidate_acct_ids,
+                $cycle_alert_amount,
+                $current_step,
+                $cycle_alert_rec.id,
+                $cycle_alert_period
+            );
+        }
+    } END;
+
+
+    // --- Section B: Normal Transactions ---
+    LET $num_normal_tx_per_step = rand::int(1, $num_initial_accounts / 4); // Number of normal transactions this step
+    FOR $tx_i IN 1..$num_normal_tx_per_step {
+        LET $originator_candidates_normal = (SELECT id, balance FROM account WHERE balance > 200.0 ORDER BY rand() LIMIT 1);
+        IF count($originator_candidates_normal) > 0 THEN {
+            LET $originator_normal_rec = $originator_candidates_normal[0];
+            LET $beneficiary_candidates_normal = (SELECT id FROM account WHERE id != $originator_normal_rec.id ORDER BY rand() LIMIT 1);
+
+            IF count($beneficiary_candidates_normal) > 0 THEN {
+                LET $beneficiary_normal_id = $beneficiary_candidates_normal[0].id;
+                LET $normal_amount = rand::float(10.0, math::min(200.0, $originator_normal_rec.balance * 0.02)); // Smaller % for normal
+
+                IF $normal_amount >= 1.0 AND $originator_normal_rec.balance >= $normal_amount THEN {
+                    CALL fn::create_single_transaction(
+                        $originator_normal_rec.id,
+                        $beneficiary_normal_id,
+                        $normal_amount,
+                        $current_step,
+                        array::at($ALL_TX_TYPES, rand::int(0, count($ALL_TX_TYPES)-1)),
+                        false,
+                        NONE
+                    );
+                }
+            }
+        }
+    };
 };
-PRINT "Conceptual simulation finished after ", $total_simulation_steps, " steps.";
-*/
+
+
+
+
+
+
+
 
 
 

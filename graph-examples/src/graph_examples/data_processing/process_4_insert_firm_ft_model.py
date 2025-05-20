@@ -1,6 +1,3 @@
-"""Insert Wikipedia data into SurrealDB."""
-
-
 import pandas as pd
 from surrealdb import Surreal
 import tqdm
@@ -12,7 +9,7 @@ from graph_examples.helpers.params import DatabaseParams, SurrealParams
 
 # Initialize database and model parameters, and argument loader
 db_params = DatabaseParams()
-args_loader = ArgsLoader("Input Glove embeddings model",db_params)
+args_loader = ArgsLoader("Input FastText embeddings model",db_params)
 
 INSERT_EMBEDDINGS = """
     FOR $row IN $embeddings {
@@ -79,9 +76,10 @@ def surreal_model_insert(model_path,overwrite,logger):
 
         logger.info(f"Deleting any rows from model")
 
-        # Delete existing embeddings for this particular model
-        SurrealParams.ParseResponseForErrors(connection.query_raw(DELETE_EMBEDDINGS))
-        logger.info("Inserting rows into SurrealDB")
+        if overwrite:
+            # Delete existing embeddings for this particular model
+            SurrealParams.ParseResponseForErrors(connection.query_raw(DELETE_EMBEDDINGS))
+            logger.info("Inserting rows into SurrealDB")
 
         with tqdm.tqdm(total=total_chunks, desc="Inserting") as pbar:
             # Iterate through chunks of data.
@@ -112,7 +110,7 @@ def insert_firm_ft_model() -> None:
 
     """Main entrypoint to insert glove embedding model into SurrealDB."""
     logger = loggers.setup_logger("SurrealEmbeddingsInsert")
-    overwrite = False
+    overwrite = True
     # Add command-line arguments specific to embedding insertion.
     args_loader.AddArg("overwrite","ow","overwrite","If true delete the model and re-upload. Else exit if model and data exists. (default{0})",overwrite)
     # Parse command-line arguments.
