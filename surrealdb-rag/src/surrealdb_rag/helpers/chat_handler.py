@@ -72,11 +72,11 @@ class ChatHandler():
         """
         
         message_records = await self.connection.query(
-            """RETURN fn::load_chat($chat_id)""",params = {"chat_id":chat_id}    
+            """RETURN fn::load_chat($chat_id)""",vars = {"chat_id":chat_id}    
         )
 
         title = await self.connection.query(
-            """RETURN fn::get_chat_title($chat_id);""",params = {"chat_id":chat_id}
+            """RETURN fn::get_chat_title($chat_id);""",vars = {"chat_id":chat_id}
         )
 
         for i, message in enumerate(message_records):
@@ -106,7 +106,7 @@ class ChatHandler():
                   'graph_data' (converted for UI), 'graph_size', and a formatted 'graph_id'.
         """
         message = await self.connection.query(
-            """RETURN fn::load_message_detail($message_id)""",params = {"message_id":message_id}    
+            """RETURN fn::load_message_detail($message_id)""",vars = {"message_id":message_id}    
         )
         message_think = RAGChatHandler.parse_llm_response_content(message["content"])
         message["content"] = message_think["content"]
@@ -142,7 +142,7 @@ class ChatHandler():
         Returns:
             list: A list of dictionaries, where each dictionary represents a chat session.
         """
-        chat_records = await self.connection.query(
+        chat_records = await self.connection.vars(
             """RETURN fn::load_all_chats();"""
         )
         return chat_records
@@ -227,12 +227,12 @@ class ChatHandler():
             ))
         
         title = await self.connection.query(
-            """RETURN fn::get_chat_title($chat_id);""",params = {"chat_id":chat_id}
+            """RETURN fn::get_chat_title($chat_id);""",vars = {"chat_id":chat_id}
         )
         new_title = ""
         if title == "Untitled chat":
             first_message_text = await self.connection.query(
-                "RETURN fn::get_first_message($chat_id);",params={"chat_id":chat_id}
+                "RETURN fn::get_first_message($chat_id);",vars={"chat_id":chat_id}
             )
             system_prompt = "You are a conversation title generator for a ChatGPT type app. Respond only with a simple title using the user input."
             new_title = await llm_handler.get_short_plain_text_response(system_prompt,first_message_text)
