@@ -142,7 +142,7 @@ class ChatHandler():
         Returns:
             list: A list of dictionaries, where each dictionary represents a chat session.
         """
-        chat_records = await self.connection.vars(
+        chat_records = await self.connection.query(
             """RETURN fn::load_all_chats();"""
         )
         return chat_records

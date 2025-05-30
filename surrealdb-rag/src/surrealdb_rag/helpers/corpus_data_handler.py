@@ -262,7 +262,7 @@ class CorpusDataHandler():
                     out.{entity_type, identifier, name}} 
                 FROM type::table($entity_table_name) WHERE identifier=$identifier);
                     """,
-            params = {"entity_table_name":corpus_graph_tables.get("entity_table_name"),"identifier":identifier} 
+            vars = {"entity_table_name":corpus_graph_tables.get("entity_table_name"),"identifier":identifier} 
         )
 
         entity_relations_dict = organize_relations_for_ux(entity_relations,identifier)
