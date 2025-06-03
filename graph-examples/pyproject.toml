@@ -13,7 +13,7 @@ dependencies = [
     "pandas",
     "wget",
     "pandas-stubs",
-    "surrealdb",
+    "surrealdb  == 1.0.4",
     "tqdm",
     "fastapi",
     "uvicorn",

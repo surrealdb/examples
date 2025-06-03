@@ -104,7 +104,6 @@ def insert_rows(table_name, input_file, total_chunks, using_glove, using_fasttex
         "cik":"",
         "form":"",
         "accession_no":"",
-        "company.ticker_display":"",
         "company.tickers":"",
         "company.exchanges":"",
         "company.description":"",
@@ -140,7 +139,7 @@ def insert_rows(table_name, input_file, total_chunks, using_glove, using_fasttex
 
                     formatted_row ={
                         "url":str(row["url"]),
-                        "title": f"{row['company.ticker_display']} {row['form']} {row['filing_date']}",
+                        "title": f"{row['company_name']} {row['company.tickers']} {row['form']} {row['filing_date']}",
                         "text": str(row["content"]),
                         "content_glove_vector":ast.literal_eval(row["content_glove_vector"]) if using_glove else None,
                         "content_fasttext_vector":ast.literal_eval(row["content_fasttext_vector"]) if using_fasttext else None,
@@ -149,7 +148,6 @@ def insert_rows(table_name, input_file, total_chunks, using_glove, using_fasttex
                                 "cik": row["cik"],
                                 "form": row["form"],
                                 "accession_no": row["accession_no"],
-                                "company_ticker_display": row["company.ticker_display"],
                                 "company_tickers":row["company.tickers"],
                                 "company_exchanges":row["company.exchanges"],
                                 "company_description": row["company.description"],

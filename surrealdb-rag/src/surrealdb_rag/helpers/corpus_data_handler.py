@@ -196,7 +196,7 @@ class CorpusDataHandler():
             list: A list of results from the query.
         """
         return await self.connection.query(
-                """RETURN fn::select_additional_data($corpus_table,$key)""",params = {"corpus_table":self.corpus_table_info["table_name"],"key":additional_data_field}    
+                """RETURN fn::select_additional_data($corpus_table,$key)""",vars = {"corpus_table":self.corpus_table_info["table_name"],"key":additional_data_field}    
             )
     
 
@@ -232,7 +232,7 @@ class CorpusDataHandler():
             name},relationship,source_document.{additional_data,title,url},contexts,confidence FROM type::table($relation_table_name) 
         WHERE in.identifier=$identifier_in AND out.identifier=$identifier_out and relationship = $relationship);
                         """,
-                params = {"relation_table_name":corpus_graph_tables.get("relation_table_name"),"identifier_in":identifier_in,"identifier_out":identifier_out,"relationship":relationship} 
+                vars = {"relation_table_name":corpus_graph_tables.get("relation_table_name"),"identifier_in":identifier_in,"identifier_out":identifier_out,"relationship":relationship} 
             )
         return relation_info
 
@@ -262,7 +262,7 @@ class CorpusDataHandler():
                     out.{entity_type, identifier, name}} 
                 FROM type::table($entity_table_name) WHERE identifier=$identifier);
                     """,
-            params = {"entity_table_name":corpus_graph_tables.get("entity_table_name"),"identifier":identifier} 
+            vars = {"entity_table_name":corpus_graph_tables.get("entity_table_name"),"identifier":identifier} 
         )
 
         entity_relations_dict = organize_relations_for_ux(entity_relations,identifier)
@@ -273,13 +273,13 @@ class CorpusDataHandler():
                     FROM  type::table($entity_table_name) WHERE identifier = $identifier FETCH source_document
                 )
             ;""",
-            params = {"entity_table_name":corpus_graph_tables.get("entity_table_name"),"identifier":identifier} 
+            vars = {"entity_table_name":corpus_graph_tables.get("entity_table_name"),"identifier":identifier} 
         )
 
         entity_info = await self.connection.query("""
             SELECT name,identifier,entity_type FROM type::table($entity_table_name) WHERE identifier = $identifier LIMIT 1
             ;""",
-            params = {"entity_table_name":corpus_graph_tables.get("entity_table_name"),"identifier":identifier} 
+            vars = {"entity_table_name":corpus_graph_tables.get("entity_table_name"),"identifier":identifier} 
         )
         
         return {
@@ -310,11 +310,11 @@ class CorpusDataHandler():
 
         source_document_info = await self.connection.query(
             """SELECT additional_data,title,url FROM type::thing($source_document_table_name,$url);""",
-            params = {"source_document_table_name":corpus_graph_tables.get("source_document_table_name"),"url":url}    
+            vars = {"source_document_table_name":corpus_graph_tables.get("source_document_table_name"),"url":url}    
         )
         entities = await self.connection.query(
             f"""SELECT * FROM {corpus_graph_tables.get("entity_table_name")}:[$url,None,None]..[$url,..,..];""",
-            params = {"source_document_table_name":corpus_graph_tables.get("source_document_table_name"),"url":url}    
+            vars = {"source_document_table_name":corpus_graph_tables.get("source_document_table_name"),"url":url}    
         )
 
                                         
@@ -322,7 +322,7 @@ class CorpusDataHandler():
             """
                 SELECT confidence,contexts,relationship,in.{additional_data,identifier,name},out.{additional_data,identifier,name} 
             FROM type::table($relation_table_name) WHERE source_document = type::thing($source_document_table_name,$url);""",
-            params = {"relation_table_name":corpus_graph_tables.get("relation_table_name"),
+            vars = {"relation_table_name":corpus_graph_tables.get("relation_table_name"),
                         "source_document_table_name":corpus_graph_tables.get("source_document_table_name"),"url":url}    
         )
         return {
@@ -522,7 +522,7 @@ class CorpusDataHandler():
 
             graph_data = await self.connection.query(
                 sql_to_execute ,
-                params = params 
+                vars = params 
             )
         graph_size = len(graph_data)
 
@@ -547,7 +547,7 @@ class CorpusDataHandler():
         """
          
         document = await self.connection.query(
-            """RETURN fn::load_document_detail($corpus_table,$document_id)""",params = {"corpus_table":corpus_table_detail["table_name"],"document_id":document_id}    
+            """RETURN fn::load_document_detail($corpus_table,$document_id)""",vars = {"corpus_table":corpus_table_detail["table_name"],"document_id":document_id}    
         )
         return document[0]
         
