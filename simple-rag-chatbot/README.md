@@ -1,5 +1,7 @@
 # Simple RAG bot using Python, SurrealDB, Ollama and Streamlit 
 
+<img width="800" height="1001" alt="simpleragbot" src="https://github.com/user-attachments/assets/43f74f7e-6205-40ea-99d2-0ba10bd22b20" />
+
 ## Setup
 
 ```bash
