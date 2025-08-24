@@ -62,21 +62,19 @@ def process_filing(filing:edgar.Filing,dict_writer:csv.DictWriter):
             text_content = extract_text_from_edgar_html(html_file,filing.form)
             with open(file_path, "w") as f:
                 f.write(text_content)
-
         row = {
             "url":filing.filing_url,
             "company_name":filing.company,
             "cik":filing.cik,
             "form":filing.form,
             "accession_no":filing.accession_no,
-            "company.ticker_display":company.ticker_display,
-            "company.tickers":company.tickers,
-            "company.exchanges":company.exchanges,
-            "company.description":company.description,
-            "company.category":company.category,
-            "company.industry":company.industry,
-            "company.sic":company.sic,
-            "company.website":company.website,
+            "company.tickers": company.tickers,
+            "company.exchanges": company.data.exchanges,
+            "company.description": company.data.description,
+            "company.category": company.data.category,
+            "company.industry": company.industry,
+            "company.sic": company.sic,
+            "company.website": company.data.website,
             "filing_date":filing.filing_date,
             "file_path":file_path,
         }
@@ -94,7 +92,6 @@ def process_filing(filing:edgar.Filing,dict_writer:csv.DictWriter):
             "cik":"",
             "form":"",
             "accession_no":"",
-            "company.ticker_display":"",
             "company.tickers":"",
             "company.exchanges":"",
             "company.description":"",
@@ -304,7 +301,6 @@ def download_edgar_data() -> None:
         "cik":"",
         "form":"",
         "accession_no":"",
-        "company.ticker_display":"",
         "company.tickers":"",
         "company.exchanges":"",
         "company.description":"",

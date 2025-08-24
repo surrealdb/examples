@@ -110,7 +110,7 @@ def surreal_model_insert(model_trainer,model_version,model_path,description,corp
 
         if not overwrite:
             # Check if the model already exists in the database.
-            result = connection.query(CHECK_IF_MODEL_EXISTS,params={"model_trainer":model_trainer,"model_version":model_version})
+            result = connection.query(CHECK_IF_MODEL_EXISTS,vars={"model_trainer":model_trainer,"model_version":model_version})
             if result == True:
                 logger.info(f"Model {model_trainer} {model_version} already exists -- exiting. Use -ow to overwrite.")
                 return

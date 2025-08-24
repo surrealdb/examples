@@ -1,4 +1,4 @@
-import edgar.company
+import edgar 
 import spacy
 from tqdm import tqdm
 from surrealdb_rag.helpers import loggers  
@@ -12,12 +12,12 @@ import tqdm
 import spacy
 spacy.prefer_gpu()
 import os
-import edgar
 from fuzzywuzzy import fuzz, process
 import unicodedata
 import re
 import subprocess
 import sys
+import numpy as np
 
 
 def fuzzy_merge_people(nlp, people_list, threshold=85):
@@ -415,7 +415,7 @@ def write_file_data_to_csv(
         relationships (list): List of extracted relationships.
     """
 
-    #url,company_name,cik,form,accession_no,company.ticker_display,company.tickers,company.exchanges,company.description,company.category,company.industry,company.sic,company.website,filing_date,file_path,error
+    #url,company_name,cik,form,accession_no,company.tickers,company.exchanges,company.description,company.category,company.industry,company.sic,company.website,filing_date,file_path,error
 
 
 
@@ -690,24 +690,23 @@ def get_public_companies(logger):
     if not os.path.exists(constants.EDGAR_PUBLIC_COMPANIES_LIST):
         logger.info(f"Creating {constants.EDGAR_PUBLIC_COMPANIES_LIST}...")
         sample_company = {
-            "company_name": "Sample Co", "cik": 12345, "company.ticker_display": "SAMPLE",
+            "company_name": "Sample Co", "cik": 12345,
             "company.tickers": ["SAMPLE"], "company.exchanges": ["NYSE"], "company.description": "",
             "company.category": "", "company.industry": "", "company.sic": 0, "company.website": ""
         }
         with open(constants.EDGAR_PUBLIC_COMPANIES_LIST, "w", newline='') as f:
             dict_writer = csv.DictWriter(f, sample_company.keys())
             dict_writer.writeheader()
-            cik_df = edgar.company.get_cik_tickers()
-            for _, cik_row in tqdm(cik_df.iterrows(), total=len(cik_df), desc="Fetching company data"):
+            cik_df = edgar.get_company_tickers()
+            for _, cik_row in tqdm.tqdm(cik_df.iterrows(), total=len(cik_df), desc="Fetching company data"):
                 try:
-                    company = edgar.company.Company(cik_row["cik"])
+                    company = edgar.Company(cik_row["cik"])
                     row = {
                         "company_name": company.name, "cik": int(company.cik),
-                        "company.ticker_display": company.ticker_display,
-                        "company.tickers": company.tickers, "company.exchanges": company.exchanges,
-                        "company.description": company.description, "company.category": company.category,
+                        "company.tickers": company.tickers, "company.exchanges": company.data.exchanges,
+                        "company.description": company.data.description, "company.category": company.data.category,
                         "company.industry": company.industry, "company.sic": company.sic,
-                        "company.website": company.website
+                        "company.website": company.data.website
                         
                     }
                     for key, value in row.items():
@@ -724,8 +723,9 @@ def get_public_companies(logger):
     company_index = {}
     companies_df = pd.read_csv(constants.EDGAR_PUBLIC_COMPANIES_LIST)
     companies_df = companies_df.dropna(subset=['company_name']).copy()
-    companies_df.loc[:, "company.tickers"] = companies_df["company.tickers"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else [])
-    companies_df.loc[:, "company.exchanges"] = companies_df["company.exchanges"].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else [])
+    companies_df = companies_df.replace({np.nan: None}) 
+    companies_df.loc[:, "company.tickers"] = companies_df["company.tickers"].apply(lambda x: x.split() if x else [])
+    companies_df.loc[:, "company.exchanges"] = companies_df["company.exchanges"].apply(lambda x: x.split() if x else [])
     
     companies_df["company.description"] = companies_df["company.description"].astype(str).fillna("")
     companies_df.loc[:, "cik"] = companies_df["cik"].fillna(0).astype(int)
@@ -759,7 +759,7 @@ def print_entities_and_relationships(logger, results):
         if data['companies']:
             for company in data['companies']:
                 company_data = company["company_data"]
-                print(f"  - {company_data['company_name']} (CIK: {company['cik']}) {company_data['company.ticker_display']}, Contexts: {len(company['contexts'])}")
+                print(f"  - {company_data['company_name']} (CIK: {company['cik']}), Contexts: {len(company['contexts'])}")
         else:
             print("  No companies found.")
 
