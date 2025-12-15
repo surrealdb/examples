@@ -31,18 +31,6 @@ pub enum DbResponse {
 impl Display for DbResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.clone().into_value().to_sql())
-        //     match self {
-
-        //         DbResponse::Busy => write!(f, "Busy"),
-        //         DbResponse::Free => write!(f, "Free"),
-        //         DbResponse::Info(i) => write!(f, "{i}"),
-        //         DbResponse::Movie(value) => write!(f, "{value:?}"),
-        //         DbResponse::Person(value) => write!(f, "{}", value.to_sql()),
-        //         DbResponse::Other(o) => write!(f, "{o}"),
-        //         DbResponse::Error(e) => write!(f, "{e}"),
-        //         DbResponse::RandomMovie(value) => write!(f, "{value}"),
-        //     }
-        // }
     }
 }
 
@@ -114,7 +102,7 @@ impl Database {
                     Ok(mut c) => {
                         let mut response = String::new();
                         for i in 0..c.num_statements() {
-                            if let Ok(r) = c.take::<Value>(i) {
+                            if let Ok(Some(r)) = c.take::<Option<Value>>(i) {
                                 response.push_str(&format!("{}\n", r.to_sql()))
                             }
                         }
