@@ -12,7 +12,7 @@ use eframe::egui;
 
 use egui::{Color32, RichText};
 use surrealbook::{
-    Country, Movie, Person,
+    Movie, Person,
     app::{Mode, MovieApp, MovieBrief},
     db::{Database, DbResponse},
 };
@@ -28,7 +28,8 @@ fn main() -> Result<(), Error> {
         if let Err(e) = rt.block_on(async {
             let db = connect("memory").await?;
 
-            db.use_ns("movies").use_db("movies").await?;
+            db.query("DEFINE USER root ON ROOT PASSWORD 'root'").await?;
+            db.use_ns("main").use_db("main").await?;
             db.query(surrealbook::INIT).await?;
 
             let mut database = Database {
@@ -50,7 +51,7 @@ fn main() -> Result<(), Error> {
                                 .response_sender
                                 .send(DbResponse::RandomMovie(random_movie))?
                         }
-                        Err(e) => panic!("Couldn't get random movie: {e}"),
+                        Err(e) => println!("Couldn't get random movie: {e}"),
                     };
                 }
             }
@@ -64,7 +65,6 @@ fn main() -> Result<(), Error> {
         current_movie: MovieBrief::default(),
         movie: Movie::default(),
         person: Person::default(),
-        country: Country::default(),
         output: String::new(),
         mode: Mode::Nothing,
         loaded: false,

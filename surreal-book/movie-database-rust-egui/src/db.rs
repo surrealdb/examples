@@ -6,19 +6,23 @@ use std::{
 
 use anyhow::Error;
 
-use surrealdb::{engine::any::Any, opt::auth::{Record, Root}, Surreal, Value};
+use surrealdb::{
+    Surreal,
+    engine::any::Any,
+    opt::auth::{Record, Root},
+};
+use surrealdb_types::{SurrealValue, ToSql, Value};
 
 use crate::{Movie, app::DbCommand};
 
 // Responses from the database back to the app
-#[derive(Debug)]
+#[derive(Clone, Debug, SurrealValue)]
 pub enum DbResponse {
     Busy,
     Free,
     Info(String),
     Movie(Vec<Movie>),
     Person(Value),
-    Country(Value),
     Other(String),
     Error(String),
     RandomMovie(Movie),
@@ -26,17 +30,19 @@ pub enum DbResponse {
 
 impl Display for DbResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DbResponse::Busy => write!(f, "Busy"),
-            DbResponse::Free => write!(f, "Free"),
-            DbResponse::Info(i) => write!(f, "{i}"),
-            DbResponse::Movie(value) => write!(f, "{value:?}"),
-            DbResponse::Person(value) => write!(f, "{value}"),
-            DbResponse::Country(value) => write!(f, "{value}"),
-            DbResponse::Other(o) => write!(f, "{o}"),
-            DbResponse::Error(e) => write!(f, "{e}"),
-            DbResponse::RandomMovie(value) => write!(f, "{value}"),
-        }
+        write!(f, "{}", self.clone().into_value().to_sql())
+        //     match self {
+
+        //         DbResponse::Busy => write!(f, "Busy"),
+        //         DbResponse::Free => write!(f, "Free"),
+        //         DbResponse::Info(i) => write!(f, "{i}"),
+        //         DbResponse::Movie(value) => write!(f, "{value:?}"),
+        //         DbResponse::Person(value) => write!(f, "{}", value.to_sql()),
+        //         DbResponse::Other(o) => write!(f, "{o}"),
+        //         DbResponse::Error(e) => write!(f, "{e}"),
+        //         DbResponse::RandomMovie(value) => write!(f, "{value}"),
+        //     }
+        // }
     }
 }
 
@@ -60,7 +66,7 @@ impl Database {
             match msg {
                 DbCommand::SelectPerson(s) => match self
                     .db
-                    .query("SELECT name, roles FROM person WHERE name @@ $input;")
+                    .query("SELECT name, roles FROM person WHERE $input IN name;")
                     .bind(("input", s))
                     .await
                 {
@@ -104,19 +110,12 @@ impl Database {
                         Err(e) => self.send_error(e)?,
                     };
                 }
-                DbCommand::SelectCountry(input) => {
-                    let query = "SELECT name AS country, ->has_movie->movie.{ title, released: released.format('%Y') } AS movies FROM country WHERE $name IN name";
-                    match self.db.query(query).bind(("name", input)).await {
-                        Ok(mut c) => self.response_sender.send(DbResponse::Country(c.take(0)?))?,
-                        Err(e) => self.send_error(e)?,
-                    };
-                }
                 DbCommand::RawQuery(q) => match self.db.query(q).await {
                     Ok(mut c) => {
                         let mut response = String::new();
                         for i in 0..c.num_statements() {
                             if let Ok(r) = c.take::<Value>(i) {
-                                response.push_str(&format!("{r}\n"))
+                                response.push_str(&format!("{}\n", r.to_sql()))
                             }
                         }
                         self.response_sender.send(DbResponse::Other(response))?;
@@ -126,9 +125,9 @@ impl Database {
                 DbCommand::Signup(q) => match self
                     .db
                     .signup(Record {
-                        namespace: "movies",
-                        database: "movies",
-                        access: "account",
+                        namespace: "main".to_string(),
+                        database: "main".to_string(),
+                        access: "account".to_string(),
                         params: q,
                     })
                     .await
@@ -141,9 +140,9 @@ impl Database {
                 DbCommand::Signin(q) => match self
                     .db
                     .signin(Record {
-                        namespace: "movies",
-                        database: "movies",
-                        access: "account",
+                        namespace: "main".to_string(),
+                        database: "main".to_string(),
+                        access: "account".to_string(),
                         params: q,
                     })
                     .await
@@ -156,8 +155,8 @@ impl Database {
                 DbCommand::Root => match self
                     .db
                     .signin(Root {
-                        username: "root",
-                        password: "root",
+                        username: "root".to_string(),
+                        password: "root".to_string(),
                     })
                     .await
                 {

@@ -8,9 +8,9 @@ use egui::{
     Vec2, global_theme_preference_buttons,
 };
 use egui_extras::install_image_loaders;
-use serde::{Deserialize, Serialize};
+use surrealdb_types::SurrealValue;
 
-use crate::{Country, Movie, Person, db::DbResponse};
+use crate::{Movie, Person, db::DbResponse};
 
 #[derive(Debug)]
 // Commands sent from the app to the database
@@ -20,7 +20,6 @@ pub enum DbCommand {
         title: Option<String>,
         plot: Option<String>,
     },
-    SelectCountry(String),
     RawQuery(String),
     Signin(UserInput),
     Signup(UserInput),
@@ -31,7 +30,6 @@ pub struct MovieApp {
     pub current_movie: MovieBrief,
     pub movie: Movie,
     pub person: Person,
-    pub country: Country,
     pub output: String,
     pub mode: Mode,
     pub loaded: bool,
@@ -46,7 +44,6 @@ pub struct MovieApp {
 pub enum Mode {
     Nothing,
     SelectPerson(String),
-    SelectCountry(String),
     SelectMovie { title: String, plot: String },
     RawQuery,
     Signup(UserInput),
@@ -134,7 +131,7 @@ impl Default for MovieBrief {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, PartialOrd)]
+#[derive(SurrealValue, Debug, Default, Clone, PartialEq, PartialOrd)]
 pub struct UserInput {
     name: String,
     pass: String,
@@ -168,7 +165,7 @@ impl eframe::App for MovieApp {
                 DbResponse::Movie(movies) => {
                     self.output = movies.into_iter().map(|m| m.to_string()).collect();
                 }
-                msg => self.output = format!("{msg}"),
+                msg => self.output = msg.to_string()
             }
         }
 
@@ -182,13 +179,6 @@ impl eframe::App for MovieApp {
             ui.separator();
             // Top buttons
             ui.horizontal(|ui| {
-                // Select country
-                ui.selectable_value(
-                    &mut self.mode,
-                    Mode::SelectCountry(String::new()),
-                    "Select country",
-                );
-                ui.separator();
                 // Select movie
                 ui.selectable_value(
                     &mut self.mode,
@@ -233,14 +223,6 @@ impl eframe::App for MovieApp {
 
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
-                    if let Mode::SelectCountry(name) = &mut self.mode {
-                        ui.label(
-                            RichText::new("Movies for country:")
-                                .font(Font::Small.with_size(self.font_size).1),
-                        );
-                        ui.text_edit_singleline(name);
-                    };
-
                     if let Mode::SelectMovie { title, plot } = &mut self.mode {
                         ui.label(
                             RichText::new("Movie title")
@@ -319,7 +301,7 @@ impl eframe::App for MovieApp {
             ui.separator();
 
             ui.horizontal(|ui| {
-                let Rect { min, max } = ctx.screen_rect();
+                let Rect { min, max } = ctx.content_rect();
                 egui::ScrollArea::vertical()
                     .min_scrolled_height((max.y - min.y) / 2.2)
                     .show(ui, |ui| {
@@ -363,11 +345,6 @@ impl eframe::App for MovieApp {
                                 Some(plot.clone())
                             },
                         });
-                    }
-                }
-                Mode::SelectCountry(name) => {
-                    if !name.is_empty() && key_pressed(ctx) {
-                        self.send_command(DbCommand::SelectCountry(name.clone()));
                     }
                 }
                 Mode::SelectPerson(name) => {
