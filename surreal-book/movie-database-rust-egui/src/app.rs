@@ -1,11 +1,7 @@
-use std::sync::mpsc::{Receiver, Sender};
+use std::{f32, sync::mpsc::{Receiver, Sender}};
 
 use egui::{
-    Color32, Context, Event,
-    FontFamily::Proportional,
-    FontId, Rect, RichText, Style,
-    TextStyle::{self, Body, Button, Heading, Monospace, Name, Small},
-    Vec2, global_theme_preference_buttons,
+    Color32, Context, Event, FontFamily::Proportional, FontId, Rect, RichText, Style, TextEdit, TextStyle::{self, Body, Button, Heading, Monospace, Name, Small}, Vec2, global_theme_preference_buttons
 };
 use egui_extras::install_image_loaders;
 use surrealdb_types::SurrealValue;
@@ -165,6 +161,7 @@ impl eframe::App for MovieApp {
                 DbResponse::Movie(movies) => {
                     self.output = movies.into_iter().map(|m| m.to_string()).collect();
                 }
+                DbResponse::Other(o) => self.output = o,
                 msg => self.output = msg.to_string()
             }
         }
@@ -307,7 +304,8 @@ impl eframe::App for MovieApp {
                     .show(ui, |ui| {
                         ui.vertical(|ui| {
                             ui.label("Latest output:");
-                            ui.text_edit_multiline(&mut self.output);
+                            ui.add(TextEdit::multiline(&mut self.output).desired_width(f32::INFINITY));
+                            //ui.text_edit_multiline(&mut self.output);
                         });
                     });
             });

@@ -102,9 +102,11 @@ impl Database {
                     Ok(mut c) => {
                         let mut response = String::new();
                         for i in 0..c.num_statements() {
-                            if let Ok(Some(r)) = c.take::<Option<Value>>(i) {
-                                response.push_str(&format!("{}\n", r.to_sql()))
+                            match c.take::<Option<Value>>(i) {
+                                Ok(v) => response.push_str(&v.unwrap_or(Value::None).to_sql_pretty()),
+                                Err(e) => response.push_str(&e.to_string()),
                             }
+                            response.push_str("\n");
                         }
                         self.response_sender.send(DbResponse::Other(response))?;
                     }
