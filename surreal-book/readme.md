@@ -1,7 +1,5 @@
-Any examples of tools using the schemas inside [Aeon's Surreal Renaissance](https://surrealdb.com/learn/book).
+## Aeon's Surreal Renaissance database example using egui
 
-This book contains a number of mini projects:
+The [very last chapters of this book](https://surrealdb.com/learn/book/chapter-19) involve building a movie database. This is an example of a frontend for the database that uses [egui](https://github.com/emilk/egui). Be sure to run in release mode (`cargo run --release`), or change from in-memory to a local SurrealDB database and connect that way.
 
-* The Enchanted Knights, which goes from chapters 5 to 8
-* A map created by Aeon in chapters 10 and 11
-* A final movie database project over the last four chapters: 18 to 21.
+Are you better at egui design than I am? Feel free to submit a PR!

@@ -3,18 +3,15 @@ pub mod db;
 
 use std::fmt::Display;
 
-use serde::{Deserialize, Serialize};
-use surrealdb::sql::Duration;
+use surrealdb_types::{Datetime, Duration, Number, SurrealValue};
 
-#[derive(Clone, Default, Serialize, Deserialize, Debug)]
+#[derive(Clone, Default, SurrealValue, Debug)]
+#[surreal(default)]
 pub struct Movie {
-    average_rating: f64,
-    #[serde(default)]
+    average_rating: Number,
     awards: String,
-    #[serde(default)]
     boxoffice: i32,
-    #[serde(default)]
-    dvd_released: String,
+    dvd_released: Datetime,
     genres: String,
     languages: String,
     poster: String,
@@ -55,187 +52,13 @@ impl Display for Movie {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, Default)]
-pub struct Country {
-    name: String,
-    movies: Vec<MovieBrief>,
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug, Default)]
-struct MovieBrief {
-    title: String,
-    released: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(SurrealValue, Debug, Default, Clone)]
 pub struct Person {
     name: String,
     roles: String,
 }
 
-pub const INIT: &str = r#"DEFINE NAMESPACE IF NOT EXISTS movies;
-USE NAMESPACE movies;
-DEFINE DATABASE IF NOT EXISTS movies CHANGEFEED 3d;
-USE DATABASE movies;
-
-IF !$INITIATED {
-DEFINE USER owner  ON DATABASE PASSWORD "owner"  ROLES OWNER;
-DEFINE USER editor ON DATABASE PASSWORD "editor" ROLES EDITOR;
-DEFINE USER viewer ON DATABASE PASSWORD "viewer" ROLES VIEWER;
-
-DEFINE PARAM $GENRES  VALUE ['Action','Adventure', 'Animation',	'Biography', 'Comedy',	'Crime', 'Drama', 'Family',	'Fantasy', 'Film-Noir',	'History', 'Horror', 'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'War',	'Western'];
-DEFINE PARAM $RATINGS VALUE ['Approved', 'G', 'Not Rated', 'PG', 'PG-13', 'Passed', 'R', 'TV-PG', 'Unrated', 'X'];
-
-// movie table
-DEFINE TABLE movie SCHEMAFULL TYPE NORMAL PERMISSIONS FOR select WHERE $auth.id IS NOT NONE FOR create, update, delete WHERE created_by = $auth.id;
-DEFINE FIELD awards            ON TABLE movie TYPE option<string>;
-DEFINE FIELD box_office        ON TABLE movie TYPE option<int>;
-DEFINE FIELD dvd_released      ON TABLE movie TYPE option<datetime>;
-DEFINE FIELD genres            ON TABLE movie TYPE array<string>     ASSERT $value ALLINSIDE $GENRES;
-DEFINE FIELD imdb_rating       ON TABLE movie TYPE option<int>;
-DEFINE FIELD languages         ON TABLE movie TYPE array<string>;
-DEFINE FIELD metacritic_rating ON TABLE movie TYPE option<int>;
-DEFINE FIELD oscars_won        ON TABLE movie TYPE option<int>;
-DEFINE FIELD plot              ON TABLE movie TYPE string;
-DEFINE FIELD poster            ON TABLE movie TYPE option<string>    ASSERT $value IS NONE OR $value.is_url();
-DEFINE FIELD rated             ON TABLE movie TYPE option<string>    ASSERT $value IN $RATINGS;
-DEFINE FIELD released          ON TABLE movie TYPE datetime;
-DEFINE FIELD rt_rating         ON TABLE movie TYPE option<int>;
-DEFINE FIELD runtime           ON TABLE movie TYPE duration;
-DEFINE FIELD title             ON TABLE movie TYPE string;
-DEFINE FIELD created_by        ON TABLE movie TYPE option<record<user>> READONLY VALUE $auth.id;
-DEFINE FIELD average_rating    ON TABLE movie 
-	VALUE math::mean([$this.imdb_rating, $this.metacritic_rating, $this.rt_rating][WHERE $this IS NOT NONE]);
-
-// person table
-DEFINE TABLE person SCHEMAFULL TYPE NORMAL  PERMISSIONS FOR select WHERE $auth.id IS NOT NONE FOR create, update, delete WHERE created_by = $auth.id;
-DEFINE FIELD name ON TABLE person TYPE string;
-DEFINE FIELD roles ON person TYPE array<string>;
-DEFINE FIELD created_by        ON TABLE person TYPE option<record<user>> READONLY VALUE $auth.id;
-
-// country table
-DEFINE TABLE country SCHEMAFULL TYPE NORMAL  PERMISSIONS FOR select WHERE $auth.id IS NOT NONE FOR create, update, delete WHERE created_by = $auth.id;
-DEFINE FIELD name ON TABLE country TYPE string;
-DEFINE FIELD created_by        ON TABLE country TYPE option<record<user>> READONLY VALUE $auth.id;
-
-// Relations
-DEFINE TABLE starred_in TYPE RELATION FROM person  TO movie PERMISSIONS FOR select WHERE $auth.id IS NOT NONE FOR create, update, delete WHERE created_by = $auth.id;
-DEFINE TABLE wrote      TYPE RELATION FROM person  TO movie PERMISSIONS FOR select WHERE $auth.id IS NOT NONE FOR create, update, delete WHERE created_by = $auth.id;
-DEFINE TABLE directed   TYPE RELATION FROM person  TO movie PERMISSIONS FOR select WHERE $auth.id IS NOT NONE FOR create, update, delete WHERE created_by = $auth.id;
-DEFINE TABLE has_movie  TYPE RELATION FROM country TO movie PERMISSIONS FOR select WHERE $auth.id IS NOT NONE FOR create, update, delete WHERE created_by = $auth.id;
-
-DEFINE FIELD created_by ON TABLE starred_in TYPE option<record<user>> READONLY VALUE $auth.id;
-DEFINE FIELD created_by ON TABLE wrote      TYPE option<record<user>> READONLY VALUE $auth.id;
-DEFINE FIELD created_by ON TABLE directed   TYPE option<record<user>> READONLY VALUE $auth.id;
-DEFINE FIELD created_by ON TABLE has_movie  TYPE option<record<user>> READONLY VALUE $auth.id;
-
-// Record users and access
-DEFINE TABLE user SCHEMAFULL
-    PERMISSIONS FOR select WHERE $auth.id = id;
-
-DEFINE FIELD name    ON TABLE user          TYPE string;
-DEFINE FIELD pass    ON TABLE user          TYPE string;
-DEFINE FIELD actions ON TABLE user FLEXIBLE TYPE option<array<object>>;
-
-DEFINE INDEX unique_name ON TABLE user FIELDS name UNIQUE;
-
-DEFINE ACCESS account ON DATABASE TYPE RECORD
-	SIGNUP ( CREATE user SET name = $name, pass = crypto::argon2::generate($pass) )
-	SIGNIN ( SELECT * FROM user WHERE name = $name AND crypto::argon2::compare(pass, $pass) )
-	DURATION FOR TOKEN 15m, FOR SESSION 12h;
-
-// Full text search
-DEFINE ANALYZER movie_fts TOKENIZERS class FILTERS ascii, lowercase, edgengram(2,10);
-DEFINE INDEX plot_index  ON TABLE movie FIELDS plot  SEARCH ANALYZER movie_fts BM25 HIGHLIGHTS;
-DEFINE INDEX title_index ON TABLE movie FIELDS title SEARCH ANALYZER movie_fts BM25;
-DEFINE INDEX person_index ON TABLE person FIELDS name SEARCH ANALYZER movie_fts BM25;
-
-// Events
-DEFINE EVENT soft_deletion ON TABLE movie WHEN $event = "DELETE" THEN {
-    CREATE deleted_movie CONTENT $before;
-};
-
-DEFINE EVENT movie_activity ON TABLE movie WHEN $auth.id IS NOT NONE THEN {
-	UPDATE $auth.id SET	
-        actions += {
-            event: $event,
-            input: $value,
-            at: time::now()
-        }
-};
-
-DEFINE EVENT country_activity ON TABLE country WHEN $auth.id IS NOT NONE THEN {
-	UPDATE $auth.id SET	
-        actions += {
-            event: $event,
-            input: $value,
-            at: time::now()
-        }
-};
-
-DEFINE EVENT person_activity ON TABLE person WHEN $auth.id IS NOT NONE THEN {
-	UPDATE $auth.id SET	
-        actions += {
-            event: $event,
-            input: $value,
-            at: time::now()
-        }
-};
-
-DEFINE FUNCTION fn::date_to_datetime($input: string) -> datetime {
-    LET $split = $input.split(' ');
-    RETURN <datetime>($split[2] + '-' + fn::month_to_num($split[1]) + '-' + $split[0]);
-} PERMISSIONS NONE;
-
-DEFINE FUNCTION fn::month_to_num($input: string) -> string {
-    RETURN 
-        IF      $input = 'Jan' { '01' }
-        ELSE IF $input = 'Feb' { '02' }
-        ELSE IF $input = 'Mar' { '03' }
-        ELSE IF $input = 'Apr' { '04' }
-        ELSE IF $input = 'May' { '05' }
-        ELSE IF $input = 'Jun' { '06' }
-        ELSE IF $input = 'Jul' { '07' }
-        ELSE IF $input = 'Aug' { '08' }
-        ELSE IF $input = 'Sep' { '09' }
-        ELSE IF $input = 'Oct' { '10' }
-        ELSE IF $input = 'Nov' { '11' }
-        ELSE IF $input = 'Dec' { '12' }
-        ELSE {
-            THROW "Invalid input: `" + $input + "`. Please enter an abbreviated three-letter such as 'Oct'."
-        }
-} PERMISSIONS NONE;
-
-DEFINE FUNCTION fn::get_imdb($obj: array<object>) -> option<number> {
-    LET $data = (SELECT VALUE Score FROM ONLY $obj WHERE Source = 'Internet Movie Database' LIMIT 1);
-    RETURN IF $data IS NONE { NONE } ELSE { <number>$data.replace('/10', '') * 10 }
-} PERMISSIONS NONE;
-
-DEFINE FUNCTION fn::get_rt($obj: array<object>) -> option<number> {
-    LET $data = (SELECT VALUE Score FROM ONLY $obj WHERE Source = 'Rotten Tomatoes' LIMIT 1);
-    RETURN IF $data IS NONE { NONE } ELSE { <number>$data.replace('%', '') }
-} PERMISSIONS NONE;
-
-DEFINE FUNCTION fn::get_metacritic($obj: array<object>) -> option<number> {
-    LET $data = (SELECT VALUE Score FROM ONLY $obj WHERE Source = 'Metacritic' LIMIT 1);
-    RETURN IF $data IS NONE { NONE } ELSE { <number>$data.replace('/100', '') }
-} PERMISSIONS NONE;
-
-DEFINE FUNCTION fn::get_oscars($input: string) -> option<int> {
-	RETURN IF $input.starts_with('Won ') AND 'Oscar' in $input {
-    	let $input = $input.replace('Won ', '');
-    	<int>$input.split(' Oscar')[0]
-	} ELSE {
-    	NONE
-	}
-} PERMISSIONS NONE;
-
-DEFINE FUNCTION fn::random_movie() {
-    LET $random_genre = rand::enum($GENRES);
-    LET $random_rating = rand::enum($RATINGS);
-    LET $title = RETURN "Movies for " + $random_genre + " and " + $random_rating;
-    RETURN [$title, (SELECT * FROM movie WHERE $random_genre IN genres and $random_rating IN rated)];    
-} PERMISSIONS FULL;
+pub const INIT: &str = r#"
 
 INSERT INTO naive_movie [
 	{
@@ -268,6 +91,7 @@ INSERT INTO naive_movie [
 		Runtime: '142 min',
 		Title: 'The Shawshank Redemption',
 		Writer: 'Stephen King, Frank Darabont',
+		imdbRating: '9.3'
 	},
 	{
 		Actors: 'Marlon Brando, Al Pacino, James Caan',
@@ -299,6 +123,7 @@ INSERT INTO naive_movie [
 		Runtime: '175 min',
 		Title: 'The Godfather',
 		Writer: 'Mario Puzo, Francis Ford Coppola',
+		imdbRating: '9.2'
 	},
 	{
 		Actors: 'Christian Bale, Heath Ledger, Aaron Eckhart',
@@ -330,6 +155,7 @@ INSERT INTO naive_movie [
 		Runtime: '152 min',
 		Title: 'The Dark Knight',
 		Writer: 'Jonathan Nolan, Christopher Nolan, David S. Goyer',
+		imdbRating: '9.1'
 	},
 	{
 		Actors: 'Al Pacino, Robert De Niro, Robert Duvall',
@@ -361,6 +187,7 @@ INSERT INTO naive_movie [
 		Runtime: '202 min',
 		Title: 'The Godfather: Part II',
 		Writer: 'Francis Ford Coppola, Mario Puzo',
+		imdbRating: '9.0'
 	},
 	{
 		Actors: 'Henry Fonda, Lee J. Cobb, Martin Balsam',
@@ -392,6 +219,7 @@ INSERT INTO naive_movie [
 		Runtime: '96 min',
 		Title: '12 Angry Men',
 		Writer: 'Reginald Rose',
+		imdbRating: '9.0'
 	},
 	{
 		Actors: 'Liam Neeson, Ralph Fiennes, Ben Kingsley',
@@ -423,6 +251,7 @@ INSERT INTO naive_movie [
 		Runtime: '195 min',
 		Title: "Schindler's List",
 		Writer: 'Thomas Keneally, Steven Zaillian',
+		imdbRating: '8.9'
 	},
 	{
 		Actors: 'Elijah Wood, Viggo Mortensen, Ian McKellen',
@@ -454,6 +283,7 @@ INSERT INTO naive_movie [
 		Runtime: '201 min',
 		Title: 'The Lord of the Rings: The Return of the King',
 		Writer: 'J.R.R. Tolkien, Fran Walsh, Philippa Boyens',
+		imdbRating: '9.0'
 	},
 	{
 		Actors: 'John Travolta, Uma Thurman, Samuel L. Jackson',
@@ -485,6 +315,7 @@ INSERT INTO naive_movie [
 		Runtime: '154 min',
 		Title: 'Pulp Fiction',
 		Writer: 'Quentin Tarantino, Roger Avary',
+		imdbRating: '8.9'
 	},
 	{
 		Actors: 'Elijah Wood, Ian McKellen, Orlando Bloom',
@@ -516,6 +347,7 @@ INSERT INTO naive_movie [
 		Runtime: '178 min',
 		Title: 'The Lord of the Rings: The Fellowship of the Ring',
 		Writer: 'J.R.R. Tolkien, Fran Walsh, Philippa Boyens',
+		imdbRating: '8.8'
 	},
 	{
 		Actors: 'Clint Eastwood, Eli Wallach, Lee Van Cleef',
@@ -547,6 +379,7 @@ INSERT INTO naive_movie [
 		Runtime: '178 min',
 		Title: 'The Good, the Bad and the Ugly',
 		Writer: 'Luciano Vincenzoni, Sergio Leone, Agenore Incrocci',
+		imdbRating: '8.8'
 	},
 	{
 		Actors: 'Tom Hanks, Robin Wright, Gary Sinise',
@@ -578,6 +411,7 @@ INSERT INTO naive_movie [
 		Runtime: '142 min',
 		Title: 'Forrest Gump',
 		Writer: 'Winston Groom, Eric Roth',
+		imdbRating: '8.8'
 	},
 	{
 		Actors: 'Brad Pitt, Edward Norton, Meat Loaf',
@@ -609,6 +443,7 @@ INSERT INTO naive_movie [
 		Runtime: '139 min',
 		Title: 'Fight Club',
 		Writer: 'Chuck Palahniuk, Jim Uhls',
+		imdbRating: '8.8'
 	},
 	{
 		Actors: 'Leonardo DiCaprio, Joseph Gordon-Levitt, Elliot Page',
@@ -640,6 +475,7 @@ INSERT INTO naive_movie [
 		Runtime: '148 min',
 		Title: 'Inception',
 		Writer: 'Christopher Nolan',
+		imdbRating: '8.8'
 	},
 	{
 		Actors: 'Elijah Wood, Ian McKellen, Viggo Mortensen',
@@ -671,6 +507,7 @@ INSERT INTO naive_movie [
 		Runtime: '179 min',
 		Title: 'The Lord of the Rings: The Two Towers',
 		Writer: 'J.R.R. Tolkien, Fran Walsh, Philippa Boyens',
+		imdbRating: '8.7'
 	},
 	{
 		Actors: 'Mark Hamill, Harrison Ford, Carrie Fisher',
@@ -702,6 +539,7 @@ INSERT INTO naive_movie [
 		Runtime: '124 min',
 		Title: 'Star Wars: Episode V - The Empire Strikes Back',
 		Writer: 'Leigh Brackett, Lawrence Kasdan, George Lucas',
+		imdbRating: '8.7'
 	},
 	{
 		Actors: 'Keanu Reeves, Laurence Fishburne, Carrie-Anne Moss',
@@ -733,6 +571,7 @@ INSERT INTO naive_movie [
 		Runtime: '136 min',
 		Title: 'The Matrix',
 		Writer: 'Lilly Wachowski, Lana Wachowski',
+		imdbRating: '8.7'
 	},
 	{
 		Actors: 'Robert De Niro, Ray Liotta, Joe Pesci',
@@ -764,6 +603,7 @@ INSERT INTO naive_movie [
 		Runtime: '145 min',
 		Title: 'Goodfellas',
 		Writer: 'Nicholas Pileggi, Martin Scorsese',
+		imdbRating: '8.7'
 	},
 	{
 		Actors: 'Jack Nicholson, Louise Fletcher, Michael Berryman',
@@ -795,6 +635,7 @@ INSERT INTO naive_movie [
 		Runtime: '133 min',
 		Title: "One Flew Over the Cuckoo's Nest",
 		Writer: 'Lawrence Hauben, Bo Goldman, Ken Kesey',
+		imdbRating: '8.7'
 	},
 	{
 		Actors: 'Morgan Freeman, Brad Pitt, Kevin Spacey',
@@ -826,6 +667,7 @@ INSERT INTO naive_movie [
 		Runtime: '127 min',
 		Title: 'Se7en',
 		Writer: 'Andrew Kevin Walker',
+		imdbRating: '8.6'
 	},
 	{
 		Actors: 'Toshirô Mifune, Takashi Shimura, Keiko Tsushima',
@@ -853,6 +695,7 @@ INSERT INTO naive_movie [
 		Runtime: '207 min',
 		Title: 'Seven Samurai',
 		Writer: 'Akira Kurosawa, Shinobu Hashimoto, Hideo Oguni',
+		imdbRating: '8.6'
 	},
 	{
 		Actors: 'James Stewart, Donna Reed, Lionel Barrymore',
@@ -884,6 +727,7 @@ INSERT INTO naive_movie [
 		Runtime: '130 min',
 		Title: "It's a Wonderful Life",
 		Writer: 'Frances Goodrich, Albert Hackett, Frank Capra',
+		imdbRating: '8.7'
 	},
 	{
 		Actors: 'Jodie Foster, Anthony Hopkins, Lawrence A. Bonney',
@@ -915,6 +759,7 @@ INSERT INTO naive_movie [
 		Runtime: '118 min',
 		Title: 'The Silence of the Lambs',
 		Writer: 'Thomas Harris, Ted Tally',
+		imdbRating: '8.6'
 	},
 	{
 		Actors: 'Tom Hanks, Matt Damon, Tom Sizemore',
@@ -946,6 +791,7 @@ INSERT INTO naive_movie [
 		Runtime: '169 min',
 		Title: 'Saving Private Ryan',
 		Writer: 'Robert Rodat',
+		imdbRating: '8.6'
 	},
 	{
 		Actors: 'Alexandre Rodrigues, Leandro Firmino, Matheus Nachtergaele',
@@ -977,6 +823,7 @@ INSERT INTO naive_movie [
 		Runtime: '130 min',
 		Title: 'City of God',
 		Writer: 'Paulo Lins, Bráulio Mantovani',
+		imdbRating: '8.6'
 	},
 	{
 		Actors: 'Roberto Benigni, Nicoletta Braschi, Giorgio Cantarini',
@@ -1008,6 +855,7 @@ INSERT INTO naive_movie [
 		Runtime: '116 min',
 		Title: 'Life Is Beautiful',
 		Writer: 'Vincenzo Cerami, Roberto Benigni',
+		imdbRating: '8.6'
 	},
 	{
 		Actors: 'Tom Hanks, Michael Clarke Duncan, David Morse',
@@ -1039,6 +887,7 @@ INSERT INTO naive_movie [
 		Runtime: '189 min',
 		Title: 'The Green Mile',
 		Writer: 'Stephen King, Frank Darabont',
+		imdbRating: '8.6'
 	},
 	{
 		Actors: 'Mark Hamill, Harrison Ford, Carrie Fisher',
@@ -1070,6 +919,7 @@ INSERT INTO naive_movie [
 		Runtime: '121 min',
 		Title: 'Star Wars',
 		Writer: 'George Lucas',
+		imdbRating: '8.6'
 	},
 	{
 		Actors: 'Matthew McConaughey, Anne Hathaway, Jessica Chastain',
@@ -1101,6 +951,7 @@ INSERT INTO naive_movie [
 		Runtime: '169 min',
 		Title: 'Interstellar',
 		Writer: 'Jonathan Nolan, Christopher Nolan',
+		imdbRating: '8.7'
 	},
 	{
 		Actors: 'Arnold Schwarzenegger, Linda Hamilton, Edward Furlong',
@@ -1132,6 +983,7 @@ INSERT INTO naive_movie [
 		Runtime: '137 min',
 		Title: 'Terminator 2: Judgment Day',
 		Writer: 'James Cameron, William Wisher',
+		imdbRating: '8.6'
 	},
 	{
 		Actors: 'Michael J. Fox, Christopher Lloyd, Lea Thompson',
@@ -1163,6 +1015,7 @@ INSERT INTO naive_movie [
 		Runtime: '116 min',
 		Title: 'Back to the Future',
 		Writer: 'Robert Zemeckis, Bob Gale',
+		imdbRating: '8.6'
 	},
 	{
 		Actors: 'Daveigh Chase, Suzanne Pleshette, Miyu Irino',
@@ -1194,6 +1047,7 @@ INSERT INTO naive_movie [
 		Runtime: '125 min',
 		Title: 'Spirited Away',
 		Writer: 'Hayao Miyazaki',
+		imdbRating: '8.6'
 	},
 	{
 		Actors: 'Anthony Perkins, Janet Leigh, Vera Miles',
@@ -1225,6 +1079,7 @@ INSERT INTO naive_movie [
 		Runtime: '109 min',
 		Title: 'Psycho',
 		Writer: 'Joseph Stefano, Robert Bloch',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Adrien Brody, Thomas Kretschmann, Frank Finlay',
@@ -1256,6 +1111,7 @@ INSERT INTO naive_movie [
 		Runtime: '150 min',
 		Title: 'The Pianist',
 		Writer: 'Ronald Harwood, Wladyslaw Szpilman',
+		imdbRating: '8.6'
 	},
 	{
 		Actors: 'Jean Reno, Gary Oldman, Natalie Portman',
@@ -1287,6 +1143,7 @@ INSERT INTO naive_movie [
 		Runtime: '110 min',
 		Title: 'Léon: The Professional',
 		Writer: 'Luc Besson',
+		imdbRating: '8.6'
 	},
 	{
 		Actors: 'Kang-ho Song, Sun-kyun Lee, Yeo-jeong Cho',
@@ -1318,6 +1175,7 @@ INSERT INTO naive_movie [
 		Runtime: '132 min',
 		Title: 'Parasite',
 		Writer: 'Bong Joon Ho, Han Jin-won',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Matthew Broderick, Jeremy Irons, James Earl Jones',
@@ -1349,6 +1207,7 @@ INSERT INTO naive_movie [
 		Runtime: '88 min',
 		Title: 'The Lion King',
 		Writer: 'Irene Mecchi, Jonathan Roberts, Linda Woolverton',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Russell Crowe, Joaquin Phoenix, Connie Nielsen',
@@ -1380,6 +1239,7 @@ INSERT INTO naive_movie [
 		Runtime: '155 min',
 		Title: 'Gladiator',
 		Writer: 'David Franzoni, John Logan, William Nicholson',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: "Edward Norton, Edward Furlong, Beverly D'Angelo",
@@ -1411,6 +1271,7 @@ INSERT INTO naive_movie [
 		Runtime: '119 min',
 		Title: 'American History X',
 		Writer: 'David McKenna',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Kevin Spacey, Gabriel Byrne, Chazz Palminteri',
@@ -1442,6 +1303,7 @@ INSERT INTO naive_movie [
 		Runtime: '106 min',
 		Title: 'The Usual Suspects',
 		Writer: 'Christopher McQuarrie',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Leonardo DiCaprio, Matt Damon, Jack Nicholson',
@@ -1473,6 +1335,7 @@ INSERT INTO naive_movie [
 		Runtime: '151 min',
 		Title: 'The Departed',
 		Writer: 'William Monahan, Alan Mak, Felix Chong',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Christian Bale, Hugh Jackman, Scarlett Johansson',
@@ -1504,6 +1367,7 @@ INSERT INTO naive_movie [
 		Runtime: '130 min',
 		Title: 'The Prestige',
 		Writer: 'Jonathan Nolan, Christopher Nolan, Christopher Priest',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Humphrey Bogart, Ingrid Bergman, Paul Henreid',
@@ -1535,6 +1399,7 @@ INSERT INTO naive_movie [
 		Runtime: '102 min',
 		Title: 'Casablanca',
 		Writer: 'Julius J. Epstein, Philip G. Epstein, Howard Koch',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Miles Teller, J.K. Simmons, Melissa Benoist',
@@ -1566,6 +1431,7 @@ INSERT INTO naive_movie [
 		Runtime: '106 min',
 		Title: 'Whiplash',
 		Writer: 'Damien Chazelle',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'François Cluzet, Omar Sy, Anne Le Ny',
@@ -1597,6 +1463,7 @@ INSERT INTO naive_movie [
 		Runtime: '112 min',
 		Title: 'The Intouchables',
 		Writer: 'Olivier Nakache, Philippe Pozzo di Borgo, Éric Toledano',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Charles Chaplin, Paulette Goddard, Henry Bergman',
@@ -1628,6 +1495,7 @@ INSERT INTO naive_movie [
 		Runtime: '87 min',
 		Title: 'Modern Times',
 		Writer: 'Charles Chaplin',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Henry Fonda, Charles Bronson, Claudia Cardinale',
@@ -1659,6 +1527,7 @@ INSERT INTO naive_movie [
 		Runtime: '165 min',
 		Title: 'Once Upon a Time in the West',
 		Writer: 'Sergio Donati, Sergio Leone, Dario Argento',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Tatsuya Nakadai, Akira Ishihama, Shima Iwashita',
@@ -1686,6 +1555,7 @@ INSERT INTO naive_movie [
 		Runtime: '133 min',
 		Title: 'Hara-Kiri',
 		Writer: 'Yasuhiko Takiguchi, Shinobu Hashimoto',
+		imdbRating: '8.6'
 	},
 	{
 		Actors: 'Tsutomu Tatsumi, Ayano Shiraishi, Akemi Yamaguchi',
@@ -1717,6 +1587,7 @@ INSERT INTO naive_movie [
 		Runtime: '89 min',
 		Title: 'Grave of the Fireflies',
 		Writer: 'Akiyuki Nosaka, Isao Takahata',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Sigourney Weaver, Tom Skerritt, John Hurt',
@@ -1748,6 +1619,7 @@ INSERT INTO naive_movie [
 		Runtime: '117 min',
 		Title: 'Alien',
 		Writer: "Dan O'Bannon, Ronald Shusett",
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'James Stewart, Grace Kelly, Wendell Corey',
@@ -1779,6 +1651,7 @@ INSERT INTO naive_movie [
 		Runtime: '112 min',
 		Title: 'Rear Window',
 		Writer: 'John Michael Hayes, Cornell Woolrich',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Charles Chaplin, Virginia Cherrill, Florence Lee',
@@ -1810,6 +1683,7 @@ INSERT INTO naive_movie [
 		Runtime: '87 min',
 		Title: 'City Lights',
 		Writer: 'Charles Chaplin, Harry Carr, Harry Crocker',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Guy Pearce, Carrie-Anne Moss, Joe Pantoliano',
@@ -1841,6 +1715,7 @@ INSERT INTO naive_movie [
 		Runtime: '113 min',
 		Title: 'Memento',
 		Writer: 'Christopher Nolan, Jonathan Nolan',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Philippe Noiret, Enzo Cannavale, Antonella Attili',
@@ -1872,6 +1747,7 @@ INSERT INTO naive_movie [
 		Runtime: '155 min',
 		Title: 'Cinema Paradiso',
 		Writer: 'Giuseppe Tornatore, Vanna Paoli',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Martin Sheen, Marlon Brando, Robert Duvall',
@@ -1903,6 +1779,7 @@ INSERT INTO naive_movie [
 		Runtime: '147 min',
 		Title: 'Apocalypse Now',
 		Writer: 'John Milius, Francis Ford Coppola, Michael Herr',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Harrison Ford, Karen Allen, Paul Freeman',
@@ -1934,6 +1811,7 @@ INSERT INTO naive_movie [
 		Runtime: '115 min',
 		Title: 'Indiana Jones and the Raiders of the Lost Ark',
 		Writer: 'Lawrence Kasdan, George Lucas, Philip Kaufman',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Jamie Foxx, Christoph Waltz, Leonardo DiCaprio',
@@ -1965,6 +1843,7 @@ INSERT INTO naive_movie [
 		Runtime: '165 min',
 		Title: 'Django Unchained',
 		Writer: 'Quentin Tarantino',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Ben Burtt, Elissa Knight, Jeff Garlin',
@@ -1996,6 +1875,7 @@ INSERT INTO naive_movie [
 		Runtime: '98 min',
 		Title: 'WALL·E',
 		Writer: 'Andrew Stanton, Pete Docter, Jim Reardon',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Ulrich Mühe, Martina Gedeck, Sebastian Koch',
@@ -2027,6 +1907,7 @@ INSERT INTO naive_movie [
 		Runtime: '137 min',
 		Title: 'The Lives of Others',
 		Writer: 'Florian Henckel von Donnersmarck',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'William Holden, Gloria Swanson, Erich von Stroheim',
@@ -2054,6 +1935,7 @@ INSERT INTO naive_movie [
 		Runtime: '110 min',
 		Title: 'Sunset Blvd.',
 		Writer: 'Charles Brackett, Billy Wilder, D.M. Marshman Jr.',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Jack Nicholson, Shelley Duvall, Danny Lloyd',
@@ -2085,6 +1967,7 @@ INSERT INTO naive_movie [
 		Runtime: '146 min',
 		Title: 'The Shining',
 		Writer: 'Stephen King, Stanley Kubrick, Diane Johnson',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Kirk Douglas, Ralph Meeker, Adolphe Menjou',
@@ -2116,6 +1999,7 @@ INSERT INTO naive_movie [
 		Runtime: '88 min',
 		Title: 'Paths of Glory',
 		Writer: 'Stanley Kubrick, Calder Willingham, Jim Thompson',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Charles Chaplin, Paulette Goddard, Jack Oakie',
@@ -2143,6 +2027,7 @@ INSERT INTO naive_movie [
 		Runtime: '125 min',
 		Title: 'The Great Dictator',
 		Writer: 'Charles Chaplin',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Robert Downey Jr., Chris Hemsworth, Mark Ruffalo',
@@ -2174,6 +2059,7 @@ INSERT INTO naive_movie [
 		Runtime: '149 min',
 		Title: 'Avengers: Infinity War',
 		Writer: 'Christopher Markus, Stephen McFeely, Stan Lee',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Tyrone Power, Marlene Dietrich, Charles Laughton',
@@ -2197,6 +2083,7 @@ INSERT INTO naive_movie [
 		Runtime: '116 min',
 		Title: 'Witness for the Prosecution',
 		Writer: 'Agatha Christie, Billy Wilder, Harry Kurnitz',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Sigourney Weaver, Michael Biehn, Carrie Henn',
@@ -2228,6 +2115,7 @@ INSERT INTO naive_movie [
 		Runtime: '137 min',
 		Title: 'Aliens',
 		Writer: 'James Cameron, David Giler, Walter Hill',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Kevin Spacey, Annette Bening, Thora Birch',
@@ -2259,6 +2147,7 @@ INSERT INTO naive_movie [
 		Runtime: '122 min',
 		Title: 'American Beauty',
 		Writer: 'Alan Ball',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Christian Bale, Tom Hardy, Anne Hathaway',
@@ -2290,6 +2179,7 @@ INSERT INTO naive_movie [
 		Runtime: '164 min',
 		Title: 'The Dark Knight Rises',
 		Writer: 'Jonathan Nolan, Christopher Nolan, David S. Goyer',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Peter Sellers, George C. Scott, Sterling Hayden',
@@ -2321,6 +2211,7 @@ INSERT INTO naive_movie [
 		Runtime: '95 min',
 		Title: 'Dr. Strangelove or: How I Learned to Stop Worrying and Love the Bomb',
 		Writer: 'Stanley Kubrick, Terry Southern, Peter George',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Shameik Moore, Jake Johnson, Hailee Steinfeld',
@@ -2352,6 +2243,7 @@ INSERT INTO naive_movie [
 		Runtime: '117 min',
 		Title: 'Spider-Man: Into the Spider-Verse',
 		Writer: 'Phil Lord, Rodney Rothman',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Joaquin Phoenix, Robert De Niro, Zazie Beetz',
@@ -2383,6 +2275,7 @@ INSERT INTO naive_movie [
 		Runtime: '122 min',
 		Title: 'Joker',
 		Writer: 'Todd Phillips, Scott Silver, Bob Kane',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Choi Min-sik, Yoo Ji-Tae, Kang Hye-jeong',
@@ -2414,6 +2307,7 @@ INSERT INTO naive_movie [
 		Runtime: '120 min',
 		Title: 'Old Boy',
 		Writer: 'Garon Tsuchiya, Nobuaki Minegishi, Park Chan-wook',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Mel Gibson, Sophie Marceau, Patrick McGoohan',
@@ -2445,6 +2339,7 @@ INSERT INTO naive_movie [
 		Runtime: '178 min',
 		Title: 'Braveheart',
 		Writer: 'Randall Wallace',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Tom Hanks, Tim Allen, Don Rickles',
@@ -2476,6 +2371,7 @@ INSERT INTO naive_movie [
 		Runtime: '81 min',
 		Title: 'Toy Story',
 		Writer: 'John Lasseter, Pete Docter, Andrew Stanton',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'F. Murray Abraham, Tom Hulce, Elizabeth Berridge',
@@ -2507,6 +2403,7 @@ INSERT INTO naive_movie [
 		Runtime: '160 min',
 		Title: 'Amadeus',
 		Writer: 'Peter Shaffer, Zdenek Mahler',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Anthony Gonzalez, Gael García Bernal, Benjamin Bratt',
@@ -2538,6 +2435,7 @@ INSERT INTO naive_movie [
 		Runtime: '105 min',
 		Title: 'Coco',
 		Writer: 'Lee Unkrich, Jason Katz, Matthew Aldrich',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Tom Holland, Zendaya, Benedict Cumberbatch',
@@ -2569,6 +2467,7 @@ INSERT INTO naive_movie [
 		Runtime: '148 min',
 		Title: 'Spider-Man: No Way Home',
 		Writer: 'Chris McKenna, Erik Sommers, Stan Lee',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Brad Pitt, Diane Kruger, Eli Roth',
@@ -2600,6 +2499,7 @@ INSERT INTO naive_movie [
 		Runtime: '153 min',
 		Title: 'Inglourious Basterds',
 		Writer: 'Quentin Tarantino',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Jürgen Prochnow, Herbert Grönemeyer, Klaus Wennemann',
@@ -2631,6 +2531,7 @@ INSERT INTO naive_movie [
 		Runtime: '149 min',
 		Title: 'The Boat',
 		Writer: 'Wolfgang Petersen, Lothar G. Buchheim',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Robert Downey Jr., Chris Evans, Mark Ruffalo',
@@ -2662,6 +2563,7 @@ INSERT INTO naive_movie [
 		Runtime: '181 min',
 		Title: 'Avengers: Endgame',
 		Writer: 'Christopher Markus, Stephen McFeely, Stan Lee',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Yôji Matsuda, Yuriko Ishida, Yûko Tanaka',
@@ -2693,6 +2595,7 @@ INSERT INTO naive_movie [
 		Runtime: '134 min',
 		Title: 'Princess Mononoke',
 		Writer: 'Hayao Miyazaki, Neil Gaiman',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Robert De Niro, James Woods, Elizabeth McGovern',
@@ -2724,6 +2627,7 @@ INSERT INTO naive_movie [
 		Runtime: '229 min',
 		Title: 'Once Upon a Time in America',
 		Writer: 'Harry Grey, Leonardo Benvenuti, Piero De Bernardi',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Robin Williams, Matt Damon, Ben Affleck',
@@ -2755,6 +2659,7 @@ INSERT INTO naive_movie [
 		Runtime: '126 min',
 		Title: 'Good Will Hunting',
 		Writer: 'Matt Damon, Ben Affleck',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Tom Hanks, Tim Allen, Joan Cusack',
@@ -2786,6 +2691,7 @@ INSERT INTO naive_movie [
 		Runtime: '103 min',
 		Title: 'Toy Story 3',
 		Writer: 'John Lasseter, Andrew Stanton, Lee Unkrich',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Ellen Burstyn, Jared Leto, Jennifer Connelly',
@@ -2817,6 +2723,7 @@ INSERT INTO naive_movie [
 		Runtime: '102 min',
 		Title: 'Requiem for a Dream',
 		Writer: 'Hubert Selby Jr., Darren Aronofsky',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Aamir Khan, Madhavan, Mona Singh',
@@ -2844,6 +2751,7 @@ INSERT INTO naive_movie [
 		Runtime: '170 min',
 		Title: '3 Idiots',
 		Writer: 'Rajkumar Hirani, Abhijat Joshi, Vidhu Vinod Chopra',
+		imdbRating: '8.5'
 	},
 	{
 		Actors: 'Ryûnosuke Kamiki, Mone Kamishiraishi, Ryô Narita',
@@ -2875,6 +2783,7 @@ INSERT INTO naive_movie [
 		Runtime: '106 min',
 		Title: 'Your Name.',
 		Writer: 'Makoto Shinkai, Clark Cheng',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: "Gene Kelly, Donald O'Connor, Debbie Reynolds",
@@ -2906,6 +2815,7 @@ INSERT INTO naive_movie [
 		Runtime: '103 min',
 		Title: "Singin' in the Rain",
 		Writer: 'Betty Comden, Adolph Green',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Mark Hamill, Harrison Ford, Carrie Fisher',
@@ -2937,6 +2847,7 @@ INSERT INTO naive_movie [
 		Runtime: '131 min',
 		Title: 'Star Wars: Episode VI - Return of the Jedi',
 		Writer: 'Lawrence Kasdan, George Lucas',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Harvey Keitel, Tim Roth, Michael Madsen',
@@ -2968,6 +2879,7 @@ INSERT INTO naive_movie [
 		Runtime: '99 min',
 		Title: 'Reservoir Dogs',
 		Writer: 'Quentin Tarantino, Roger Avary',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Jim Carrey, Kate Winslet, Tom Wilkinson',
@@ -2999,6 +2911,7 @@ INSERT INTO naive_movie [
 		Runtime: '108 min',
 		Title: 'Eternal Sunshine of the Spotless Mind',
 		Writer: 'Charlie Kaufman, Michel Gondry, Pierre Bismuth',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Keir Dullea, Gary Lockwood, William Sylvester',
@@ -3030,6 +2943,7 @@ INSERT INTO naive_movie [
 		Runtime: '149 min',
 		Title: '2001: A Space Odyssey',
 		Writer: 'Stanley Kubrick, Arthur C. Clarke',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Toshirô Mifune, Yutaka Sada, Tatsuya Nakadai',
@@ -3057,6 +2971,7 @@ INSERT INTO naive_movie [
 		Runtime: '143 min',
 		Title: 'High and Low',
 		Writer: 'Hideo Oguni, Ryûzô Kikushima, Eijirô Hisaita',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Orson Welles, Joseph Cotten, Dorothy Comingore',
@@ -3088,6 +3003,7 @@ INSERT INTO naive_movie [
 		Runtime: '119 min',
 		Title: 'Citizen Kane',
 		Writer: 'Herman J. Mankiewicz, Orson Welles, John Houseman',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: "Peter O'Toole, Alec Guinness, Anthony Quinn",
@@ -3119,6 +3035,7 @@ INSERT INTO naive_movie [
 		Runtime: '218 min',
 		Title: 'Lawrence of Arabia',
 		Writer: 'Robert Bolt, Michael Wilson',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Zain Al Rafeea, Yordanos Shiferaw, Boluwatife Treasure Bankole',
@@ -3150,6 +3067,7 @@ INSERT INTO naive_movie [
 		Runtime: '126 min',
 		Title: 'Capernaum',
 		Writer: 'Nadine Labaki, Jihad Hojeily, Michelle Keserwany',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Peter Lorre, Ellen Widmann, Inge Landgut',
@@ -3173,6 +3091,7 @@ INSERT INTO naive_movie [
 		Runtime: '99 min',
 		Title: 'M',
 		Writer: 'Thea von Harbou, Fritz Lang, Egon Jacobsohn',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Cary Grant, Eva Marie Saint, James Mason',
@@ -3204,6 +3123,7 @@ INSERT INTO naive_movie [
 		Runtime: '136 min',
 		Title: 'North by Northwest',
 		Writer: 'Ernest Lehman',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Mads Mikkelsen, Thomas Bo Larsen, Annika Wedderkopp',
@@ -3235,6 +3155,7 @@ INSERT INTO naive_movie [
 		Runtime: '115 min',
 		Title: 'The Hunt',
 		Writer: 'Tobias Lindholm, Thomas Vinterberg',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'James Stewart, Kim Novak, Barbara Bel Geddes',
@@ -3266,6 +3187,7 @@ INSERT INTO naive_movie [
 		Runtime: '128 min',
 		Title: 'Vertigo',
 		Writer: 'Alec Coppel, Samuel A. Taylor, Pierre Boileau',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Audrey Tautou, Mathieu Kassovitz, Rufus',
@@ -3297,6 +3219,7 @@ INSERT INTO naive_movie [
 		Runtime: '122 min',
 		Title: 'Amélie',
 		Writer: 'Guillaume Laurant, Jean-Pierre Jeunet',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Malcolm McDowell, Patrick Magee, Michael Bates',
@@ -3328,6 +3251,7 @@ INSERT INTO naive_movie [
 		Runtime: '136 min',
 		Title: 'A Clockwork Orange',
 		Writer: 'Stanley Kubrick, Anthony Burgess',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: "Matthew Modine, R. Lee Ermey, Vincent D'Onofrio",
@@ -3359,6 +3283,7 @@ INSERT INTO naive_movie [
 		Runtime: '116 min',
 		Title: 'Full Metal Jacket',
 		Writer: 'Stanley Kubrick, Michael Herr, Gustav Hasford',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Al Pacino, Michelle Pfeiffer, Steven Bauer',
@@ -3390,6 +3315,7 @@ INSERT INTO naive_movie [
 		Runtime: '170 min',
 		Title: 'Scarface',
 		Writer: 'Oliver Stone, Howard Hawks, Ben Hecht',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Aleksey Kravchenko, Olga Mironova, Liubomiras Laucevicius',
@@ -3417,6 +3343,7 @@ INSERT INTO naive_movie [
 		Runtime: '142 min',
 		Title: 'Come and See',
 		Writer: 'Ales Adamovich, Elem Klimov',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Fred MacMurray, Barbara Stanwyck, Edward G. Robinson',
@@ -3448,6 +3375,7 @@ INSERT INTO naive_movie [
 		Runtime: '107 min',
 		Title: 'Double Indemnity',
 		Writer: 'Billy Wilder, Raymond Chandler, James M. Cain',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Jack Lemmon, Shirley MacLaine, Fred MacMurray',
@@ -3479,6 +3407,7 @@ INSERT INTO naive_movie [
 		Runtime: '125 min',
 		Title: 'The Apartment',
 		Writer: 'Billy Wilder, I.A.L. Diamond',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Robert De Niro, Jodie Foster, Cybill Shepherd',
@@ -3510,6 +3439,7 @@ INSERT INTO naive_movie [
 		Runtime: '114 min',
 		Title: 'Taxi Driver',
 		Writer: 'Paul Schrader',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Gregory Peck, John Megna, Frank Overton',
@@ -3541,6 +3471,7 @@ INSERT INTO naive_movie [
 		Runtime: '129 min',
 		Title: 'To Kill a Mockingbird',
 		Writer: 'Harper Lee, Horton Foote',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Paul Newman, Robert Redford, Robert Shaw',
@@ -3572,6 +3503,7 @@ INSERT INTO naive_movie [
 		Runtime: '129 min',
 		Title: 'The Sting',
 		Writer: 'David S. Ward',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Edward Asner, Jordan Nagai, John Ratzenberger',
@@ -3603,6 +3535,7 @@ INSERT INTO naive_movie [
 		Runtime: '96 min',
 		Title: 'Up',
 		Writer: 'Pete Docter, Bob Peterson, Tom McCarthy',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Kevin Spacey, Russell Crowe, Guy Pearce',
@@ -3634,6 +3567,7 @@ INSERT INTO naive_movie [
 		Runtime: '138 min',
 		Title: 'L.A. Confidential',
 		Writer: 'James Ellroy, Brian Helgeland, Curtis Hanson',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Lin-Manuel Miranda, Phillipa Soo, Leslie Odom Jr.',
@@ -3665,6 +3599,7 @@ INSERT INTO naive_movie [
 		Runtime: '160 min',
 		Title: 'Hamilton',
 		Writer: 'Lin-Manuel Miranda, Ron Chernow',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Al Pacino, Robert De Niro, Val Kilmer',
@@ -3696,6 +3631,7 @@ INSERT INTO naive_movie [
 		Runtime: '170 min',
 		Title: 'Heat',
 		Writer: 'Michael Mann',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: "Takashi Shimura, Nobuo Kaneko, Shin'ichi Himori",
@@ -3727,6 +3663,7 @@ INSERT INTO naive_movie [
 		Runtime: '143 min',
 		Title: 'Ikiru',
 		Writer: 'Akira Kurosawa, Shinobu Hashimoto, Hideo Oguni',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Jason Statham, Brad Pitt, Stephen Graham',
@@ -3758,6 +3695,7 @@ INSERT INTO naive_movie [
 		Runtime: '102 min',
 		Title: 'Snatch',
 		Writer: 'Guy Ritchie',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Bruce Willis, Alan Rickman, Bonnie Bedelia',
@@ -3789,6 +3727,7 @@ INSERT INTO naive_movie [
 		Runtime: '132 min',
 		Title: 'Die Hard',
 		Writer: 'Roderick Thorp, Jeb Stuart, Steven E. de Souza',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Harrison Ford, Sean Connery, Alison Doody',
@@ -3820,6 +3759,7 @@ INSERT INTO naive_movie [
 		Runtime: '127 min',
 		Title: 'Indiana Jones and the Last Crusade',
 		Writer: 'Jeffrey Boam, George Lucas, Menno Meyjes',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Payman Maadi, Leila Hatami, Sareh Bayat',
@@ -3851,6 +3791,7 @@ INSERT INTO naive_movie [
 		Runtime: '123 min',
 		Title: 'A Separation',
 		Writer: 'Asghar Farhadi',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Brigitte Helm, Alfred Abel, Gustav Fröhlich',
@@ -3882,6 +3823,7 @@ INSERT INTO naive_movie [
 		Runtime: '153 min',
 		Title: 'Metropolis',
 		Writer: 'Thea von Harbou, Fritz Lang',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Lamberto Maggiorani, Enzo Staiola, Lianella Carell',
@@ -3909,6 +3851,7 @@ INSERT INTO naive_movie [
 		Runtime: '89 min',
 		Title: 'Bicycle Thieves',
 		Writer: 'Cesare Zavattini, Luigi Bartolini, Oreste Biancoli',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Lubna Azabal, Mélissa Désormeaux-Poulin, Maxim Gaudette',
@@ -3940,6 +3883,7 @@ INSERT INTO naive_movie [
 		Runtime: '131 min',
 		Title: 'Incendies',
 		Writer: 'Denis Villeneuve, Wajdi Mouawad, Valérie Beaugrand-Champagne',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Dean-Charles Chapman, George MacKay, Daniel Mays',
@@ -3971,6 +3915,7 @@ INSERT INTO naive_movie [
 		Runtime: '119 min',
 		Title: '1917',
 		Writer: 'Sam Mendes, Krysty Wilson-Cairns',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Darsheel Safary, Aamir Khan, Tisca Chopra',
@@ -3998,6 +3943,7 @@ INSERT INTO naive_movie [
 		Runtime: '165 min',
 		Title: 'Like Stars on Earth',
 		Writer: 'Amole Gupte',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Christian Bale, Michael Caine, Ken Watanabe',
@@ -4029,6 +3975,7 @@ INSERT INTO naive_movie [
 		Runtime: '140 min',
 		Title: 'Batman Begins',
 		Writer: 'Bob Kane, David S. Goyer, Christopher Nolan',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Clint Eastwood, Lee Van Cleef, Gian Maria Volontè',
@@ -4060,6 +4007,7 @@ INSERT INTO naive_movie [
 		Runtime: '132 min',
 		Title: 'For a Few Dollars More',
 		Writer: 'Sergio Leone, Fulvio Morsella, Luciano Vincenzoni',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Aamir Khan, Sakshi Tanwar, Fatima Sana Shaikh',
@@ -4087,6 +4035,7 @@ INSERT INTO naive_movie [
 		Runtime: '161 min',
 		Title: 'Dangal',
 		Writer: 'Piyush Gupta, Shreyas Jain, Nikhil Mehrotra',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Bruno Ganz, Alexandra Maria Lara, Ulrich Matthes',
@@ -4118,6 +4067,7 @@ INSERT INTO naive_movie [
 		Runtime: '156 min',
 		Title: 'Downfall',
 		Writer: 'Bernd Eichinger, Joachim Fest, Traudl Junge',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Charles Chaplin, Edna Purviance, Jackie Coogan',
@@ -4145,6 +4095,7 @@ INSERT INTO naive_movie [
 		Runtime: '68 min',
 		Title: 'The Kid',
 		Writer: 'Charles Chaplin',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Marilyn Monroe, Tony Curtis, Jack Lemmon',
@@ -4176,6 +4127,7 @@ INSERT INTO naive_movie [
 		Runtime: '121 min',
 		Title: 'Some Like It Hot',
 		Writer: 'Billy Wilder, I.A.L. Diamond, Robert Thoeren',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Robert Pattinson, Zoë Kravitz, Jeffrey Wright',
@@ -4207,6 +4159,7 @@ INSERT INTO naive_movie [
 		Runtime: '176 min',
 		Title: 'The Batman',
 		Writer: 'Matt Reeves, Peter Craig, Bill Finger',
+		imdbRating: '8.4'
 	},
 	{
 		Actors: 'Anthony Hopkins, Olivia Colman, Mark Gatiss',
@@ -4238,6 +4191,7 @@ INSERT INTO naive_movie [
 		Runtime: '97 min',
 		Title: 'The Father',
 		Writer: 'Christopher Hampton, Florian Zeller',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Bette Davis, Anne Baxter, George Sanders',
@@ -4269,6 +4223,7 @@ INSERT INTO naive_movie [
 		Runtime: '138 min',
 		Title: 'All About Eve',
 		Writer: 'Joseph L. Mankiewicz, Mary Orr',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Leonardo DiCaprio, Jonah Hill, Margot Robbie',
@@ -4300,6 +4255,7 @@ INSERT INTO naive_movie [
 		Runtime: '180 min',
 		Title: 'The Wolf of Wall Street',
 		Writer: 'Terence Winter, Jordan Belfort',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Viggo Mortensen, Mahershala Ali, Linda Cardellini',
@@ -4331,6 +4287,7 @@ INSERT INTO naive_movie [
 		Runtime: '130 min',
 		Title: 'Green Book',
 		Writer: 'Nick Vallelonga, Brian Hayes Currie, Peter Farrelly',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Clint Eastwood, Gene Hackman, Morgan Freeman',
@@ -4362,6 +4319,7 @@ INSERT INTO naive_movie [
 		Runtime: '130 min',
 		Title: 'Unforgiven',
 		Writer: 'David Webb Peoples',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Robert De Niro, Sharon Stone, Joe Pesci',
@@ -4393,6 +4351,7 @@ INSERT INTO naive_movie [
 		Runtime: '178 min',
 		Title: 'Casino',
 		Writer: 'Nicholas Pileggi, Martin Scorsese',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Spencer Tracy, Burt Lancaster, Richard Widmark',
@@ -4424,6 +4383,7 @@ INSERT INTO naive_movie [
 		Runtime: '179 min',
 		Title: 'Judgment at Nuremberg',
 		Writer: 'Abby Mann, Montgomery Clift',
+		imdbRating: '8.3'
 	},
 	{
 		Actors: 'Ivana Baquero, Ariadna Gil, Sergi López',
@@ -4455,6 +4415,7 @@ INSERT INTO naive_movie [
 		Runtime: '118 min',
 		Title: "Pan's Labyrinth",
 		Writer: 'Guillermo del Toro',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Tatsuya Nakadai, Akira Terao, Jinpachi Nezu',
@@ -4486,6 +4447,7 @@ INSERT INTO naive_movie [
 		Runtime: '162 min',
 		Title: 'Ran',
 		Writer: 'Akira Kurosawa, Hideo Oguni, Masato Ide',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Russell Crowe, Ed Harris, Jennifer Connelly',
@@ -4517,6 +4479,7 @@ INSERT INTO naive_movie [
 		Runtime: '135 min',
 		Title: 'A Beautiful Mind',
 		Writer: 'Akiva Goldsman, Sylvia Nasar',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Bruce Willis, Haley Joel Osment, Toni Collette',
@@ -4548,6 +4511,7 @@ INSERT INTO naive_movie [
 		Runtime: '107 min',
 		Title: 'The Sixth Sense',
 		Writer: 'M. Night Shyamalan',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Graham Chapman, John Cleese, Eric Idle',
@@ -4579,6 +4543,7 @@ INSERT INTO naive_movie [
 		Runtime: '91 min',
 		Title: 'Monty Python and the Holy Grail',
 		Writer: 'Graham Chapman, John Cleese, Eric Idle',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Daniel Day-Lewis, Paul Dano, Ciarán Hinds',
@@ -4610,6 +4575,7 @@ INSERT INTO naive_movie [
 		Runtime: '158 min',
 		Title: 'There Will Be Blood',
 		Writer: 'Paul Thomas Anderson, Upton Sinclair',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Jim Carrey, Ed Harris, Laura Linney',
@@ -4641,6 +4607,7 @@ INSERT INTO naive_movie [
 		Runtime: '103 min',
 		Title: 'The Truman Show',
 		Writer: 'Andrew Niccol',
+		imdbRating: '8.2'
 	},
 	{
 		Actors: 'Toshirô Mifune, Eijirô Tôno, Tatsuya Nakadai',
@@ -4672,107 +4639,250 @@ INSERT INTO naive_movie [
 		Runtime: '110 min',
 		Title: 'Yojimbo',
 		Writer: 'Akira Kurosawa, Ryûzô Kikushima',
+		imdbRating: '8.2'
 	},
 	{
-		Actors: 'Arnold Schwarzenegger, Linda Hamilton, Michael Biehn',
-		Awards: '8 wins & 6 nominations',
-		BoxOffice: '$38,371,200',
-		Country: 'United Kingdom, United States',
-		DVD: '02 Oct 2001',
-		Director: 'James Cameron',
-		Genre: 'Action, Sci-Fi',
-		Language: 'English, Spanish',
-		Plot: "A human soldier is sent from 2029 to 1984 to stop an almost indestructible cyborg killing machine, sent from the same year, which has been programmed to execute a young woman whose unborn son is the key to humanity's future salvation",
-		Poster: 'https://m.media-amazon.com/images/M/MV5BYTViNzMxZjEtZGEwNy00MDNiLWIzNGQtZDY2MjQ1OWViZjFmXkEyXkFqcGdeQXVyNzkwMjQ5NzM@._V1_SX300.jpg',
-		Rated: 'R',
-		Ratings: [
-			{
-				Source: 'Internet Movie Database',
-				Score: '8.1/10'
-			},
-			{
-				Source: 'Rotten Tomatoes',
-				Score: '100%'
-			},
-			{
-				Source: 'Metacritic',
-				Score: '84/100'
-			}
-		],
-		Released: '26 Oct 1984',
-		Runtime: '107 min',
-		Title: 'The Terminator',
-		Writer: 'James Cameron, Gale Anne Hurd, William Wisher',
-	}
-] RETURN NONE;
+	Actors: 'Arnold Schwarzenegger, Linda Hamilton, Michael Biehn',
+	Awards: '8 wins & 6 nominations',
+	BoxOffice: '$38,371,200',
+	Country: 'United Kingdom, United States',
+	DVD: '02 Oct 2001',
+	Director: 'James Cameron',
+	Genre: 'Action, Sci-Fi',
+	Language: 'English, Spanish',
+	Plot: "A human soldier is sent from 2029 to 1984 to stop an almost indestructible cyborg killing machine, sent from the same year, which has been programmed to execute a young woman whose unborn son is the key to humanity's future salvation",
+	Poster: 'https://m.media-amazon.com/images/M/MV5BYTViNzMxZjEtZGEwNy00MDNiLWIzNGQtZDY2MjQ1OWViZjFmXkEyXkFqcGdeQXVyNzkwMjQ5NzM@._V1_SX300.jpg',
+	Rated: 'R',
+	Ratings: [
+		{
+			Source: 'Internet Movie Database',
+			Score: '8.1/10'
+		},
+		{
+			Source: 'Rotten Tomatoes',
+			Score: '100%'
+		},
+		{
+			Source: 'Metacritic',
+			Score: '84/100'
+		}
+	],
+	Released: '26 Oct 1984',
+	Runtime: '107 min',
+	Title: 'The Terminator',
+	Writer: 'James Cameron, Gale Anne Hurd, William Wisher',
+}
+]
+RETURN NONE;
 
-FOR $data in (SELECT * FROM naive_movie) {
-    LET $movie = CREATE ONLY movie SET
-        awards = $data.Awards,
-		box_office = IF $data.BoxOffice = 'N/A' { NONE } ELSE { <int>$data.BoxOffice.replace('$', '').replace(',', '') },
-		dvd_released = IF $data.DVD = 'N/A' { NONE } ELSE { fn::date_to_datetime($data.DVD) },
-		genres = $data.Genre.split(', '),
-		imdb_rating = fn::get_imdb($data.Ratings),
-		languages = $data.Language.split(', '),
-		metacritic_rating = fn::get_metacritic($data.Ratings),
-		oscars_won = fn::get_oscars(awards),
-        plot = $data.Plot,
-        poster = $data.Poster,
-        rated = $data.Rated,
-		released = fn::date_to_datetime($data.Released),
-        rt_rating = fn::get_rt($data.Ratings),
-        runtime = <duration>$data.Runtime.replace(' min', 'm'),
-        title = $data.Title;
+-- Define convenience functions
+DEFINE FUNCTION fn::month_to_num($input: string) -> string {
+    IF      $input = 'Jan' { '01' }
+    ELSE IF $input = 'Feb' { '02' }
+    ELSE IF $input = 'Mar' { '03' }
+    ELSE IF $input = 'Apr' { '04' }
+    ELSE IF $input = 'May' { '05' }
+    ELSE IF $input = 'Jun' { '06' }
+    ELSE IF $input = 'Jul' { '07' }
+    ELSE IF $input = 'Aug' { '08' }
+    ELSE IF $input = 'Sep' { '09' }
+    ELSE IF $input = 'Oct' { '10' }
+    ELSE IF $input = 'Nov' { '11' }
+    ELSE IF $input = 'Dec' { '12' }
+    ELSE {
+        THROW "Invalid input: `" + $input + "`. Please use a three-letter abbreviation such as 'Oct'."
+    }
+};
 
-    FOR $name IN $data.Actors.split(", ") {
-	LET $actor = (SELECT * FROM ONLY person WHERE name = $name LIMIT 1);
-	LET $actor = IF $actor IS NONE {
-		(CREATE ONLY person SET name = $name, roles += "actor")
-	} ELSE {
-		IF "actor" NOT IN $actor.roles {
-			UPDATE $actor SET roles += "actor"
-		};
-		$actor
-	};
-    RELATE $actor->starred_in->$movie;
-    };
+DEFINE FUNCTION fn::date_to_datetime($input: string) -> datetime {
+    LET $split = $input.split(' ');
+    <datetime>($split[2] + '-' + fn::month_to_num($split[1]) + '-' + $split[0]);
+};
 
-    FOR $name IN $data.Director.split(", ") {
-	LET $director = (SELECT * FROM ONLY person WHERE name = $name LIMIT 1);
-	LET $director = IF $director IS NONE {
-		(CREATE ONLY person SET name = $name, roles += "director")
-	} ELSE {
-		IF "director" NOT IN $director.roles {
-			UPDATE $director SET roles += "director"
-		};
-		$director
-	};
-    RELATE $director->directed->$movie;
-    };
+DEFINE FUNCTION fn::get_imdb($obj: array<object>) -> option<number> {
+    LET $data = SELECT VALUE Score FROM ONLY $obj WHERE Source = 'Internet Movie Database' LIMIT 1;
+    IF $data IS NONE { NONE } ELSE { <number>$data.replace('/10', '') * 10 }
+};
 
-    FOR $name IN $data.Writer.split(", ") {
-	LET $writer = (SELECT * FROM ONLY person WHERE name = $name LIMIT 1);
-	LET $writer = IF $writer IS NONE {
-		(CREATE ONLY person SET name = $name, roles += "actor")
-	} ELSE {
-		IF "writer" NOT IN $writer.roles {
-			UPDATE $writer SET roles += "writer"
-		};
-		$writer
-	};
-    RELATE $writer->wrote->$movie;
-    };
+DEFINE FUNCTION fn::get_rt($obj: array<object>) -> option<number> {
+    LET $data = SELECT VALUE Score FROM ONLY $obj WHERE Source = 'Rotten Tomatoes' LIMIT 1;
+    IF $data IS NONE { NONE } ELSE { <number>$data.replace('%', '') }
+};
 
-	FOR $name IN $data.Country.split(", ") {
-	LET $country = (SELECT * FROM ONLY country WHERE name = $name LIMIT 1);
-	LET $country = IF $country IS NONE {
-		(CREATE ONLY country SET name = $name)
-	} ELSE {
-		$country
-	};
-    RELATE $country->has_movie->$movie;
+DEFINE FUNCTION fn::get_metacritic($obj: array<object>) -> option<number> {
+    LET $data = SELECT VALUE Score FROM ONLY $obj WHERE Source = 'Metacritic' LIMIT 1;
+    IF $data IS NONE { NONE } ELSE { <number>$data.replace('/100', '') }
+};
+
+DEFINE PARAM $GENRES VALUE (SELECT VALUE Genre FROM naive_movie)
+    .map(|$m| $m.split(', '))
+    .group();
+
+DEFINE PARAM $RATINGS VALUE (SELECT VALUE Rated FROM naive_movie)
+    .flatten()
+    .group();
+
+-- Turn naive movies into movie records
+FOR $data in SELECT * FROM naive_movie {
+    CREATE movie CONTENT {
+        actors: $data.Actors.split(', '),
+        awards: $data.Awards,
+        box_office: IF $data.BoxOffice = 'N/A' { NONE } ELSE { <int>$data.BoxOffice.replace('$', '').replace(',', '') },
+        directors: $data.Director.split(', '),
+        dvd_released: IF $data.DVD = 'N/A' { NONE } ELSE { fn::date_to_datetime($data.DVD) },
+        genres: $data.Genre.split(', '),
+        imdb_rating: fn::get_imdb($data.Ratings),
+        languages: $data.Language.split(', '),
+        metacritic_rating: fn::get_metacritic($data.Ratings),
+        plot: $data.Plot,
+        poster: $data.Poster,
+        rated: $data.Rated,
+        released: fn::date_to_datetime($data.Released),
+        rt_rating: fn::get_rt($data.Ratings),
+        runtime: <duration>$data.Runtime.replace(' min', 'm'),
+        title: $data.Title,
+        writers: $data.Writer.split(', ')
     };
 };
 
-	DEFINE PARAM $INITIATED VALUE true;
-}"#;
+-- Add a schema
+DEFINE TABLE OVERWRITE movie SCHEMAFULL TYPE NORMAL;
+
+DEFINE FIELD actors            ON TABLE movie TYPE array<string>;
+DEFINE FIELD awards            ON TABLE movie TYPE option<string>;
+DEFINE FIELD box_office        ON TABLE movie TYPE option<int>;
+DEFINE FIELD directors         ON TABLE movie TYPE array<string>;
+DEFINE FIELD dvd_released      ON TABLE movie TYPE option<datetime>;
+DEFINE FIELD genres            ON TABLE movie TYPE array<string>;
+DEFINE FIELD imdb_rating       ON TABLE movie TYPE option<int>;
+DEFINE FIELD languages         ON TABLE movie TYPE array<string>;
+DEFINE FIELD metacritic_rating ON TABLE movie TYPE option<int>;
+DEFINE FIELD oscars_won        ON TABLE movie TYPE option<int>;
+DEFINE FIELD plot              ON TABLE movie TYPE string;
+DEFINE FIELD released          ON TABLE movie TYPE datetime;
+DEFINE FIELD rt_rating         ON TABLE movie TYPE option<int>;
+DEFINE FIELD runtime           ON TABLE movie TYPE duration;
+DEFINE FIELD title             ON TABLE movie TYPE string;
+DEFINE FIELD writers           ON TABLE movie TYPE array<string>;
+
+DEFINE FIELD average_rating ON TABLE movie COMPUTED math::mean([imdb_rating, metacritic_rating, rt_rating][WHERE $this IS NOT NONE]);
+
+DEFINE FIELD poster ON TABLE movie TYPE option<string> ASSERT $value.is_url();
+
+DEFINE FIELD rated ON TABLE movie TYPE option<string> ASSERT $value IN $RATINGS;
+
+// Add full-text search
+DEFINE ANALYZER movie_fts TOKENIZERS class FILTERS ascii, lowercase, edgengram(3,10);
+DEFINE INDEX plot_index ON TABLE movie FIELDS plot FULLTEXT ANALYZER movie_fts BM25 HIGHLIGHTS;
+DEFINE INDEX title_index ON TABLE movie FIELDS title FULLTEXT ANALYZER movie_fts BM25;
+
+// Define person table and related graph tables
+DEFINE TABLE person SCHEMAFULL TYPE NORMAL;
+DEFINE FIELD name ON TABLE person TYPE string;
+DEFINE FIELD roles ON person TYPE array<string> VALUE $value.distinct();
+DEFINE TABLE starred_in TYPE RELATION FROM person  TO movie;
+DEFINE TABLE wrote      TYPE RELATION FROM person  TO movie;
+DEFINE TABLE directed   TYPE RELATION FROM person  TO movie;
+
+FOR $movie IN SELECT * FROM movie {
+  FOR $actor_name IN $movie.actors {
+      LET $actor = (SELECT * FROM ONLY person WHERE name = $actor_name LIMIT 1);
+      LET $actor = IF $actor IS NONE {
+        CREATE person CONTENT { name: $actor_name, roles: ["actor"]}
+      } ELSE {
+          UPDATE $actor.id SET roles += "actor";
+        $actor
+      };
+      RELATE $actor->starred_in->$movie;
+  };
+      FOR $writer_name IN $movie.writers {
+      LET $writer = (SELECT * FROM ONLY person WHERE name = $writer_name LIMIT 1);
+      LET $writer = IF $writer IS NONE {
+        CREATE person CONTENT { name: $writer_name, roles: ["writer"]}
+      } ELSE {
+          UPDATE $writer.id SET roles += "writer";
+        $writer
+      };
+      RELATE $writer->wrote->$movie;
+  };
+      FOR $director_name IN $movie.directors {
+      LET $director = (SELECT * FROM ONLY person WHERE name = $director_name LIMIT 1);
+      LET $director = IF $director IS NONE {
+        CREATE person CONTENT { name: $director_name, roles: ["director"]}
+      } ELSE {
+          UPDATE $director.id SET roles += "director";
+        $director
+      };
+      RELATE $director->directed->$movie;
+  };
+};
+
+-- Define database users
+
+DEFINE USER owner  ON DATABASE PASSWORD "owner"  ROLES OWNER;
+DEFINE USER editor ON DATABASE PASSWORD "editor" ROLES EDITOR;
+DEFINE USER viewer ON DATABASE PASSWORD "viewer" ROLES VIEWER;
+
+-- Define record users
+DEFINE FIELD name ON TABLE user TYPE string;
+DEFINE FIELD pass ON TABLE user TYPE string;
+
+DEFINE INDEX unique_name ON TABLE user FIELDS name UNIQUE;
+
+DEFINE TABLE OVERWRITE user SCHEMAFULL
+    PERMISSIONS FOR select WHERE $auth.id = id;
+
+-- Define record user access
+DEFINE ACCESS account ON DATABASE TYPE RECORD
+  SIGNUP ( CREATE user SET name = $name, pass = crypto::argon2::generate($pass) )
+  SIGNIN ( SELECT * FROM user WHERE name = $name AND crypto::argon2::compare(pass, $pass) )
+  DURATION FOR TOKEN 15m, FOR SESSION 12h;
+
+-- Redefine tables and fields to add permissions for record users
+DEFINE TABLE OVERWRITE movie SCHEMAFULL TYPE NORMAL
+    PERMISSIONS
+        FOR select WHERE $auth.id IS NOT NONE
+        FOR create, update, delete WHERE created_by = $auth.id;
+DEFINE TABLE person SCHEMAFULL TYPE NORMAL
+    PERMISSIONS
+        FOR select WHERE $auth.id IS NOT NONE
+        FOR create, update, delete WHERE created_by = $auth.id;
+DEFINE TABLE starred_in TYPE RELATION FROM person  TO movie
+    PERMISSIONS
+        FOR select WHERE $auth.id IS NOT NONE
+        FOR create, update, delete WHERE created_by = $auth.id;
+DEFINE TABLE wrote TYPE RELATION FROM person TO movie
+    PERMISSIONS
+        FOR select WHERE $auth.id IS NOT NONE
+        FOR create, update, delete WHERE created_by = $auth.id;
+DEFINE TABLE directed   TYPE RELATION FROM person  TO movie
+    PERMISSIONS
+        FOR select WHERE $auth.id IS NOT NONE
+        FOR create, update, delete WHERE created_by = $auth.id;
+
+DEFINE FIELD created_by ON TABLE movie      TYPE option<record<user>> READONLY VALUE $auth.id;
+DEFINE FIELD created_by ON TABLE person     TYPE option<record<user>> READONLY VALUE $auth.id;
+DEFINE FIELD created_by ON TABLE starred_in TYPE option<record<user>> READONLY VALUE $auth.id;
+DEFINE FIELD created_by ON TABLE wrote      TYPE option<record<user>> READONLY VALUE $auth.id;
+DEFINE FIELD created_by ON TABLE directed   TYPE option<record<user>> READONLY VALUE $auth.id;
+
+// Define events to keep track of record users and what they are doing
+DEFINE FIELD actions ON TABLE user TYPE option<array<object>> FLEXIBLE;
+
+DEFINE EVENT movie_activity ON TABLE movie WHEN $auth IS NOT NONE THEN {
+  UPDATE $auth SET  
+        actions += {
+            event: $event,
+            input: $value,
+            at: time::now()
+        }
+};
+
+DEFINE EVENT person_activity ON TABLE person WHEN $auth IS NOT NONE THEN {
+  UPDATE $auth SET  
+        actions += {
+            event: $event,
+            input: $value,
+            at: time::now()
+        }
+};"#;

@@ -1,0 +1,16 @@
+[package]
+name = "surrealbook"
+version = "0.1.0"
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.100"
+eframe = "0.33.3"
+egui = "0.33.3"
+egui_extras = { version = "0.33.3", features = ["http", "image"] }
+image = { version = "0.25.9", features = ["jpeg", "png"] }
+surrealdb = { version = "3.0.0-alpha.17", features = ["kv-mem"] }
+surrealdb-types = "3.0.0-alpha.17"
+tokio = "1.48.0"
