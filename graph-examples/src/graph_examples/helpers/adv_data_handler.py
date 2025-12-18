@@ -243,7 +243,7 @@ class ADVDataHandler():
                 ORDER BY assets_under_management DESC
                 ;
 
-            """, params = {"firm_type": "Hedge Fund"}
+            """, vars = {"firm_type": "Hedge Fund"}
         )
         return report_data
     
@@ -268,7 +268,7 @@ class ADVDataHandler():
                 ORDER BY assets_under_management DESC
                 ;
 
-            """, params = {"firm_type": "Venture Capital Fund"}
+            """, vars = {"firm_type": "Venture Capital Fund"}
         )
         return report_data
 
@@ -307,7 +307,7 @@ class ADVDataHandler():
                                 postal_code,
                                 chief_compliance_officer}
                 FROM type::thing('parent_firm',$parent_firm_id)).firms[0];
-        """,params={"parent_firm_id": parent_firm_id}
+        """,vars={"parent_firm_id": parent_firm_id}
         )
         return firms
         
@@ -366,7 +366,7 @@ class ADVDataHandler():
                     firm_filings.out;
                     
             """,
-            params={"firm_id": firm_id}
+            vars={"firm_id": firm_id}
         )
         return firm[0]
         
@@ -395,7 +395,7 @@ class ADVDataHandler():
                 FETCH firm, signed_filings,compliance_officer_for,signed_filings.out,signed_filings.out.execution_type;
                     
             """,
-            params={"firm_id": firm_id,"full_name": full_name}
+            vars={"firm_id": firm_id,"full_name": full_name}
         )
         return person[0]
         
@@ -417,7 +417,7 @@ class ADVDataHandler():
                 FETCH firm,signatory,execution_type,filed,signed;
                                     
             """,
-            params={"filing_id": filing_id}
+            vars={"filing_id": filing_id}
         )
         return filing[0]
         

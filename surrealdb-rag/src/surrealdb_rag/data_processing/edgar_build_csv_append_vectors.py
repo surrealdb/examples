@@ -133,7 +133,6 @@ def create_csv_from_folder(logger,file_index_df: pd.DataFrame , output_file_path
         "cik":"",
         "form":"",
         "accession_no":"",
-        "company.ticker_display":"",
         "company.tickers":"",
         "company.exchanges":"",
         "company.description":"",
@@ -164,7 +163,6 @@ def create_csv_from_folder(logger,file_index_df: pd.DataFrame , output_file_path
                     for chunk in chunks:
                         content = f"""
 {file["company.tickers"]}
-{file["company.exchanges"]}
 {file["company_name"]}
 -------------
 {chunk}
@@ -177,7 +175,6 @@ def create_csv_from_folder(logger,file_index_df: pd.DataFrame , output_file_path
                             "cik":file["cik"],
                             "form":file["form"],
                             "accession_no":file["accession_no"],
-                            "company.ticker_display":file["company.ticker_display"],
                             "company.tickers":file["company.tickers"],
                             "company.exchanges":file["company.exchanges"],
                             "company.description":file["company.description"],
@@ -292,7 +289,6 @@ def generate_edgar_csv() -> None:
 #             "cik":filing.cik,
 #             "form":filing.form,
 #             "accession_no":filing.accession_no,
-#             "company.ticker_display":company.ticker_display,
 #             "company.tickers":company.tickers,
 #             "company.exchanges":company.exchanges,
 #             "company.description":company.description,

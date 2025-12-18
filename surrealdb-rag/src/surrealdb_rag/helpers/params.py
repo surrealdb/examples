@@ -114,8 +114,8 @@ class DatabaseParams():
         #These are just the pointers to the env variables
         #Don't put the actual passwords here
 
-        self.DB_USER_ENV_VAR = "SURREAL_RAG_USER"
-        self.DB_PASS_ENV_VAR = "SURREAL_RAG_PASS"
+        self.DB_USER_ENV_VAR = "SURREAL_DEMO_USER"
+        self.DB_PASS_ENV_VAR = "SURREAL_DEMO_PASS"
         self.DB_URL_ENV_VAR = "SURREAL_RAG_DB_URL"
         self.DB_NS_ENV_VAR = "SURREAL_RAG_DB_NS"
         self.DB_DB_ENV_VAR = "SURREAL_RAG_DB_DB"

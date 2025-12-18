@@ -260,7 +260,7 @@ def organize_relations_for_ux(relations,parent_identifier):
     for relation in relations:
         if relation["in"]["identifier"] == parent_identifier:
             entity = relation["out"]
-        elif relation["in"]["identifier"] == parent_identifier:
+        elif relation["out"]["identifier"] == parent_identifier:
             entity = relation["in"]
         else:
             entity = None

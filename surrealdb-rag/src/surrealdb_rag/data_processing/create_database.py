@@ -30,7 +30,7 @@ def surreal_create_database() -> None:
     logger = loggers.setup_logger("SurrealCreateDatabase")
 
     overwrite = False
-    args_loader.AddArg("overwrite","o","overwrite","Boolean to delete existing database if true. (default{0})",overwrite)
+    args_loader.AddArg("overwrite","o","overwrite","Boolean to delete existing database if true. (default{0})",str(overwrite))
     args_loader.LoadArgs() # Parse command-line arguments
 
     if args_loader.AdditionalArgs["overwrite"]["value"]:
@@ -68,7 +68,7 @@ def surreal_create_database() -> None:
             query
         ))
         logger.info("Database created successfully")
-        connection.use(db_params.DB_PARAMS.namespace, db_params.DB_PARAMS.database)
+        connection.use(str(db_params.DB_PARAMS.namespace), str(db_params.DB_PARAMS.database))
 
         
         logger.info("Executing common table DDL")

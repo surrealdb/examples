@@ -121,8 +121,8 @@ DEFINE FUNCTION OVERWRITE fn::search_for_documents($corpus_table: string, $input
              SELECT
                 id,
                 vector::similarity::cosine(content_fasttext_vector, $input_vector) AS similarity_score
-            FROM type::table($corpus_table)
-            WHERE content_fasttext_vector <|100,100|> $input_vector
+                FROM type::table($corpus_table)
+                WHERE content_fasttext_vector <|100,100|> $input_vector
             );
         ELSE IF $model.model_trainer = "OPENAI" THEN
             (
@@ -294,7 +294,6 @@ DEFINE FUNCTION OVERWRITE fn::create_message(
 };
 
 
-
 /*
 Creates a new user message in a chat.
 
@@ -331,18 +330,18 @@ $openai_token: option<string>) {
     LET $documents = fn::search_for_documents($corpus_table,$vector, $threshold ,$embedding_model,$record_count);
 
     
-    
-
     LET $knowledge_graph = 
-        IF ($graph_mode = "document" AND array::len($documents) > 0) THEN
-            (SELECT VALUE fn::get_graph_detail_for_corpus_doc(
-                     $corpus_table,doc.url,$confidence_threshold,$max_graph_size_per_doc) FROM $documents)[0];
+        IF $graph_mode = "document" THEN
+            fn::get_graph_detail_for_corpus_docs($corpus_table, $documents, $confidence_threshold, $record_count)
         ELSE IF $graph_mode = "context" THEN
             fn::search_for_relevant_graph(
-                 $corpus_table,$vector,$threshold,$confidence_threshold,$embedding_model,$max_graph_size); 
+                 $corpus_table,$vector,$threshold,$confidence_threshold,$embedding_model,$max_graph_size)
         END;
+    
     RETURN fn::create_message($chat_id, "user", $content, $documents,$knowledge_graph,$embedding_model,None,None);
 };
+
+
 
 
 
@@ -400,7 +399,6 @@ DEFINE FUNCTION OVERWRITE fn::search_for_relevant_graph($corpus_table: string, $
     
     LET $record_count = IF $record_count = None THEN 100 ELSE $record_count END;
     
-    LET $additional_data = None;
     LET $entities = 
         SELECT in.additional_data AS addtional_data,in.name AS name,in.identifier AS identifier,in.entity_type AS entity_type 
             FROM $relate_data 
@@ -417,7 +415,6 @@ DEFINE FUNCTION OVERWRITE fn::search_for_relevant_graph($corpus_table: string, $
     
     
     RETURN  {
-        additional_data:$additional_data,
         relations:(SELECT * FROM $relations LIMIT $record_count),
         entities:(SELECT * FROM $entities WHERE 
             identifier IN (SELECT VALUE in_identifier FROM $relations)
@@ -434,6 +431,24 @@ DEFINE FUNCTION OVERWRITE fn::get_corpus_doc_from_extended_url($corpus_table: st
         corpus_table = type::thing('corpus_table',$corpus_table);
     LET $source_document_table = type::table($corpus_graph_table_info.source_document_table_name[0]);
     RETURN (SELECT value id FROM $source_document_table WHERE string::starts_with($url,url))[0];
+};
+
+
+DEFINE FUNCTION OVERWRITE fn::get_graph_detail_for_corpus_docs($corpus_table: string, $documents: any, $confidence_threshold: float, $record_count: option<int>) {
+    
+    IF array::len($documents) > 0 THEN{
+        LET $knowledge_graphs = (SELECT VALUE fn::get_graph_detail_for_corpus_doc(
+                 $corpus_table,doc.url,$confidence_threshold,$max_graph_size_per_doc) FROM $documents);
+        RETURN {
+            entities:(SELECT VALUE entities FROM $knowledge_graphs).group(),
+            relations:(SELECT VALUE relations FROM $knowledge_graphs).group(),
+        };
+    } ELSE {
+        RETURN {
+            entities:[],
+            relations:[],
+        };
+    } END;
 };
 
 DEFINE FUNCTION OVERWRITE fn::get_graph_detail_for_corpus_doc($corpus_table: string, $source_document: any, $confidence_threshold: float, $record_count: option<int>) {
@@ -453,7 +468,6 @@ DEFINE FUNCTION OVERWRITE fn::get_graph_detail_for_corpus_doc($corpus_table: str
 
 
 
-    LET $additional_data = (SELECT VALUE additional_data FROM $source_document_record)[0];
     LET $entities = 
         SELECT additional_data,name,identifier,entity_type FROM $entity_table 
             WHERE source_document = $source_document_record;
@@ -468,7 +482,6 @@ DEFINE FUNCTION OVERWRITE fn::get_graph_detail_for_corpus_doc($corpus_table: str
     LET $record_count = IF $record_count = None THEN 100 ELSE $record_count END;
     
     RETURN  {
-        additional_data:$additional_data,
         relations:(SELECT * FROM $relations LIMIT $record_count),
         entities:(SELECT * FROM $entities WHERE 
             identifier IN (SELECT VALUE in_identifier FROM $relations)
@@ -476,7 +489,6 @@ DEFINE FUNCTION OVERWRITE fn::get_graph_detail_for_corpus_doc($corpus_table: str
         ),
     }
 };
-
 
 
 
